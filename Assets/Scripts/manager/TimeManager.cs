@@ -38,7 +38,7 @@ public class TimeManager : MonoBehaviour
         if (Time.timeScale > 0)
         {
             // 실제 시간 * 배속 * 설정한 배수를 게임 날짜에 더함
-            CurrentGameDate = CurrentGameDate.AddMinutes(Time.deltaTime * timeMultiplier * 60);
+            CurrentGameDate = CurrentGameDate.AddDays(Time.deltaTime);
         }
     }
 

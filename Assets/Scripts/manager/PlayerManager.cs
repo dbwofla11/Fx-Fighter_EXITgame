@@ -22,7 +22,7 @@ public class PlayerManager : MonoBehaviour
             Destroy(gameObject);
         }
     }
-
+    
     // 돈을 벌거나 쓸 때 호출할 함수
     public void AddMoney(long amount)
     {
