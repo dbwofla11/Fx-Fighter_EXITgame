@@ -1,4 +1,4 @@
-public class TradeCalculator : ICalculator
+public class TradeCalculator 
 {
     public void Calculate()
     {

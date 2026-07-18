@@ -40,11 +40,11 @@ public class PlayerStat
 
     /// <summary>현재 코인 가격</summary>
     public float CurrentPrice;
+    public float CashBonus; // 현금 보너스 
 
     /// <summary>가격 상승 확률</summary>
-    public float UpProbability;
-
     /// <summary>가격 하락 확률</summary>
+    public float UpProbability;
     public float DownProbability;
 
     // ==========================

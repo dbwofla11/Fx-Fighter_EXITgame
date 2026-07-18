@@ -90,7 +90,7 @@ public class SkillManager : MonoBehaviour
 
     // 활성화 된거 IsEnabled = true인것만 가지고 오는거
     // 이거 대충 계산기에서 가지고 가서 사용할거임 
-    public List<SkillRuntimeInfo> GetActiveSkills()
+    public IReadOnlyList<SkillRuntimeInfo> GetActiveSkills()
     {
         List<SkillRuntimeInfo> active = new();
 

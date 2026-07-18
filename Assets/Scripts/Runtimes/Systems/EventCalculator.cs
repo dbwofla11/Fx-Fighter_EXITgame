@@ -1,4 +1,4 @@
-public class EventCalculator : ICalculator
+public class EventCalculator
 {
     public void Calculate()
     {

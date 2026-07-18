@@ -1,4 +1,4 @@
-public class ProbabilityCalculator : ICalculator
+public class ProbabilityCalculator 
 {
     public void Calculate()
     {

@@ -1,4 +1,4 @@
-public class PriceCalculator : ICalculator
+public class PriceCalculator 
 {
     public void Calculate()
     {
