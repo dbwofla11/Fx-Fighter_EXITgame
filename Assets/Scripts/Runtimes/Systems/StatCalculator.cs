@@ -5,16 +5,15 @@ public static class StatCalculator
     /// <summary>
     /// 이번 턴의 스탯을 계산한다.
     /// </summary>
-    public static void Calculate(PlayerStat stat)
+    public static PlayerStat Calculate()
     {
+        PlayerStat stat = new PlayerStat();
         stat.Reset();
 
         ApplyJob(stat);
         ApplySkills(stat);
 
-        // 추후 구현
-        // ApplyEvents(stat);
-        // ApplyTrade(stat);
+        return stat;
     }
 
     /// <summary>
