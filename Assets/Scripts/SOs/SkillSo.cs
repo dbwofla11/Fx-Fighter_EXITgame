@@ -10,8 +10,6 @@ public class SkillSO : ScriptableObject
     [Header("Info")]
     public SkillID id; // skill아이디는 Enum으로 관리 
 
-    public string skillName;
-
     [TextArea]
     public string description;
 

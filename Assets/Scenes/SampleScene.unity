@@ -300,6 +300,10 @@ GameObject:
   m_Component:
   - component: {fileID: 211422930}
   - component: {fileID: 211422929}
+  - component: {fileID: 211422934}
+  - component: {fileID: 211422933}
+  - component: {fileID: 211422932}
+  - component: {fileID: 211422931}
   m_Layer: 0
   m_Name: Managers
   m_TagString: Untagged
@@ -319,7 +323,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 407072408f66fcc4eadb907a3fa6574a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TimeManager
-  timeMultiplier: 1
 --- !u!4 &211422930
 Transform:
   m_ObjectHideFlags: 0
@@ -335,6 +338,58 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &211422931
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 211422928}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0396d6a302ac72846b775419c0e32457, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SkillManager
+  skillDatabase:
+  - {fileID: 0}
+--- !u!114 &211422932
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 211422928}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e86fca2a6a5f37445bd785b990ee88ae, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerManager
+  currentMoney: 10000000
+  currentCoins: 0
+--- !u!114 &211422933
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 211422928}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 36bdbbbd00fc1f24ca735d8441fa79a9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MarketManager
+--- !u!114 &211422934
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 211422928}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e351e8347220f1e4287a1a570268912d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::JobManager
 --- !u!1 &220168123
 GameObject:
   m_ObjectHideFlags: 0

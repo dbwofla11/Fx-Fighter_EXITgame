@@ -15,6 +15,7 @@ public static class PriceCalculator
             stat.Support * 0.25f +
             scarcity * 0.15f;
 
+
         if (isUp)
             stat.CurrentPrice += delta;
         else
