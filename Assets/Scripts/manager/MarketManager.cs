@@ -24,6 +24,15 @@ public class MarketManager : MonoBehaviour
         }
     }
 
+    private void OnEnable()
+    {
+        TimeManager.OnDayChanged += NextTurn;
+    }
+
+    private void OnDisable()
+    {
+        TimeManager.OnDayChanged -= NextTurn;
+    }
 
     // 매 턴마다 ( 1일이 지날때 마다 패시브로 계산하는 함수 로직 )
     public void NextTurn()

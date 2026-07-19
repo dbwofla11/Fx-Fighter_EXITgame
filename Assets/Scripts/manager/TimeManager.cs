@@ -6,11 +6,13 @@ public class TimeManager : MonoBehaviour
     // 싱글톤 패턴: 어디서든 TimeManager.Instance로 접근 가능하게 함
     public static TimeManager Instance { get; private set; }
 
-    [Header("Time Settings")]
-    public float timeMultiplier = 1f; // 실제 1초당 게임 내 몇 분이 흐를지 결정
-    public DateTime CurrentGameDate { get; private set; }
+    public static event Action OnDayChanged;
 
-    private float currentTimeScale = 1f;
+
+    [Header("Time Settings")]
+    public DateTime CurrentGameDate { get; private set; }
+    private DateTime previousDate;
+    private float currentTimeScale = 1f; // 실제 1초당 게임 내 몇 분이 흐를지 결정
 
     private void Awake()
     {
@@ -29,16 +31,23 @@ public class TimeManager : MonoBehaviour
     {
         // 게임 시작 날짜 설정 (예: 2024년 1월 1일)
         CurrentGameDate = new DateTime(2021, 1, 1);
+        previousDate = CurrentGameDate.Date;
+
         SetTimeScale(1f);
     }
 
     private void Update()
     {
-        // Time.deltaTime은 배속(timeScale)의 영향을 받습니다.
-        if (Time.timeScale > 0)
+        if (Time.timeScale <= 0f)
+            return;
+
+        CurrentGameDate = CurrentGameDate.AddDays(Time.deltaTime);
+
+        if (CurrentGameDate.Date != previousDate)
         {
-            // 실제 시간 * 배속 * 설정한 배수를 게임 날짜에 더함
-            CurrentGameDate = CurrentGameDate.AddDays(Time.deltaTime);
+            previousDate = CurrentGameDate.Date;
+
+            OnDayChanged?.Invoke();
         }
     }
 
