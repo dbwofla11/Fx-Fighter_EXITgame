@@ -46,7 +46,7 @@ public class TimeUI : MonoBehaviour
         });
 
         // 게임 시작 시 기본 글자를 1배속으로 세팅
-        speedButtonText.text = speedCycle[0] + "배속";
+        speedButtonText.text = "x" + speedCycle[0];
     }
 
     // 실제 배속을 적용하고 텍스트를 바꿔주는 함수
@@ -54,7 +54,7 @@ public class TimeUI : MonoBehaviour
     {
         float newSpeed = speedCycle[currentSpeedIndex];
         TimeManager.Instance.SetTimeScale(newSpeed);
-        speedButtonText.text = newSpeed + "배속";
+        speedButtonText.text = "x" + newSpeed;
     }
 
     private void Update()
@@ -62,7 +62,7 @@ public class TimeUI : MonoBehaviour
         if (TimeManager.Instance != null && dateText != null)
         {
             // 화면에 날짜 업데이트
-            dateText.text = TimeManager.Instance.CurrentGameDate.ToString("yyyy-MM-dd\nHH:mm");
+            dateText.text = TimeManager.Instance.CurrentGameDate.ToString("yyyy-MM-dd");
         }
     }
 }
