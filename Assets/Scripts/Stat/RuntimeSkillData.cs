@@ -5,6 +5,8 @@ using System.Collections.Generic;
 /// </summary>
 public class RuntimeSkillData
 {
+    // 실 조작은 SkillManager에서 관리를함 
+
     /// <summary>모든 스킬의 런타임 정보</summary>
     /// 액티브의 여부는 스킬 개별관리를 한다. 이것은 오로지 런타임 데이터 유지용 리스트임
     /// 이 리스트에서 액티브된 것만 스탯적용 할 생각임 
