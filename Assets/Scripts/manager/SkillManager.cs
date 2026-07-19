@@ -56,7 +56,7 @@ public class SkillManager : MonoBehaviour
         return null;
     }
 
-
+    // UI에서 불러다 쓰기 
     public void PurchaseSkill(SkillID id)
     {
         SkillRuntimeInfo skill = GetSkill(id);
@@ -67,7 +67,7 @@ public class SkillManager : MonoBehaviour
         skill.IsUnlocked = true;
         skill.PurchaseCount++;
     }
-
+    // UI에서 불러다 쓰기 
     public void EnableSkill(SkillID id)
     {
         SkillRuntimeInfo skill = GetSkill(id);
@@ -77,7 +77,7 @@ public class SkillManager : MonoBehaviour
 
         skill.IsEnabled = true;
     }
-
+    // UI에서 불러다 쓰기 -> 스킬 봔환시 사용  
     public void DisableSkill(SkillID id)
     {
         SkillRuntimeInfo skill = GetSkill(id);

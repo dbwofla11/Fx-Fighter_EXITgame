@@ -3,7 +3,9 @@
 /// </summary>
 public class RuntimeJobData
 {
-    /// <summary>현재 선택된 직업</summary>
+    // 이것도 데이터 포멧만 이런거지 실 조작은 Jobmanager에서 관리함  
+
+    // <summary>현재 선택된 직업</summary>
     public JobSO CurrentJob;
 
     public bool selected; 

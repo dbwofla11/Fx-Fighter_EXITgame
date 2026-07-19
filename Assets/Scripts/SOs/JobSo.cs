@@ -14,5 +14,5 @@ public class JobSO : ScriptableObject
     [TextArea]
     public string description;
 
-    public List<EffectData> startEffects;
+    public List<EffectData> effects;
 }
