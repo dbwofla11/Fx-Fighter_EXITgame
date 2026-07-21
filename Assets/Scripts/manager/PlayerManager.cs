@@ -35,15 +35,21 @@ public class PlayerManager : MonoBehaviour
         EventHub.OnSellCoin -= HandleSellCoin;
     }
 
-    // 코인 매수 요청 수신
+    // 코인 매수 요청 수신 : 현재가로 즉시 체결
     private void HandleBuyCoin(long amount)
     {
+        long cost = (long)(amount * MarketManager.Instance.CurrentStat.CurrentPrice);
+
+        AddMoney(-cost);
         AddCoin(amount);
     }
 
-    // 코인 매도 요청 수신
+    // 코인 매도 요청 수신 : 현재가로 즉시 체결
     private void HandleSellCoin(long amount)
     {
+        long revenue = (long)(amount * MarketManager.Instance.CurrentStat.CurrentPrice);
+
+        AddMoney(revenue);
         AddCoin(-amount);
     }
 

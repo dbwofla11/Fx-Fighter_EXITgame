@@ -65,17 +65,32 @@ Scarcity는 발행량(Supply)을 기반으로 계산되는 희소성 지표이�
 
 ## Long
 
-- 현재 가격으로 구매
+- 현재 가격으로 구매 : Cost = Amount × CurrentPrice (현금 감소, 코인 증가)
 - Support 증가
 - Growth 증가
 
 ## Short
 
-- 현재 가격으로 판매
+- 현재 가격으로 판매 : Revenue = Amount × CurrentPrice (현금 증가, 코인 감소)
 - Support 감소
 - Growth 감소
 
 거래량이 많을수록 영향력이 증가한다.
+
+## 시장 영향치 계산
+
+거래 1회의 Support/Growth 영향은 거래량(Amount)에 비례한다.
+
+ΔSupport = ±Amount × ws_trade
+
+ΔGrowth = ±Amount × wg_trade
+
+- ws_trade = 0.05 (Support 가중치)
+- wg_trade = 0.05 (Growth 가중치)
+- 부호는 Long(+) / Short(-)
+
+거래로 발생한 ΔSupport, ΔGrowth는 즉시 소멸하지 않고 누적되며,
+다음 턴 스탯 계산(StatCalculator) 시 Job/Skill 효과와 함께 합산된다.
 
 ---
 

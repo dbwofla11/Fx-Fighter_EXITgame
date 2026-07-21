@@ -10,8 +10,12 @@ public static class StatCalculator
         PlayerStat stat = new PlayerStat();
         stat.Reset();
 
+        // PlayerStat이 매 턴 새로 생성되므로, PriceCalculator가 이어서 계산할 수 있도록 이전 턴 가격을 이월한다.
+        stat.CurrentPrice = MarketManager.Instance.CurrentStat.CurrentPrice;
+
         ApplyJob(stat);
         ApplySkills(stat);
+        ApplyTrade(stat);
 
         return stat;
     }
@@ -46,6 +50,17 @@ public static class StatCalculator
                 ApplyEffect(stat, effect);
             }
         }
+    }
+
+    /// <summary>
+    /// 거래(Long/Short)로 누적된 Support/Growth를 적용한다.
+    /// </summary>
+    private static void ApplyTrade(PlayerStat stat)
+    {
+        RuntimeTradeData tradeData = MarketManager.Instance.TradeData;
+
+        stat.Support += tradeData.Support;
+        stat.Growth += tradeData.Growth;
     }
 
     /// <summary>

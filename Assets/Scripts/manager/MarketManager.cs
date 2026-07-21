@@ -8,7 +8,10 @@ public class MarketManager : MonoBehaviour
 
     // 계산된 현재 플레이어 능력치
     public PlayerStat CurrentStat { get; private set; }
-    
+
+    // 거래(Long/Short)로 누적된 시장 영향치
+    public RuntimeTradeData TradeData { get; private set; } = new();
+
     private void Awake()
     {
         if (Instance == null)
@@ -28,12 +31,16 @@ public class MarketManager : MonoBehaviour
     {
         EventHub.OnDayChanged += NextTurn;
         EventHub.OnNewsEvent += HandleNewsEvent;
+        EventHub.OnBuyCoin += HandleBuyCoin;
+        EventHub.OnSellCoin += HandleSellCoin;
     }
 
     private void OnDisable()
     {
         EventHub.OnDayChanged -= NextTurn;
         EventHub.OnNewsEvent -= HandleNewsEvent;
+        EventHub.OnBuyCoin -= HandleBuyCoin;
+        EventHub.OnSellCoin -= HandleSellCoin;
     }
 
     // 매 턴마다 ( 1일이 지날때 마다 패시브로 계산하는 함수 로직 )
@@ -54,6 +61,18 @@ public class MarketManager : MonoBehaviour
     private void HandleNewsEvent()
     {
         new EventCalculator().Calculate();
+    }
+
+    // 코인 매수 요청 수신 -> 시장 영향치 누적
+    private void HandleBuyCoin(long amount)
+    {
+        TradeCalculator.Long(TradeData, amount);
+    }
+
+    // 코인 매도 요청 수신 -> 시장 영향치 누적
+    private void HandleSellCoin(long amount)
+    {
+        TradeCalculator.Short(TradeData, amount);
     }
 
 }
