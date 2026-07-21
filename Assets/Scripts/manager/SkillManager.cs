@@ -45,6 +45,30 @@ public class SkillManager : MonoBehaviour
         }
     }
 
+    private void OnEnable()
+    {
+        EventHub.OnSkillClicked += HandleSkillClicked;
+    }
+
+    private void OnDisable()
+    {
+        EventHub.OnSkillClicked -= HandleSkillClicked;
+    }
+
+    // 스킬 활성화/비활성화 요청 수신
+    private void HandleSkillClicked(SkillID id)
+    {
+        SkillRuntimeInfo skill = GetSkill(id);
+
+        if (skill == null)
+            return;
+
+        if (skill.IsEnabled)
+            DisableSkill(id);
+        else
+            EnableSkill(id);
+    }
+
     private SkillRuntimeInfo GetSkill(SkillID id)
     {
         foreach (var skill in runtimeSkillData.Skills)

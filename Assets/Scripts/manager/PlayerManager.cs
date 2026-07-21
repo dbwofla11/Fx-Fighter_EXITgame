@@ -23,6 +23,30 @@ public class PlayerManager : MonoBehaviour
         }
     }
     
+    private void OnEnable()
+    {
+        EventHub.OnBuyCoin += HandleBuyCoin;
+        EventHub.OnSellCoin += HandleSellCoin;
+    }
+
+    private void OnDisable()
+    {
+        EventHub.OnBuyCoin -= HandleBuyCoin;
+        EventHub.OnSellCoin -= HandleSellCoin;
+    }
+
+    // 코인 매수 요청 수신
+    private void HandleBuyCoin(long amount)
+    {
+        AddCoin(amount);
+    }
+
+    // 코인 매도 요청 수신
+    private void HandleSellCoin(long amount)
+    {
+        AddCoin(-amount);
+    }
+
     // 돈을 벌거나 쓸 때 호출할 함수
     public void AddMoney(long amount)
     {

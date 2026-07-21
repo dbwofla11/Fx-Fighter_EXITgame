@@ -24,6 +24,16 @@ public class JobManager : MonoBehaviour
         }
     }
 
+    private void OnEnable()
+    {
+        EventHub.OnJobSelected += SelectJob;
+    }
+
+    private void OnDisable()
+    {
+        EventHub.OnJobSelected -= SelectJob;
+    }
+
     /// <summary>
     /// 직업 선택
     /// </summary>

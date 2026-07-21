@@ -26,12 +26,14 @@ public class MarketManager : MonoBehaviour
 
     private void OnEnable()
     {
-        TimeManager.OnDayChanged += NextTurn;
+        EventHub.OnDayChanged += NextTurn;
+        EventHub.OnNewsEvent += HandleNewsEvent;
     }
 
     private void OnDisable()
     {
-        TimeManager.OnDayChanged -= NextTurn;
+        EventHub.OnDayChanged -= NextTurn;
+        EventHub.OnNewsEvent -= HandleNewsEvent;
     }
 
     // 매 턴마다 ( 1일이 지날때 마다 패시브로 계산하는 함수 로직 )
@@ -44,9 +46,14 @@ public class MarketManager : MonoBehaviour
 
         PriceCalculator.Calculate(CurrentStat);
 
-        // 2. UI 갱신시키는 로직 
-        // 아직 연결안함 
-        // UpdateUI();
+        // 2. UI 갱신 이벤트 발행
+        EventHub.RaiseMarketUpdated(CurrentStat);
+    }
+
+    // 시사 이벤트 적용 요청 수신
+    private void HandleNewsEvent()
+    {
+        new EventCalculator().Calculate();
     }
 
 }

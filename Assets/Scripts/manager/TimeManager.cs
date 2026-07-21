@@ -6,9 +6,6 @@ public class TimeManager : MonoBehaviour
     // 싱글톤 패턴: 어디서든 TimeManager.Instance로 접근 가능하게 함
     public static TimeManager Instance { get; private set; }
 
-    public static event Action OnDayChanged;
-
-
     [Header("Time Settings")]
     public DateTime CurrentGameDate { get; private set; }
     private DateTime previousDate;
@@ -47,7 +44,7 @@ public class TimeManager : MonoBehaviour
         {
             previousDate = CurrentGameDate.Date;
 
-            OnDayChanged?.Invoke();
+            EventHub.RaiseDayChanged();
         }
     }
 
