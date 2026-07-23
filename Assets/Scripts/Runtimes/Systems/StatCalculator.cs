@@ -1,7 +1,7 @@
 using UnityEngine;
 
 public static class StatCalculator
-{  
+{
     /// <summary>
     /// 이번 턴의 스탯을 계산한다.
     /// </summary>
@@ -10,18 +10,25 @@ public static class StatCalculator
         PlayerStat stat = new PlayerStat();
         stat.Reset();
 
+        PlayerStat previous = MarketManager.Instance.CurrentStat;
+
         // PlayerStat이 매 턴 새로 생성되므로, PriceCalculator가 이어서 계산할 수 있도록 이전 턴 가격을 이월한다.
-        stat.CurrentPrice = MarketManager.Instance.CurrentStat.CurrentPrice;
+        stat.CurrentPrice = previous.CurrentPrice;
+
+        // Support/Growth는 Job 선택/거래로 그 순간 직접 반영되는 값이라, 매 턴 새로 계산하지 않고
+        // 이전 값을 그대로 이어받아 감쇠시킨다 (CurrentPrice와 동일한 이월 패턴).
+        stat.Support = previous.Support;
+        stat.Growth = previous.Growth;
+        TradeCalculator.Decay(stat);
 
         ApplyJob(stat);
         ApplySkills(stat);
-        ApplyTrade(stat);
 
         return stat;
     }
 
     /// <summary>
-    /// 현재 직업의 Effect를 적용한다.
+    /// 현재 직업의 Effect를 적용한다. Support/Growth는 선택 시점에 직접 반영되므로 여기서는 제외한다.
     /// </summary>
     private static void ApplyJob(PlayerStat stat)
     {
@@ -32,7 +39,27 @@ public static class StatCalculator
 
         foreach (EffectData effect in job.effects)
         {
+            if (effect.effectType == EffectType.SupportIncrease || effect.effectType == EffectType.GrowthIncrease)
+                continue;
+
             ApplyEffect(stat, effect);
+        }
+    }
+
+    /// <summary>
+    /// 직업을 선택하는 순간, 그 직업의 Support/Growth 효과를 stat에 직접 반영한다.
+    /// </summary>
+    public static void ApplyJobSelection(PlayerStat stat, JobSO job)
+    {
+        if (job == null)
+            return;
+
+        foreach (EffectData effect in job.effects)
+        {
+            if (effect.effectType == EffectType.SupportIncrease)
+                stat.Support += effect.value;
+            else if (effect.effectType == EffectType.GrowthIncrease)
+                stat.Growth += effect.value;
         }
     }
 
@@ -50,17 +77,6 @@ public static class StatCalculator
                 ApplyEffect(stat, effect);
             }
         }
-    }
-
-    /// <summary>
-    /// 거래(Long/Short)로 누적된 Support/Growth를 적용한다.
-    /// </summary>
-    private static void ApplyTrade(PlayerStat stat)
-    {
-        RuntimeTradeData tradeData = MarketManager.Instance.TradeData;
-
-        stat.Support += tradeData.Support;
-        stat.Growth += tradeData.Growth;
     }
 
     /// <summary>

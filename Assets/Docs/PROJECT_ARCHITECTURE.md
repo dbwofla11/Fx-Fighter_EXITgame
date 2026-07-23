@@ -67,9 +67,11 @@ Manager는 게임 상태를 관리하며, EventHub를 구독하여 요청을 처
 - PlayerStat
 - RuntimeSkillData
 - RuntimeJobData
-- RuntimeTradeData
 
 RuntimeData는 현재 게임 상태와 계산 결과를 저장한다.
+
+`PlayerStat.Support`/`Growth`/`CurrentPrice`는 턴을 넘어 유지되는 값이다. Job 선택, 거래(Long/Short)가
+발생하는 순간 그 값에 직접 반영되고, 매 턴 서서히 감쇠한다 (자세한 내용은 Game_Formula.md 참고).
 
 ---
 
@@ -101,7 +103,7 @@ MarketManager.NextTurn()
 
 ↓
 
-StatCalculator.Calculate() (Job/Skill/Trade 누적치 합산)
+StatCalculator.Calculate() (Support/Growth 이월 후 감쇠, Job/Skill 효과 적용)
 
 ↓
 
@@ -127,7 +129,7 @@ EventHub.OnBuyCoin / OnSellCoin
 
 PlayerManager : 현재가 기준 현금 정산 + 코인 증감
 
-MarketManager : TradeCalculator.Long/Short → RuntimeTradeData 누적 (다음 턴 StatCalculator에 반영)
+MarketManager : TradeCalculator.Long/Short → CurrentStat.Support/Growth에 직접 반영 (매 턴 감쇠)
 
 ---
 
@@ -141,7 +143,7 @@ MarketManager : TradeCalculator.Long/Short → RuntimeTradeData 누적 (다음 �
 
 ## MarketManager
 
-시장 계산을 수행한다. 거래/시사 이벤트로 인한 시장 영향치(RuntimeTradeData)를 보유한다.
+시장 계산을 수행한다. `CurrentStat`(Support/Growth 포함)을 보유하며, 거래는 이 값에 직접 반영된다.
 
 ---
 

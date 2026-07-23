@@ -44,6 +44,8 @@ public class JobManager : MonoBehaviour
 
         runtimeJobData.CurrentJob = job;
         runtimeJobData.selected = true;
+
+        StatCalculator.ApplyJobSelection(MarketManager.Instance.CurrentStat, job);
     }
 
     /// <summary>
