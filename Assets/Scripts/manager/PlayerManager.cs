@@ -59,6 +59,16 @@ public class PlayerManager : MonoBehaviour
         currentMoney += amount;
     }
 
+    // 잔액이 충분할 때만 차감한다 (스킬 재구매 등). 부족하면 차감 없이 false 반환.
+    public bool TrySpend(long amount)
+    {
+        if (currentMoney < amount)
+            return false;
+
+        currentMoney -= amount;
+        return true;
+    }
+
     // 코인을 사거나 팔 때 호출할 함수
     public void AddCoin(long amount)
     {

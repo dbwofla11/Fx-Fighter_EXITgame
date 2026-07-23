@@ -64,7 +64,8 @@ public static class StatCalculator
     }
 
     /// <summary>
-    /// 활성화된 스킬들의 Effect를 적용한다.
+    /// 활성화된 토글형(재사용 불가) 스킬들의 Effect를 매 턴 재적용한다.
+    /// 재사용형 스킬은 사용 시점에 ApplySkillUse로 1회 반영되고 이후 감쇠하므로 여기서 제외한다.
     /// </summary>
     private static void ApplySkills(PlayerStat stat)
     {
@@ -72,10 +73,30 @@ public static class StatCalculator
 
         foreach (SkillRuntimeInfo skill in activeSkills)
         {
+            if (skill.Profile.isReusable)
+                continue;
+
             foreach (EffectData effect in skill.Profile.effects)
             {
                 ApplyEffect(stat, effect);
             }
+        }
+    }
+
+    /// <summary>
+    /// 재사용형 스킬을 사용하는 순간, 그 스킬의 Support/Growth 효과를 stat에 직접 반영한다.
+    /// </summary>
+    public static void ApplySkillUse(PlayerStat stat, SkillSO skill)
+    {
+        if (skill == null)
+            return;
+
+        foreach (EffectData effect in skill.effects)
+        {
+            if (effect.effectType == EffectType.SupportIncrease)
+                stat.Support += effect.value;
+            else if (effect.effectType == EffectType.GrowthIncrease)
+                stat.Growth += effect.value;
         }
     }
 

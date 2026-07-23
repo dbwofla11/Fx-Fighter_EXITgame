@@ -10,8 +10,13 @@ public class SkillManager : MonoBehaviour
     [SerializeField] // 스킬에 대한 모든 정보를 미리 가지고옴 
     private List<SkillSO> skillDatabase;
 
-    // 거기서 런타임 Active된것만 필터링해서 스킬 적용시킴 
+    // 거기서 런타임 Active된것만 필터링해서 스킬 적용시킴
     private RuntimeSkillData runtimeSkillData = new();
+
+    /// <summary>
+    /// 아이콘 클릭으로 선택된 스킬(재사용형 전용). UI가 정보 패널을 그릴 때 참조한다.
+    /// </summary>
+    public SkillID? SelectedSkillId => runtimeSkillData.SelectedSkillId;
 
     private void Awake()
     {
@@ -38,7 +43,8 @@ public class SkillManager : MonoBehaviour
             runtimeSkillData.Skills.Add(new SkillRuntimeInfo
             {
                 Profile = skill,
-                IsUnlocked = skill.defaultUnlocked,
+                // 재사용형 스킬은 defaultUnlocked와 무관하게 항상 구매해야 사용 가능하다.
+                IsUnlocked = skill.isReusable ? false : skill.defaultUnlocked,
                 IsEnabled = false,
                 PurchaseCount = 0
             });
@@ -48,14 +54,16 @@ public class SkillManager : MonoBehaviour
     private void OnEnable()
     {
         EventHub.OnSkillClicked += HandleSkillClicked;
+        EventHub.OnSkillPurchased += HandlePurchase;
     }
 
     private void OnDisable()
     {
         EventHub.OnSkillClicked -= HandleSkillClicked;
+        EventHub.OnSkillPurchased -= HandlePurchase;
     }
 
-    // 스킬 활성화/비활성화 요청 수신
+    // 스킬 아이콘 클릭 요청 수신 : 재사용형은 선택 상태만 저장, 토글형은 활성화/비활성화한다.
     private void HandleSkillClicked(SkillID id)
     {
         SkillRuntimeInfo skill = GetSkill(id);
@@ -63,10 +71,40 @@ public class SkillManager : MonoBehaviour
         if (skill == null)
             return;
 
+        if (skill.Profile.isReusable)
+        {
+            runtimeSkillData.SelectedSkillId = id;
+            return;
+        }
+
+        if (!skill.IsUnlocked)
+            return;
+
         if (skill.IsEnabled)
             DisableSkill(id);
         else
             EnableSkill(id);
+    }
+
+    // 스킬 구매 버튼 클릭 요청 수신 (재사용형 스킬 전용) : 선택된 스킬을 구매+적용한다. 잠기지 않는다.
+    private void HandlePurchase()
+    {
+        if (runtimeSkillData.SelectedSkillId == null)
+            return;
+
+        SkillRuntimeInfo skill = GetSkill(runtimeSkillData.SelectedSkillId.Value);
+
+        if (skill == null || !skill.Profile.isReusable)
+            return;
+
+        long cost = CalculateCost(skill);
+
+        if (!PlayerManager.Instance.TrySpend(cost))
+            return;
+
+        StatCalculator.ApplySkillUse(MarketManager.Instance.CurrentStat, skill.Profile);
+        skill.IsUnlocked = true;
+        skill.PurchaseCount++;
     }
 
     private SkillRuntimeInfo GetSkill(SkillID id)
@@ -80,16 +118,10 @@ public class SkillManager : MonoBehaviour
         return null;
     }
 
-    // UI에서 불러다 쓰기 
-    public void PurchaseSkill(SkillID id)
+    // cost = baseCost × costMultiplier^PurchaseCount
+    private long CalculateCost(SkillRuntimeInfo skill)
     {
-        SkillRuntimeInfo skill = GetSkill(id);
-
-        if (skill == null)
-            return;
-
-        skill.IsUnlocked = true;
-        skill.PurchaseCount++;
+        return (long)(skill.Profile.baseCost * Mathf.Pow(skill.Profile.costMultiplier, skill.PurchaseCount));
     }
     // UI에서 불러다 쓰기 
     public void EnableSkill(SkillID id)

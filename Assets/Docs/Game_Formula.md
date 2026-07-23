@@ -118,6 +118,29 @@ Growth(t+1) = Growth(t) × decayRate
 
 ---
 
+# 3-2. 스킬(Skill)이 Support/Growth에 주는 영향
+
+스킬은 `SkillSO.isReusable` 값에 따라 두 종류로 나뉜다.
+
+## 재사용 가능 스킬 (`isReusable == true`)
+
+Support/Growth 부스트형 스킬이다. 직업과 동일하게, **구매 버튼을 누르는 순간 직접 반영된 뒤 거래·직업과 동일하게 감쇠**한다.
+구매 버튼 클릭 한 번이 구매와 사용을 동시에 처리하며, 잠기는 단계 없이 비용만 내면 몇 번이고 다시 구매할 수 있다.
+(스킬 아이콘 클릭은 정보 표시용일 뿐 구매를 일으키지 않는다.)
+
+- 구매 시 : `Cost = baseCost × costMultiplier ^ PurchaseCount` 결제 성공 시 `Support += 해당 스킬의 SupportIncrease 효과 합`, Growth도 동일 (1회성)
+- 결제에 실패(잔액 부족)하면 아무 효과도 적용되지 않는다.
+- 다음 구매의 비용은 `PurchaseCount`가 오른 만큼 상승한다. 잠금 상태가 없으므로 연속 구매도 가능하다.
+- 이후 매 턴 : "누적치 감쇠" 공식과 동일하게 감쇠 (별도 처리 불필요, `TradeCalculator.Decay`가 Support/Growth 전체를
+  대상으로 하므로 자동 적용됨)
+- `defaultUnlocked` 값과 무관하게 최초 구매도 항상 비용을 지불해야 한다.
+
+## 재사용 불가 스킬 (`isReusable == false`, 예: `ExitUnlock`)
+
+영구 효과형 스킬이다. 기존과 동일하게 활성화(On) 상태를 유지하는 동안 매 턴 효과가 계속 재적용되며, 감쇠 대상이 아니다.
+
+---
+
 # 4. 시사 이벤트
 
 시사 이벤트는 가격에 직접 영향을 준다.
