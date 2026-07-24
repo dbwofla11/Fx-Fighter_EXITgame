@@ -38,6 +38,7 @@ public static class EventCalculator
 
         // 그 턴의 PriceCalculator 정규 가격 변화와 별도로, 이벤트 자체로 즉시 발생하는 1회성 가격 충격이다.
         stat.CurrentPrice += stat.CurrentPrice * chosen.priceRatio;
+        PriceCalculator.ClampPrice(stat);
     }
 
     private static EventCategory RollCategory(PlayerStat stat)

@@ -86,6 +86,12 @@ RuntimeData는 현재 게임 상태와 계산 결과를 저장한다. `RuntimeSk
 `Supply`는 시사 이벤트, 발행량 조작 액션(`OnManipulateSupply`, `추가발행권한` 스킬 구매 후 사용 가능), 재사용형
 스킬의 `SupplyIncrease`/`SupplyDecrease` 효과로 변화한다. Job은 Supply에 영향을 주지 않는다.
 
+`PlayerStat.PriceChangeThisTurn`/`StreamerReaction`은 이번 턴 `CurrentPrice`가 실제로 얼마나/어느 방향으로
+움직였는지를 나타내는 UI 표시 전용 값으로, 감쇠·이월 없이 매 턴(또는 시사 이벤트 수동 트리거 시점) 새로
+계산된다. 스트리머 패널 UI가 `StreamerReaction`(`StreamerReactionState` 5단계)을 읽어 표정/멘트를 바꾸는 데
+쓰도록 만들었다 (2-1장 참고). 별도 `EventHub` 이벤트 없이 기존 `OnMarketUpdated`가 나르는 `PlayerStat`에 이미
+포함된다.
+
 `PlayerStat.Doubt`도 턴을 넘어 유지되지만 **감쇠하지 않는다.** Job/Skill의 `DoubtDecrease`(활성 상태인 동안 매 턴
 재적용)와 시사 이벤트로 변화하고, 게임 시간 2년(730턴)째부터는 매 턴 자동으로도 오른다
 (`MarketManager.ApplyDoubtAutoRise`). 100에 도달하면 체포 엔딩으로 게임이 종료된다 (5장 "엔딩 판정" 참고,
@@ -100,6 +106,7 @@ RuntimeData는 현재 게임 상태와 계산 결과를 저장한다. `RuntimeSk
 - PriceCalculator
 - TradeCalculator
 - EventCalculator
+- StreamerReactionCalculator
 
 Calculator는 상태를 변경하지 않고 계산만 수행한다.
 
@@ -196,7 +203,8 @@ MarketManager.HandleExitRequested : `CanExit`(현금 >= TargetAsset) 확인 → 
 
 ## MarketManager
 
-시장 계산을 수행한다. `CurrentStat`(Support/Growth/Supply/Doubt 포함)을 보유하며, 거래·시사 이벤트는 이 값에 직접
+시장 계산을 수행한다. 게임 시작 시 `CurrentStat.CurrentPrice`를 `InitialPrice`(1000)로 초기화하며,
+`PriceCalculator.MinPrice`(1)가 가격 하한선을 강제한다 (Game_Formula.md 2장 참고). `CurrentStat`(Support/Growth/Supply/Doubt 포함)을 보유하며, 거래·시사 이벤트는 이 값에 직접
 반영된다. `NextTurn()`에서 `NewsEventIntervalTurns`(30)턴마다 `NewsEventChance`(40%) 확률로 시사 이벤트를 자동
 발생시킨다. `[SerializeField] List<EventSO> eventDatabase`(`SkillManager.skillDatabase`와 동일한 패턴)를 들고
 있으며, 자동/수동(`EventHub.OnNewsEvent`) 두 경로 모두 내부 `TriggerNewsEvent()`를 거쳐
@@ -209,6 +217,9 @@ MarketManager.HandleExitRequested : `CanExit`(현금 >= TargetAsset) 확인 → 
 `EventHub.OnManipulateSupply`도 구독한다. `SkillManager.IsUnlocked(SkillID.추가발행권한)`이 true일 때만
 `TradeCalculator.ManipulateSupply(CurrentStat, amount)`를 호출한다 (현금 비용 없음, Long/Short와 달리
 PlayerManager를 거치지 않는다).
+
+매 턴(및 시사 이벤트 수동 트리거 시점)마다 계산 전후 `CurrentPrice` 차이로 `PriceChangeThisTurn`을 구해
+`StreamerReactionCalculator.Calculate()`로 `StreamerReaction`을 갱신한다 (2-1장 참고).
 
 게임 종료(엔딩) 판정도 담당한다. `IsGameOver`(게임 종료 여부), `CanExit`(현금이 `TargetAsset`(10억) 이상인지,
 엑시트 버튼 활성화 조건)를 외부에 노출한다. 매 턴 자동으로 체포(`Doubt>=100`)/거지(현금·코인 모두 0) 엔딩을

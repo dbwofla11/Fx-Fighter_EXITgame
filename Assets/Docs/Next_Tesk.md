@@ -79,6 +79,11 @@
   발생하도록 만들고, `스트리머_소개`(1턴)/`거래소_상장`(2턴)을 순차 배정했다. 스트리머 UI(캐릭터+가짜 채팅
   패널)는 `MarketManager.EventLog`로 이미 조회 가능해 코드 변경 불필요. (`Logging.md` "초반 이벤트 무조건 발생 +
   스트리머 UI 힌트" 참고, 공식은 `Game_Formula.md` 4장)
+- **완료** : 스트리머 반응(가격 변화 연동) 로직. `PlayerStat.PriceChangeThisTurn`/`StreamerReaction`
+  (`StreamerReactionState` 5단계 : Crash/Down/Neutral/Up/Surge)을 추가하고, `MarketManager`가 매 턴(및 시사
+  이벤트 수동 트리거 시점) 계산 전후 `CurrentPrice` 차이로 갱신한다. `StreamerReactionCalculator`가 절대값
+  delta 기준(퍼센트 아님)으로 5단계를 판정한다. 새 `EventHub` 이벤트 없이 기존 `OnMarketUpdated`로 이미 나간다.
+  (`Logging.md` "스트리머 반응(가격 변화 연동) 로직 설계" 참고, 공식은 `Game_Formula.md` 2-1장)
 - **남음** : 아래 참고.
 
 ---
@@ -110,6 +115,10 @@
 
 `TimeUI`, `PlayerUI`, `SettingsUI`만 기존처럼 `TimeManager`/`PlayerManager`를 직접 참조하는 상태이고, 나머지는
 설계는 끝났으나 화면이 없다.
+
+- 스트리머 패널의 가격 반응(스프라이트 전환/멘트) — `PlayerStat.StreamerReaction`(5단계)을 이미 읽을 수 있음.
+  `Assets/Sprites/스트리머상태` 폴더에 실제 스프라이트가 들어오면 UI 팀원이 연결하면 된다. 임계값(50/10) 밸런스는
+  실제 플레이 후 조정 필요할 수 있음.
 
 ## 후보 : 발행량 관련 스킬 3종에 실제 Supply 효과 부여
 

@@ -38,7 +38,10 @@ Support/Growth는 `CurrentPrice`처럼 턴을 넘어 유지되는 값이다. Job
 
 # 2. 가격 변화량
 
-가격 변화량은 방향성과 별도로 계산된다.
+가격 변화량은 방향성과 별도로 계산된다. **여기서 계산되는 값은 부호 없는 크기(magnitude)이며, 방향(오르는지
+내리는지)은 오직 1장의 `isUp`(Pup 확률로 굴린 결과)만으로 결정한다.** `0.6 × Growth + 0.25 × Support + 0.15 ×
+Scarcity`는 Growth/Support가 음수일 수 있어 그 자체로는 부호가 있는 값이 나오지만, 이 부호를 그대로 가격에
+반영하면 안 된다 — 절대값을 취해 크기만 쓴다 (`PriceCalculator.Calculate`가 `Mathf.Abs`로 처리).
 
 Price(t+1)
 
@@ -46,9 +49,9 @@ Price(t+1)
 
 Price(t)
 
-+
+±
 
-0.6 × Growth
+|0.6 × Growth
 
 +
 
@@ -56,7 +59,16 @@ Price(t)
 
 +
 
-0.15 × Scarcity
+0.15 × Scarcity|
+
+(`isUp`이면 +, 아니면 -)
+
+- **초기 가격(`MarketManager.InitialPrice`) = 1000**. 게임 시작 시 `CurrentPrice`가 이 값으로 설정된다
+  (이전에는 초기화 코드가 없어 C# 기본값인 0으로 시작했었다 — 아래 "가격 하한선" 참고).
+- **가격 하한선(`PriceCalculator.MinPrice`) = 1**. `CurrentPrice`는 절대 이 값 밑으로 내려가지 않는다
+  (`PriceCalculator.ClampPrice`가 정규 가격 변화·이벤트 가격 충격 양쪽 모두에 적용된 뒤 강제한다). 0 이하로
+  내려가면 거래 계산(수량×가격)이 깨지고 이벤트의 `priceRatio`(가격에 곱하는 충격)도 0에 곱해져 무력화되므로
+  반드시 필요한 하한선이다.
 
 Scarcity는 발행량(Supply)을 기반으로 계산되는 희소성 지표이다.
 
@@ -76,6 +88,43 @@ Scarcity = 100 × (1 - Supply / MaxSupply)
   경우가 있는데, 이는 `TargetAsset`(5장 참고) 때와 동일하게 예시/목업 수치일 뿐 실제 값이 아니다. 이벤트
   `supplyDelta`, 발행량 조작 버튼의 `amount`, 스킬의 `SupplyIncrease`/`SupplyDecrease` 등 Supply를 바꾸는 모든
   수치는 이 20000 스케일을 기준으로 정한다.
+
+---
+
+# 2-1. 스트리머 반응
+
+플레이 화면 우측 "스트리머" 패널이 이번 턴 가격 변화량에 따라 반응(표정/멘트)을 바꾸기 위한 값이다. UI는
+아직 스프라이트가 준비되지 않아 로직만 먼저 확정했다 (`Next_Tesk.md` 참고).
+
+## 판정 기준
+
+이번 턴 `CurrentPrice`의 총 변화량(`PriceChangeThisTurn`)을 기준으로 5단계 중 하나를 고른다. 변화량은 그 턴의
+정규 가격 변화(2장 공식)와 시사 이벤트의 즉시 가격 충격(4장)을 모두 합산한 값이다 — "그 턴에 CurrentPrice가
+실제로 얼마나 움직였는가"를 그대로 쓴다. 퍼센트가 아니라 절대값 기준이다 (2장 공식상 정규 변화량 자체가
+Support/Growth/Scarcity 범위(-100~100)에 묶여 있어 게임 진행에 따라 가격 규모가 커져도 절대값 기준의 의미가
+크게 흔들리지 않기 때문).
+
+```
+PriceChangeThisTurn = CurrentPrice(이번 턴 계산 후) - CurrentPrice(이번 턴 계산 전)
+```
+
+| 단계 | 조건 | 의미 |
+|---|---|---|
+| Surge(폭등) | PriceChangeThisTurn >= 50 | 큰 폭의 상승 |
+| Up(상승) | 10 <= PriceChangeThisTurn < 50 | 상승 |
+| Neutral(보합) | -10 < PriceChangeThisTurn < 10 | 변화 거의 없음 |
+| Down(하락) | -50 < PriceChangeThisTurn <= -10 | 하락 |
+| Crash(폭락) | PriceChangeThisTurn <= -50 | 큰 폭의 하락 |
+
+임계값(50/10)은 정규 가격 변화의 이론상 최대치(약 ±85~100)를 참고한 예시치로, 실제 스프라이트가 들어오고
+플레이테스트가 진행되면 밸런스 조정이 필요할 수 있다.
+
+## 갱신 시점
+
+`MarketManager.NextTurn()`(자동 턴 진행)과 `HandleNewsEvent()`(시사 이벤트 수동 트리거) 양쪽 모두, 계산 전
+`CurrentPrice`를 기억해뒀다가 계산 후와 비교해 `PlayerStat.PriceChangeThisTurn`/`StreamerReaction`을 갱신한다.
+별도 `EventHub` 이벤트를 추가하지 않았다 — `PlayerStat` 전체가 이미 `EventHub.OnMarketUpdated`로 나가므로 UI는
+그 안의 두 필드만 읽으면 된다. 감쇠/이월 없이 매 턴(또는 수동 트리거 시점) 새로 계산되는 값이다.
 
 ---
 

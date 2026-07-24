@@ -25,6 +25,9 @@ public class MarketManager : MonoBehaviour
     // 엑시트/영웅 엔딩 조건인 목표 자산. 코인 보유량과 무관하게 현금만 본다.
     public const long TargetAsset = 1_000_000_000L;
 
+    // 게임 시작 시점의 코인 가격. CurrentPrice는 매 턴 이월되는 값이라 여기서 한 번만 설정하면 된다.
+    private const float InitialPrice = 1000f;
+
     // Doubt 자동 상승 : 게임 시간 2년(730턴)째 1회 +20, 그 이후로는 매 턴 +0.5씩 계속 증가한다.
     private const int DoubtAutoRiseStartTurn = 730;
     private const float DoubtAutoRiseInitialAmount = 20f;
@@ -44,6 +47,7 @@ public class MarketManager : MonoBehaviour
             DontDestroyOnLoad(gameObject);
 
             CurrentStat = new PlayerStat();
+            CurrentStat.CurrentPrice = InitialPrice;
         }
         else
         {
@@ -79,6 +83,8 @@ public class MarketManager : MonoBehaviour
 
         turnCount++;
 
+        float priceBefore = CurrentStat.CurrentPrice;
+
         // 1. 내부 자동 시장 계산
         CurrentStat = StatCalculator.Calculate();
 
@@ -100,6 +106,8 @@ public class MarketManager : MonoBehaviour
         ProbabilityCalculator.Calculate(CurrentStat);
 
         PriceCalculator.Calculate(CurrentStat);
+
+        UpdateStreamerReaction(priceBefore);
 
         // 2. UI 갱신 이벤트 발행
         EventHub.RaiseMarketUpdated(CurrentStat);
@@ -153,8 +161,21 @@ public class MarketManager : MonoBehaviour
     // 시사 이벤트 적용 요청 수신 (수동 트리거) : NextTurn()과 달리 다음 턴까지 기다리지 않고 즉시 반영한다.
     private void HandleNewsEvent()
     {
+        float priceBefore = CurrentStat.CurrentPrice;
+
         TriggerNewsEvent();
+
+        UpdateStreamerReaction(priceBefore);
         EventHub.RaiseMarketUpdated(CurrentStat);
+    }
+
+    // 이번 턴(또는 수동 트리거)의 가격 변화량을 계산해 스트리머 반응 상태로 변환한다.
+    private void UpdateStreamerReaction(float priceBefore)
+    {
+        float priceChange = CurrentStat.CurrentPrice - priceBefore;
+
+        CurrentStat.PriceChangeThisTurn = priceChange;
+        CurrentStat.StreamerReaction = StreamerReactionCalculator.Calculate(priceChange);
     }
 
     // EventCalculator로 이벤트를 계산해 반영하고, 실제로 발생했으면 로그에 기록한다.

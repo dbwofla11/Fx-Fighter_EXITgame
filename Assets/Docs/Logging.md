@@ -651,6 +651,91 @@ UI 기획안(플레이 화면 스크린샷)을 보니 우측에 캐릭터 초상
 - 최종 해결 순서 : Unity MCP 패널에서 Stop Server → Start Server로 허브를 재기동 → VSCode 창 리로드로 새
   `.mcp.json`(http 클라이언트 방식) 반영 → `mcpforunity://instances`에서 `instance_count: 1` 확인.
 
+## 스트리머 반응(가격 변화 연동) 로직 설계
+
+플레이 화면 우측 "스트리머" 패널이 지금은 `스트리머_소개` 이벤트 발생 여부로 패널을 켜는 것까지만 되어 있는데
+(위 "초반 이벤트 무조건 발생 + 스트리머 UI 힌트" 절 참고), 가격이 오르내림에 따라 표정/멘트가 실시간으로
+바뀌게 해달라는 요청을 받았다. 실제 스프라이트(`Assets/Sprites/스트리머상태` 폴더)는 확인해보니 폴더만 만들어져
+있고 아직 UI 팀원이 이미지를 넣기 전이라, 이번엔 로직만 먼저 설계·구현했다.
+
+**정해야 했던 것 두 가지** :
+1. 반응 단계 수 — 스프라이트 개수와 직결되는 문제라 미리 정해야 했다. "5단계 이상(강도별)"로 확정.
+2. 판정 기준 — `PriceCalculator`가 굴리는 `isUp`(방향 판정)을 그대로 쓸지, 실제 `CurrentPrice` 변화량(delta)
+   기준으로 할지. `isUp`이 true여도 `delta`가 음수면(Growth/Support가 크게 마이너스일 때) 실제로는 가격이
+   내려가는 경우가 있어("스트리머 반응 = 실제 체감 가격 변화"가 목적이므로), **실제 가격 변화량(delta) 기준**으로
+   확정.
+
+**구현** :
+- `Assets/Scripts/Stat/StreamerReactionState.cs` 신규 : `Crash`/`Down`/`Neutral`/`Up`/`Surge` 5단계 enum
+  (`EndingType.cs`와 동일한 스타일).
+- `Assets/Scripts/Runtimes/Systems/StreamerReactionCalculator.cs` 신규 : `PriceChangeThisTurn`(절대값 delta)을
+  받아 5단계 중 하나를 반환하는 static 클래스. 임계값(Surge >= 50, Up >= 10, Down <= -10, Crash <= -50)은
+  `Game_Formula.md` 2장 정규 가격 변화의 이론상 범위(약 ±85~100)를 참고한 예시치 — 퍼센트가 아니라 절대값
+  기준으로 잡았다. 게임 진행에 따라 가격 자체는 커져도 2장 공식상 한 턴의 정규 변화량은 Support/Growth/
+  Scarcity 범위(-100~100)에 묶여 있어 절대값 기준이 흔들리지 않기 때문이다 (시사 이벤트의 `priceRatio` 충격은
+  가격에 비례해 커질 수 있지만, 그것까지 포함해 "그 턴에 실제로 얼마나 움직였는가"를 그대로 보여주는 게
+  스트리머 반응의 목적과 맞다고 판단).
+- `PlayerStat`에 `PriceChangeThisTurn`(float)/`StreamerReaction`(`StreamerReactionState`) 필드 추가. 감쇠/이월
+  없이 매 턴 새로 계산되는 UI 표시 전용 값 — `CashBonus`와 같은 성격.
+- `MarketManager.NextTurn()`과 `HandleNewsEvent()`(수동 트리거) 양쪽에 계산 전 `CurrentPrice`를 기억해뒀다가
+  계산 후와 비교해 `UpdateStreamerReaction()` 헬퍼로 두 필드를 갱신하는 코드를 추가했다. 새 `EventHub` 이벤트는
+  만들지 않았다 — `PlayerStat` 전체가 이미 `OnMarketUpdated`로 나가므로 UI는 그 안의 두 필드만 읽으면 된다.
+
+**남은 것** : 실제 UI(스프라이트 전환, 멘트 표시)는 UI 팀원 담당이라 만들지 않았다. 스프라이트가 들어오고
+실제로 플레이해보면 임계값(50/10) 밸런스 조정이 필요할 수 있다 (`Next_Tesk.md` 참고).
+
+공식은 `Game_Formula.md` 2-1장(신규)에 반영했다.
+
+## 버그 수정 : PriceCalculator가 delta 부호를 그대로 반영해 방향이 뒤집히던 문제
+
+라이브로 플레이 테스트를 돌리던 중 `Debug.Log`(사용자가 직접 delta/Growth/Support까지 찍도록 로그를 늘려둔
+상태)를 보다가, Growth/Support가 둘 다 크게 마이너스(예: Growth -25, Support -16)인데도 `CurrentPrice`가
+매 턴 계속 오르는 걸 발견했다.
+
+**원인** : `PriceCalculator.Calculate()`의 `delta = Growth*0.6 + Support*0.25 + Scarcity*0.15`는 Growth/Support가
+음수면 `delta` 자체가 음수가 될 수 있는데, 코드는 이 값을 부호 없는 "변화 크기"로 취급해서
+`isUp ? CurrentPrice += delta : CurrentPrice -= delta`를 하고 있었다. `isUp == false`(하락 방향)인데 `delta`가
+음수면 `CurrentPrice -= (음수)` = `CurrentPrice + |delta|`가 되어 오히려 가격이 오른다 — 방향 판정과 실제 결과가
+정반대로 나오는 버그였다. `Game_Formula.md` 2장이 애초에 "가격 변화량은 방향성과 별도로 계산된다"고 명시하고
+있었는데, 실제 코드는 그 크기(magnitude) 계산에 Growth/Support의 부호가 그대로 새어 들어가 있어 문서 의도와
+어긋나 있었다.
+
+**수정** : `delta` 계산에 `Mathf.Abs()`를 씌워 순수 크기로만 쓰도록 고쳤다 (`PriceCalculator.cs`). 방향은 이제
+오직 `isUp`(1장의 `UpProbability` 굴림) 하나로만 결정된다.
+
+**영향** : 이번 스트리머 반응 작업에서 "실제 가격 변화량(delta) 기준"으로 반응을 판정하기로 한 것과 별개로,
+이 버그 자체가 게임 밸런스에 직접 영향을 준 심각한 문제였다 — Support/Growth를 열심히 올려도 방향 판정과
+무관하게 가격이 뒤죽박죽으로 움직였을 것이다. 수정 후에는 `UpProbability`가 낮으면 실제로 가격이 내려가는
+빈도가 높아진다.
+
+공식은 `Game_Formula.md` 2장에 반영했다 (delta는 절대값, 방향은 isUp만으로 결정한다는 점을 명시).
+
+## 버그 수정 : 코인 가격이 시작부터 0원 근처로 떨어져 못 벗어나던 문제
+
+위 delta 부호 버그를 고치고 나서, 사용자가 "코인 가격이 너무 빨리 0원이 되어버린다"는 걸 지적했다. 확인해보니
+별개의 구조적 문제 두 개가 겹쳐 있었다.
+
+1. **`CurrentPrice` 초기값이 없었다** : `MarketManager.Awake()`가 `CurrentStat = new PlayerStat();`만 하고
+   `CurrentPrice`를 따로 설정하지 않아서, 게임 시작 시점 가격이 C# 기본값인 **0원**이었다.
+2. **가격 하한선이 없었다** : `PriceCalculator`/`EventCalculator` 어디도 `CurrentPrice`가 0 이하로 못 내려가게
+   막지 않았다. 게다가 매 턴 변동폭(`delta`)이 가격 크기와 무관한 절대값(대략 0~100)이라, 가격이 0 근처에서
+   시작하면 "하락" 판정 한 번만으로도 가격이 마이너스로 꺼져버리고, 한 번 꺼지면 이벤트의 `priceRatio`(가격에
+   곱하는 충격)도 0 근처 값에 곱해져 사실상 무력화되어 회복이 잘 안 되는 상태였다.
+
+**정해야 했던 값** : 초기 가격과 하한선 둘 다 임의의 밸런스 수치라 사용자에게 확인했다. **초기 가격 1000원**,
+**하한선 1원**으로 확정.
+
+**구현** :
+- `MarketManager`에 `InitialPrice`(1000f) 상수를 추가하고, `Awake()`에서 `CurrentStat` 생성 직후
+  `CurrentStat.CurrentPrice = InitialPrice;`로 설정한다.
+- `PriceCalculator`에 `MinPrice`(1f) 상수와 `ClampPrice(PlayerStat stat)`(`Mathf.Max(MinPrice, CurrentPrice)`)를
+  추가했다. `PriceCalculator.Calculate()`가 정규 가격 변화를 반영한 직후, `EventCalculator.Apply()`가 이벤트
+  `priceRatio` 충격을 반영한 직후 양쪽 모두에서 이 메서드를 호출해 가격이 절대 1원 밑으로 안 내려가게 막는다.
+  (중복 상수 대신 `PriceCalculator.MinPrice`/`ClampPrice`를 `EventCalculator`가 그대로 재사용 — Job/Skill이
+  `StatCalculator.ApplyEffect`를 공유하는 것과 같은 패턴.)
+
+공식은 `Game_Formula.md` 2장에 반영했다 (초기 가격/하한선 값 명시).
+
 ## 현재 아키텍처 요약
 
 ```
