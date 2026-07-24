@@ -39,9 +39,12 @@ public static class TradeCalculator
     }
 
     // 시간이 지나면 Support/Growth/Supply가 0으로 서서히 수렴한다. Doubt는 감쇠 대상이 아니다 (Game_Formula.md 3장 참고).
+    // JobSkillSupportBonus/GrowthBonus(UI 표시용, Job+Skill 기여분만 별도 추적)도 Support/Growth와 동일하게 감쇠시킨다.
     public static void Decay(PlayerStat stat)
     {
         stat.Support *= SupportDecayRate;
         stat.Growth *= GrowthDecayRate;
+        stat.JobSkillSupportBonus *= SupportDecayRate;
+        stat.JobSkillGrowthBonus *= GrowthDecayRate;
     }
 }

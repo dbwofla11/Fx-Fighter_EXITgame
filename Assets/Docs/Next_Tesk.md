@@ -52,6 +52,38 @@
   `Managers` GameObject의 `MarketManager.eventDatabase`에 6개 모두 등록했다 (Unity MCP로 작업, 씬 저장 완료).
   Positive/Negative 각 카테고리에 최소 1개씩 있어 이제 시사 이벤트가 실제로 발생한다. (`Logging.md` "EventSO
   예시 데이터 작성" 참고)
+- **완료** : 시사 이벤트 수동 트리거 가격 미반영 버그 수정. `MarketManager.HandleNewsEvent()`가
+  `EventHub.RaiseMarketUpdated`를 안 불러서 수동 트리거 시 가격 변화가 즉시 안 보이던 문제를 한 줄로 수정.
+  (`Logging.md` "시사 이벤트 수동 트리거가 가격 변화를 즉시 반영하지 않던 문제 수정" 참고)
+- **완료** : 스킬 정보 패널용 조회 훅 추가. `SkillManager.GetSkillProfile(id)`(SkillSO 반환)와
+  `GetCurrentCost(id)`(구매 횟수 반영된 현재 비용)를 추가해, UI가 선택된 스킬의 정보 패널(설명/현재 Cost)을
+  그릴 수 있게 됐다. 직업 선택 화면은 UI가 이미 들고 있는 `JobSO` 참조로 바로 그릴 수 있어 추가 작업 불필요함을
+  확인. (`Logging.md` "스킬/직업 정보 패널을 위한 UI 훅 정리" 참고)
+- **완료** : 개요 화면 Job+Skill 보너스 표시. `PlayerStat`에 `JobSkillSupportBonus`/`JobSkillGrowthBonus`를
+  추가해, Trade/이벤트는 제외하고 Job 선택·재사용형 Skill 구매가 준 몫만 Support/Growth와 동일하게 감쇠시키며
+  별도 추적한다. Doubt 쪽은 감쇠가 없는 값이라 `JobManager.CurrentJob.effects` + `SkillManager.GetActiveSkills()`를
+  그대로 합산해서 보여주면 되므로 코드 변경 없음. (`Logging.md` "개요 화면 Job+Skill 보너스 표시 구현" 참고,
+  공식은 `Game_Formula.md` 3장 "누적치 감쇠")
+- **완료(이후 재설계됨)** : CashBonus를 실제 현금 증가로 처음 연결했을 때는 `MarketManager.ApplyCashBonus()`로
+  매 턴 `currentMoney`에 %를 곱하는 방식이었는데, "이자와 다를 게 없다"는 지적을 받고 아래 두 항목으로
+  대체됐다. `ApplyCashBonus()`는 삭제됨 — 남아있지 않음.
+- **완료** : 재사용형 스킬 CashBonus 수정. 구매해도 실제로는 단 한 턴도 현금 증가에 기여하지 못하던 버그를
+  발견해 수정 — `SkillManager.HandlePurchase()`가 구매 즉시 `currentMoney × (CashBonus/100)`을 바로 지급하도록
+  바꿨다 (Support/Growth와 동일한 "구매 시점 1회성" 철학). (`Logging.md` "재사용형 스킬의 CashBonus가 실제로는
+  0턴도 반영 안 되던 문제 수정" 참고)
+- **완료** : Job/토글형 스킬 CashBonus 재설계. 매 턴 보유 현금 전체에 곱연산하던 방식(사실상 이자)을 폐기하고,
+  코인을 팔 때(Short) 받는 수익에 배율로 붙는 방식으로 바꿨다 — `Revenue = Amount × CurrentPrice × (1 +
+  CashBonus/100)`. 거래를 해야만 체감되는 버프가 됐다. (`Logging.md` "Job/토글형 스킬 CashBonus 재설계" 참고,
+  공식은 `Game_Formula.md` 3장 "Short"/3-3장)
+- **완료** : 초반 이벤트 무조건 발생. `EventSO.guaranteedTurn` 필드를 추가해 확률 없이 특정 턴에 반드시
+  발생하도록 만들고, `스트리머_소개`(1턴)/`거래소_상장`(2턴)을 순차 배정했다. 스트리머 UI(캐릭터+가짜 채팅
+  패널)는 `MarketManager.EventLog`로 이미 조회 가능해 코드 변경 불필요. (`Logging.md` "초반 이벤트 무조건 발생 +
+  스트리머 UI 힌트" 참고, 공식은 `Game_Formula.md` 4장)
+- **완료** : 스트리머 반응(가격 변화 연동) 로직. `PlayerStat.PriceChangeThisTurn`/`StreamerReaction`
+  (`StreamerReactionState` 5단계 : Crash/Down/Neutral/Up/Surge)을 추가하고, `MarketManager`가 매 턴(및 시사
+  이벤트 수동 트리거 시점) 계산 전후 `CurrentPrice` 차이로 갱신한다. `StreamerReactionCalculator`가 절대값
+  delta 기준(퍼센트 아님)으로 5단계를 판정한다. 새 `EventHub` 이벤트 없이 기존 `OnMarketUpdated`로 이미 나간다.
+  (`Logging.md` "스트리머 반응(가격 변화 연동) 로직 설계" 참고, 공식은 `Game_Formula.md` 2-1장)
 - **남음** : 아래 참고.
 
 ---
@@ -83,6 +115,10 @@
 
 `TimeUI`, `PlayerUI`, `SettingsUI`만 기존처럼 `TimeManager`/`PlayerManager`를 직접 참조하는 상태이고, 나머지는
 설계는 끝났으나 화면이 없다.
+
+- 스트리머 패널의 가격 반응(스프라이트 전환/멘트) — `PlayerStat.StreamerReaction`(5단계)을 이미 읽을 수 있음.
+  `Assets/Sprites/스트리머상태` 폴더에 실제 스프라이트가 들어오면 UI 팀원이 연결하면 된다. 임계값(50/10) 밸런스는
+  실제 플레이 후 조정 필요할 수 있음.
 
 ## 후보 : 발행량 관련 스킬 3종에 실제 Supply 효과 부여
 

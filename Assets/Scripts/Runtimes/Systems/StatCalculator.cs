@@ -20,6 +20,8 @@ public static class StatCalculator
         stat.Support = previous.Support;
         stat.Growth = previous.Growth;
         stat.Supply = previous.Supply;
+        stat.JobSkillSupportBonus = previous.JobSkillSupportBonus;
+        stat.JobSkillGrowthBonus = previous.JobSkillGrowthBonus;
         TradeCalculator.Decay(stat);
 
         // Doubt는 감쇠하지 않고 계속 쌓이는 값이다 (시간이 지날수록 자동으로 100을 향해 오르다가 100이 되면
@@ -67,9 +69,15 @@ public static class StatCalculator
         foreach (EffectData effect in job.effects)
         {
             if (effect.effectType == EffectType.SupportIncrease)
+            {
                 stat.Support += effect.value;
+                stat.JobSkillSupportBonus += effect.value;
+            }
             else if (effect.effectType == EffectType.GrowthIncrease)
+            {
                 stat.Growth += effect.value;
+                stat.JobSkillGrowthBonus += effect.value;
+            }
         }
     }
 
@@ -108,9 +116,15 @@ public static class StatCalculator
         foreach (EffectData effect in skill.effects)
         {
             if (effect.effectType == EffectType.SupportIncrease)
+            {
                 stat.Support += effect.value;
+                stat.JobSkillSupportBonus += effect.value;
+            }
             else if (effect.effectType == EffectType.GrowthIncrease)
+            {
                 stat.Growth += effect.value;
+                stat.JobSkillGrowthBonus += effect.value;
+            }
             else if (effect.effectType == EffectType.DoubtDecrease)
                 stat.Doubt -= effect.value;
             else if (effect.effectType == EffectType.DoubtIncrease)

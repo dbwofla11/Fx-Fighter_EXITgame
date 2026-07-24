@@ -28,4 +28,8 @@ public class EventSO : ScriptableObject
 
     [Tooltip("가격에 즉시 반영되는 변화율 (부호 포함, 예: 0.03 = +3%, -0.06 = -6%).")]
     public float priceRatio;
+
+    [Header("Guaranteed")]
+    [Tooltip("0이면 기존처럼 확률로 발생. N(1 이상)이면 해당 턴(turnCount)에 확률 체크 없이 무조건 발생한다.")]
+    public int guaranteedTurn = 0;
 }

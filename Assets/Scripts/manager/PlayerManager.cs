@@ -44,10 +44,11 @@ public class PlayerManager : MonoBehaviour
         AddCoin(amount);
     }
 
-    // 코인 매도 요청 수신 : 현재가로 즉시 체결
+    // 코인 매도 요청 수신 : 현재가로 즉시 체결. CashBonus(%)만큼 수익에 배율이 붙는다.
     private void HandleSellCoin(long amount)
     {
-        long revenue = (long)(amount * MarketManager.Instance.CurrentStat.CurrentPrice);
+        long baseRevenue = (long)(amount * MarketManager.Instance.CurrentStat.CurrentPrice);
+        long revenue = (long)(baseRevenue * (1f + MarketManager.Instance.CurrentStat.CashBonus / 100f));
 
         AddMoney(revenue);
         AddCoin(-amount);

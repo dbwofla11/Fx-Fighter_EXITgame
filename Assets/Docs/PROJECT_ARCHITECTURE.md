@@ -80,8 +80,17 @@ RuntimeData는 현재 게임 상태와 계산 결과를 저장한다. `RuntimeSk
 
 `PlayerStat.Support`/`Growth`/`Supply`/`CurrentPrice`는 턴을 넘어 유지되는 값이다. Job 선택, 거래(Long/Short),
 시사 이벤트가 발생하는 순간 그 값에 직접 반영되고, 매 턴 서서히 감쇠한다 (자세한 내용은 Game_Formula.md 참고).
+`JobSkillSupportBonus`/`JobSkillGrowthBonus`는 이 중 Job 선택·재사용형 Skill 구매가 준 몫만(Trade/이벤트 제외)
+별도로 추적하는 UI 표시 전용 값으로, 게임 계산에는 관여하지 않고 Support/Growth와 동일하게 감쇠한다
+(Game_Formula.md 3장 "누적치 감쇠" 참고).
 `Supply`는 시사 이벤트, 발행량 조작 액션(`OnManipulateSupply`, `추가발행권한` 스킬 구매 후 사용 가능), 재사용형
 스킬의 `SupplyIncrease`/`SupplyDecrease` 효과로 변화한다. Job은 Supply에 영향을 주지 않는다.
+
+`PlayerStat.PriceChangeThisTurn`/`StreamerReaction`은 이번 턴 `CurrentPrice`가 실제로 얼마나/어느 방향으로
+움직였는지를 나타내는 UI 표시 전용 값으로, 감쇠·이월 없이 매 턴(또는 시사 이벤트 수동 트리거 시점) 새로
+계산된다. 스트리머 패널 UI가 `StreamerReaction`(`StreamerReactionState` 5단계)을 읽어 표정/멘트를 바꾸는 데
+쓰도록 만들었다 (2-1장 참고). 별도 `EventHub` 이벤트 없이 기존 `OnMarketUpdated`가 나르는 `PlayerStat`에 이미
+포함된다.
 
 `PlayerStat.Doubt`도 턴을 넘어 유지되지만 **감쇠하지 않는다.** Job/Skill의 `DoubtDecrease`(활성 상태인 동안 매 턴
 재적용)와 시사 이벤트로 변화하고, 게임 시간 2년(730턴)째부터는 매 턴 자동으로도 오른다
@@ -97,6 +106,7 @@ RuntimeData는 현재 게임 상태와 계산 결과를 저장한다. `RuntimeSk
 - PriceCalculator
 - TradeCalculator
 - EventCalculator
+- StreamerReactionCalculator
 
 Calculator는 상태를 변경하지 않고 계산만 수행한다.
 
@@ -193,7 +203,8 @@ MarketManager.HandleExitRequested : `CanExit`(현금 >= TargetAsset) 확인 → 
 
 ## MarketManager
 
-시장 계산을 수행한다. `CurrentStat`(Support/Growth/Supply/Doubt 포함)을 보유하며, 거래·시사 이벤트는 이 값에 직접
+시장 계산을 수행한다. 게임 시작 시 `CurrentStat.CurrentPrice`를 `InitialPrice`(1000)로 초기화하며,
+`PriceCalculator.MinPrice`(1)가 가격 하한선을 강제한다 (Game_Formula.md 2장 참고). `CurrentStat`(Support/Growth/Supply/Doubt 포함)을 보유하며, 거래·시사 이벤트는 이 값에 직접
 반영된다. `NextTurn()`에서 `NewsEventIntervalTurns`(30)턴마다 `NewsEventChance`(40%) 확률로 시사 이벤트를 자동
 발생시킨다. `[SerializeField] List<EventSO> eventDatabase`(`SkillManager.skillDatabase`와 동일한 패턴)를 들고
 있으며, 자동/수동(`EventHub.OnNewsEvent`) 두 경로 모두 내부 `TriggerNewsEvent()`를 거쳐
@@ -206,6 +217,9 @@ MarketManager.HandleExitRequested : `CanExit`(현금 >= TargetAsset) 확인 → 
 `EventHub.OnManipulateSupply`도 구독한다. `SkillManager.IsUnlocked(SkillID.추가발행권한)`이 true일 때만
 `TradeCalculator.ManipulateSupply(CurrentStat, amount)`를 호출한다 (현금 비용 없음, Long/Short와 달리
 PlayerManager를 거치지 않는다).
+
+매 턴(및 시사 이벤트 수동 트리거 시점)마다 계산 전후 `CurrentPrice` 차이로 `PriceChangeThisTurn`을 구해
+`StreamerReactionCalculator.Calculate()`로 `StreamerReaction`을 갱신한다 (2-1장 참고).
 
 게임 종료(엔딩) 판정도 담당한다. `IsGameOver`(게임 종료 여부), `CanExit`(현금이 `TargetAsset`(10억) 이상인지,
 엑시트 버튼 활성화 조건)를 외부에 노출한다. 매 턴 자동으로 체포(`Doubt>=100`)/거지(현금·코인 모두 0) 엔딩을
@@ -228,7 +242,9 @@ PlayerManager를 거치지 않는다).
   `StatCalculator.ApplySkills`가 매 턴 재적용한다. 감쇠 대상이 아니다.
 
 `IsUnlocked(SkillID id)`로 특정 스킬을 구매/해금했는지 다른 Manager가 조회할 수 있다 (예: `MarketManager`가
-발행량 조작 버튼 사용 가능 여부를 판단할 때 사용).
+발행량 조작 버튼 사용 가능 여부를 판단할 때 사용). 스킬 정보 패널 UI를 위해 `GetSkillProfile(SkillID id)`(해당
+스킬의 `SkillSO` 반환, description/효과 등 정적 데이터 조회용)와 `GetCurrentCost(SkillID id)`(구매 횟수가
+반영된 실제 현재 비용 반환)도 제공한다.
 
 ---
 

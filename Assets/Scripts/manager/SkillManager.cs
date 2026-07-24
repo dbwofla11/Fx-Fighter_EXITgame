@@ -103,8 +103,24 @@ public class SkillManager : MonoBehaviour
             return;
 
         StatCalculator.ApplySkillUse(MarketManager.Instance.CurrentStat, skill.Profile);
+        GrantCashBonus(skill.Profile);
         skill.IsUnlocked = true;
         skill.PurchaseCount++;
+    }
+
+    // 재사용형 스킬의 CashBonus 효과는 Support/Growth와 동일하게 "구매 시점 1회성"으로 처리한다.
+    // CashBonus는 매 턴 새로 계산되는 PlayerStat.CashBonus에 이월/감쇠되지 않으므로(Job/토글형 스킬처럼 매 턴
+    // 재적용되는 값이 아니라서), 구매 즉시 현금을 직접 지급하는 방식으로 반영한다.
+    private void GrantCashBonus(SkillSO skill)
+    {
+        foreach (EffectData effect in skill.effects)
+        {
+            if (effect.effectType != EffectType.CashBonus)
+                continue;
+
+            long bonus = (long)(PlayerManager.Instance.currentMoney * (effect.value / 100f));
+            PlayerManager.Instance.AddMoney(bonus);
+        }
     }
 
     // 해당 스킬을 구매(재사용형)했거나 해금(토글형)했는지 여부. 다른 기능의 사용 가능 조건으로 참조된다
@@ -113,6 +129,19 @@ public class SkillManager : MonoBehaviour
     {
         SkillRuntimeInfo skill = GetSkill(id);
         return skill != null && skill.IsUnlocked;
+    }
+
+    // 스킬 정보 패널용 : 해당 스킬의 정적 데이터(설명/아이콘/효과 등)를 조회한다. UI가 SelectedSkillId로 조회.
+    public SkillSO GetSkillProfile(SkillID id)
+    {
+        return GetSkill(id)?.Profile;
+    }
+
+    // 스킬 정보 패널용 : 구매 횟수가 반영된 현재 비용을 조회한다 (baseCost × costMultiplier^PurchaseCount).
+    public long GetCurrentCost(SkillID id)
+    {
+        SkillRuntimeInfo skill = GetSkill(id);
+        return skill == null ? 0 : CalculateCost(skill);
     }
 
     private SkillRuntimeInfo GetSkill(SkillID id)

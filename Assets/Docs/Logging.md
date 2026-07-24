@@ -477,6 +477,157 @@ Supply를 바꾸는 값들(`EventSO.supplyDelta`, 발행량 조작 버튼의 `am
 브로드캐스트가 나가 턴 중간의 미완성 상태(Probability/Price 정규 계산 전)가 한 번 더 노출되는 중복이 생기기
 때문이다. `PROJECT_ARCHITECTURE.md`의 `OnNewsEvent` 설명에 반영했다.
 
+## 스킬/직업 정보 패널을 위한 UI 훅 정리
+
+UI 기획안(개요/스킬/직업 선택 화면) 스크린샷을 보고 지금 상태로 각 화면을 띄울 수 있는지 점검했다.
+
+- **기본 스탯(개요 화면 대부분)** : `MarketManager.CurrentStat`이 `EventHub.OnMarketUpdated(PlayerStat stat)`로
+  통째로 나가므로 UI는 리스너 하나만 걸면 바로 사용 가능. `PlayerManager.currentMoney`(목표금액 진행률)는
+  이벤트가 아니라 기존처럼 폴링 방식.
+- **직업 선택 화면** : 추가 작업 불필요. "다음으로" 버튼이 `EventHub.RaiseJobSelected(JobSO)`에 넘길 `JobSO`를
+  UI가 이미 들고 있어야 하므로, 그 참조로 `description`/`효과`를 직접 읽으면 된다 (이벤트 로그 UI가
+  `EventSO.message`를 직접 읽는 것과 동일한 패턴).
+- **스킬 화면** : `SkillManager.SelectedSkillId`로 어떤 스킬이 선택됐는지는 이미 알 수 있었지만, 정보 패널에
+  필요한 **현재 Cost**(`baseCost × costMultiplier^PurchaseCount`)는 `PurchaseCount`가 `SkillManager` 내부
+  런타임 상태라 UI가 계산할 방법이 없었다. `GetSkillProfile(SkillID id)`(SkillSO 반환)와 `GetCurrentCost(SkillID
+  id)`(현재 비용 반환) 두 개를 추가해서 막힌 부분을 풀었다. 새 DTO 클래스는 만들지 않고 기존 `GetSkill`/
+  `CalculateCost`를 재사용하는 얇은 public 래퍼로만 처리했다.
+- **뒤로 미룬 것** : 개요 화면 하단의 "코인 지지도 상승률 +20" 같은, Job/Skill발 보너스만 따로 뽑아 보여주는
+  항목은 `CurrentStat`이 거래·감쇠·이벤트를 다 합친 값이라 지금 분리해서 읽을 방법이 없다. 별도 설계가
+  필요해서 이번 작업 범위에서 제외했다.
+
+## 개요 화면 Job+Skill 보너스 표시 구현
+
+Next_Tesk.md에 후보로 남겨뒀던 "개요 화면의 Job/Skill 보너스 분리 표시"를 바로 이어서 진행했다. 먼저 표시
+방식부터 확정해야 했다 — Job과 Skill을 따로따로 보여줄지, 합쳐서 스탯당 하나로 보여줄지 물어봤고 **합쳐서
+하나**로 정해졌다.
+
+그다음 걸림돌은 재사용형 스킬(구매하면 1회 반영 후 서서히 감쇠하는 타입)이었다. Job의 Support/Growth 효과는
+선택 시 1회 반영 후 감쇠하고, 재사용형 스킬도 구매 시 1회 반영 후 감쇠한다(3-1/3-2장) — 즉 시간이 지나면
+둘 다 자연히 줄어드는 값이라, 이걸 표시에 포함시키려면 감쇠를 반영할지부터 정해야 했다. 감쇠를 반영하기로
+확정했다 — Trade/Event가 섞이지 않은 "순수 Job+Skill 몫이 지금 얼마나 남아있는지"를 보여주는 게 목적이므로.
+
+### 구현
+
+`PlayerStat`에 `JobSkillSupportBonus`/`JobSkillGrowthBonus`(float)를 추가해서, `Support`/`Growth`와 나란히
+가지만 **Trade(Long/Short)와 시사 이벤트는 반영하지 않고 Job 선택·재사용형 Skill 구매만** 반영하는 그림자
+값으로 만들었다.
+
+- `StatCalculator.ApplyJobSelection`/`ApplySkillUse`에서 `Support`/`Growth`를 올릴 때 이 두 필드에도 동일한
+  값을 같이 더한다.
+- `StatCalculator.Calculate()`의 이월(carry-over) 목록에 추가해서 매 턴 이전 값을 이어받는다.
+- `TradeCalculator.Decay`에서 `Support`/`Growth`와 동일한 `decayRate`(0.995)로 같이 감쇠시킨다.
+- 게임 계산(가격, 확률 등)에는 전혀 관여하지 않는 순수 UI 표시용 값이다.
+
+Doubt("의심도 상승률" 행)는 손대지 않았다 — Doubt는 애초에 감쇠하지 않는 값이고 Job/토글형 스킬의
+`DoubtDecrease`는 매 턴 그 시점의 `effects`를 다시 읽어 재적용하는 방식(3-1장)이라, 별도 누적 없이 UI가
+`JobManager.CurrentJob.effects` + `SkillManager.GetActiveSkills()`의 Doubt 관련 효과를 그대로 합산해서 보여주면
+된다 (이미 둘 다 public).
+
+이전에 시도했다 폐기한 "소스별 누적 데이터"(`RuntimeTradeData`, `JobBoostData`, "Support/Growth 감쇠" 절 참고)와
+겉보기엔 비슷해 보이지만, 그때는 이 누적치가 실제 게임 계산 파이프라인에 다시 합류해야 해서 복잡했던 반면
+이번 값은 순수 표시 전용이라 계산에 전혀 관여하지 않는다는 점이 달라서 훨씬 단순하게 끝났다.
+
+공식은 `Game_Formula.md` 3장 "누적치 감쇠"에 반영했다.
+
+## CashBonus를 실제 현금 증가로 연결
+
+이벤트 SO 작업 중에 "CashBonus가 실제로 돈에 반영이 안 된다"는 지적을 받았었는데, 그때는 가격 반영 버그 얘기로
+넘어갔다가 이번에 다시 짚었다. `StatCalculator.ApplyEffect`가 `stat.CashBonus += effect.value`만 하고 그 값을
+소비하는 곳이 어디에도 없었던 게 원인 — Job/Skill의 CashBonus 효과가 조용히 죽어있었다.
+
+**요구사항** : "매 턴마다 올라가는 현금의 양이 CashBonus%만큼 증가"로 확정. 별도 누적/이월 로직 없이, 이미
+매 턴 `StatCalculator.Calculate()`(`ApplyJob`/`ApplySkills`)가 다시 채워주는 `CurrentStat.CashBonus`를 그대로
+가져다 쓰면 충분했다.
+
+**구현** : `MarketManager.NextTurn()`에 `ApplyDoubtAutoRise()`와 같은 자리에 `ApplyCashBonus()`를 추가했다.
+
+```csharp
+private void ApplyCashBonus()
+{
+    long bonus = (long)(PlayerManager.Instance.currentMoney * (CurrentStat.CashBonus / 100f));
+    PlayerManager.Instance.AddMoney(bonus);
+}
+```
+
+재사용형 스킬 구매 시점의 CashBonus(`ApplySkillUse`)는 그 턴에만 1회 반영되고 다음 턴에 사라진다는 것도
+확인했다 — `CashBonus`는 Support/Growth와 달리 감쇠/이월 대상이 아니라 매 턴 `Calculate()`가 만드는 새
+`PlayerStat`에서 0부터 다시 Job/토글형 스킬 효과만으로 채워지기 때문이다. 지금 요구사항(Job/토글형 스킬의
+CashBonus를 매 턴 반영)에는 이 동작으로 충분해서 손대지 않았고, 알려진 동작으로 문서에 남겨뒀다.
+
+공식은 `Game_Formula.md` 3-3장(신규)에 반영했다.
+
+### 재사용형 스킬의 CashBonus가 실제로는 0턴도 반영 안 되던 문제 수정
+
+라이브로 시나리오를 확인해보려다(Play 모드 진입 직전에 사용자가 "돌리지 말고 설명만" 요청해서 코드를 다시
+따라가며 손으로 검증) 위에서 "다음 턴에 사라진다"고 적었던 게 부정확했다는 걸 발견했다. 실제로는:
+
+1. 구매 시점에 `ApplySkillUse`가 그 순간의 `CurrentStat`에 `CashBonus += 값`을 해준다.
+2. 근데 이 값을 소비하는 `ApplyCashBonus()`는 `NextTurn()` 안에서만 호출된다.
+3. `NextTurn()`의 첫 줄 `CurrentStat = StatCalculator.Calculate();`가 완전히 새 `PlayerStat`을 만드는데,
+   `CashBonus`는 이월 대상이 아니라서 새 오브젝트는 0에서 시작한다.
+4. `ApplyJob`/`ApplySkills`(매 턴 재적용 루프)는 재사용형 스킬을 명시적으로 건너뛰므로 그 15가 다시 채워지지도
+   않는다.
+5. 그래서 `ApplyCashBonus()`가 실행되는 시점엔 이미 `CashBonus == 0`— **단 한 턴도 실제 현금 증가에 기여하지
+   못했다.**
+
+사용자가 "케이스1(Job/토글형)도 매 턴 보유 현금의 %를 복리로 불리는 건 버프가 아니라 그냥 이자 아니냐"는
+지적을 했다 — 맞는 말이라 Job/토글형 쪽 공식은 나중에 다시 설계하기로 하고, 재사용형 스킬 쪽만 먼저 고쳤다.
+
+**수정 방향** : `CashBonus`를 매 턴 순환시키는 인프라(이월+감쇠)를 새로 만드는 대신, 재사용형 스킬의
+Support/Growth와 동일한 "구매 시점 1회성" 철학을 그대로 따랐다 — 다만 Support/Growth처럼 감쇠하며 남아있을
+방법이 없으니(`CashBonus`엔 이월/감쇠가 없음), **구매하는 순간 즉시 현금을 지급**하는 방식으로 바꿨다.
+`SkillManager.HandlePurchase()`에 `GrantCashBonus(skill.Profile)` 호출을 추가했다 — 스킬의 `effects` 중
+`CashBonus` 타입만 골라 `currentMoney × (값/100)`을 그 자리에서 바로 `AddMoney`한다. `ApplySkillUse`가 하던
+`stat.CashBonus += 값` 자체는 그대로 남겨뒀다 (해가 없고, 구매 직후~다음 턴 사이 UI가 참고할 수도 있어서).
+
+Job/토글형 스킬 쪽 `ApplyCashBonus()`(매 턴 보유 현금 대비 % 복리 증가)는 손대지 않았다 — "이자 문제"의 올바른
+해법(고정액 버프? 거래 수익 배율? 등)이 아직 안 정해져서 별도 후보로 남겨뒀다.
+
+### Job/토글형 스킬 CashBonus 재설계 — "이자"에서 "거래 수익 배율"로
+
+바로 이어서 위 후보를 처리했다. "거래(Long/Short) 수익에 배율로 적용"으로 방향을 정했고, Long(매수)은 지출이라
+"수익"이 아니므로 대상에서 제외했다.
+
+**수정** :
+- `MarketManager.NextTurn()`에서 `ApplyCashBonus()` 호출과 메서드 자체를 제거했다 (매 턴 보유 현금 전체에
+  곱하던 옛 방식 폐기).
+- `PlayerManager.HandleSellCoin()`이 판매 수익(`Amount × CurrentPrice`)에 그 순간의
+  `CurrentStat.CashBonus`%를 배율로 곱해서 지급하도록 바꿨다 — `Revenue = Amount × CurrentPrice × (1 +
+  CashBonus / 100)`.
+- `PlayerStat.CashBonus` 자체(값이 매 턴 Job/토글형 스킬 효과로 다시 채워지는 방식)는 그대로 뒀다 — 그 값을
+  "언제 어떻게 쓰는지"만 바꿨다.
+
+이제 CashBonus는 실제로 거래를 해야만 체감되는 버프가 됐다 (가만히 있으면 늘지 않음).
+
+공식은 `Game_Formula.md` 3장 "Short", 3-3장에 반영했다.
+
+## 초반 이벤트 무조건 발생 + 스트리머 UI 힌트
+
+UI 기획안(플레이 화면 스크린샷)을 보니 우측에 캐릭터 초상화+가짜 채팅으로 반응하는 "스트리머" 패널이 있었다.
+"초기 이벤트가 발생하면 그게 켜지게 하자"는 요청을 받았는데, 확인해보니 이건 이전에 본 3개(개요/스킬/직업)
+화면에는 없던 새 UI 요소였다.
+
+**스트리머 패널** : 새 코드 필요 없음으로 결론. `스트리머_소개` 이벤트가 발생하면 `MarketManager.EventLog`에
+그대로 기록되므로(이미 public), UI가 `스트리머_소개` `EventSO` 에셋 참조를 들고 있다가 `EventLog`에 그 항목이
+있는지 확인하면 패널을 켤 수 있다.
+
+**초반 이벤트 무조건 발생** : "거래소 상장", "스트리머 소개" 같은 이벤트는 확률에 맡기지 않고 게임 시작 직후
+정해진 턴에 반드시 발생하게 해달라는 요청. 순서는 1턴 스트리머_소개, 2턴 거래소_상장으로 확정했다.
+
+**구현** :
+- `EventSO`에 `guaranteedTurn`(int, 기본 0) 필드 추가 — 0이면 기존처럼 확률 발생, N이면 해당 턴에 무조건 발생.
+- `EventCalculator.Calculate()`에서 "골라진 EventSO를 stat에 적용하는 부분"을 `EventCalculator.Apply(stat,
+  chosen)`으로 분리했다 — 랜덤 선택 경로(`Calculate`)와 무조건 발생 경로가 같은 적용 로직을 재사용하도록.
+- `MarketManager.NextTurn()`이 매 턴 먼저 `FindGuaranteedEvent(turnCount)`로 이번 턴에 무조건 발생할 이벤트가
+  있는지 찾는다. 있으면 `TriggerGuaranteedEvent()`(확률 체크 없이 `EventCalculator.Apply` 호출 + 로그 기록)로
+  처리하고, 이번 턴의 기존 30턴 확률 체크는 건너뛴다(같은 턴에 이벤트가 두 번 겹치는 걸 방지).
+- 로그 기록 부분(`runtimeEventData.Log.Add(...)`)이 `TriggerNewsEvent`/`TriggerGuaranteedEvent` 양쪽에서
+  중복돼서 `LogEvent(EventSO)` 헬퍼로 뺐다.
+- `스트리머_소개.guaranteedTurn = 1`, `거래소_상장.guaranteedTurn = 2`로 설정 (Unity MCP로 작업).
+
+공식은 `Game_Formula.md` 4장 "발생 시점"/"EventSO — 이벤트 하나의 정의"에 반영했다.
+
 ## (곁가지) MCP for Unity 연결 트러블슈팅
 
 이 세션에서 처음으로 Unity MCP가 연결됐는데, 그 과정에서 겪은 문제와 원인을 기록해둔다 (다음에 또 끊기면
@@ -499,6 +650,91 @@ Supply를 바꾸는 값들(`EventSO.supplyDelta`, 발행량 조작 버튼의 `am
   Editor.log`)를 먼저 확인해서 그게 진짜 좀비인지 확인해야 한다.
 - 최종 해결 순서 : Unity MCP 패널에서 Stop Server → Start Server로 허브를 재기동 → VSCode 창 리로드로 새
   `.mcp.json`(http 클라이언트 방식) 반영 → `mcpforunity://instances`에서 `instance_count: 1` 확인.
+
+## 스트리머 반응(가격 변화 연동) 로직 설계
+
+플레이 화면 우측 "스트리머" 패널이 지금은 `스트리머_소개` 이벤트 발생 여부로 패널을 켜는 것까지만 되어 있는데
+(위 "초반 이벤트 무조건 발생 + 스트리머 UI 힌트" 절 참고), 가격이 오르내림에 따라 표정/멘트가 실시간으로
+바뀌게 해달라는 요청을 받았다. 실제 스프라이트(`Assets/Sprites/스트리머상태` 폴더)는 확인해보니 폴더만 만들어져
+있고 아직 UI 팀원이 이미지를 넣기 전이라, 이번엔 로직만 먼저 설계·구현했다.
+
+**정해야 했던 것 두 가지** :
+1. 반응 단계 수 — 스프라이트 개수와 직결되는 문제라 미리 정해야 했다. "5단계 이상(강도별)"로 확정.
+2. 판정 기준 — `PriceCalculator`가 굴리는 `isUp`(방향 판정)을 그대로 쓸지, 실제 `CurrentPrice` 변화량(delta)
+   기준으로 할지. `isUp`이 true여도 `delta`가 음수면(Growth/Support가 크게 마이너스일 때) 실제로는 가격이
+   내려가는 경우가 있어("스트리머 반응 = 실제 체감 가격 변화"가 목적이므로), **실제 가격 변화량(delta) 기준**으로
+   확정.
+
+**구현** :
+- `Assets/Scripts/Stat/StreamerReactionState.cs` 신규 : `Crash`/`Down`/`Neutral`/`Up`/`Surge` 5단계 enum
+  (`EndingType.cs`와 동일한 스타일).
+- `Assets/Scripts/Runtimes/Systems/StreamerReactionCalculator.cs` 신규 : `PriceChangeThisTurn`(절대값 delta)을
+  받아 5단계 중 하나를 반환하는 static 클래스. 임계값(Surge >= 50, Up >= 10, Down <= -10, Crash <= -50)은
+  `Game_Formula.md` 2장 정규 가격 변화의 이론상 범위(약 ±85~100)를 참고한 예시치 — 퍼센트가 아니라 절대값
+  기준으로 잡았다. 게임 진행에 따라 가격 자체는 커져도 2장 공식상 한 턴의 정규 변화량은 Support/Growth/
+  Scarcity 범위(-100~100)에 묶여 있어 절대값 기준이 흔들리지 않기 때문이다 (시사 이벤트의 `priceRatio` 충격은
+  가격에 비례해 커질 수 있지만, 그것까지 포함해 "그 턴에 실제로 얼마나 움직였는가"를 그대로 보여주는 게
+  스트리머 반응의 목적과 맞다고 판단).
+- `PlayerStat`에 `PriceChangeThisTurn`(float)/`StreamerReaction`(`StreamerReactionState`) 필드 추가. 감쇠/이월
+  없이 매 턴 새로 계산되는 UI 표시 전용 값 — `CashBonus`와 같은 성격.
+- `MarketManager.NextTurn()`과 `HandleNewsEvent()`(수동 트리거) 양쪽에 계산 전 `CurrentPrice`를 기억해뒀다가
+  계산 후와 비교해 `UpdateStreamerReaction()` 헬퍼로 두 필드를 갱신하는 코드를 추가했다. 새 `EventHub` 이벤트는
+  만들지 않았다 — `PlayerStat` 전체가 이미 `OnMarketUpdated`로 나가므로 UI는 그 안의 두 필드만 읽으면 된다.
+
+**남은 것** : 실제 UI(스프라이트 전환, 멘트 표시)는 UI 팀원 담당이라 만들지 않았다. 스프라이트가 들어오고
+실제로 플레이해보면 임계값(50/10) 밸런스 조정이 필요할 수 있다 (`Next_Tesk.md` 참고).
+
+공식은 `Game_Formula.md` 2-1장(신규)에 반영했다.
+
+## 버그 수정 : PriceCalculator가 delta 부호를 그대로 반영해 방향이 뒤집히던 문제
+
+라이브로 플레이 테스트를 돌리던 중 `Debug.Log`(사용자가 직접 delta/Growth/Support까지 찍도록 로그를 늘려둔
+상태)를 보다가, Growth/Support가 둘 다 크게 마이너스(예: Growth -25, Support -16)인데도 `CurrentPrice`가
+매 턴 계속 오르는 걸 발견했다.
+
+**원인** : `PriceCalculator.Calculate()`의 `delta = Growth*0.6 + Support*0.25 + Scarcity*0.15`는 Growth/Support가
+음수면 `delta` 자체가 음수가 될 수 있는데, 코드는 이 값을 부호 없는 "변화 크기"로 취급해서
+`isUp ? CurrentPrice += delta : CurrentPrice -= delta`를 하고 있었다. `isUp == false`(하락 방향)인데 `delta`가
+음수면 `CurrentPrice -= (음수)` = `CurrentPrice + |delta|`가 되어 오히려 가격이 오른다 — 방향 판정과 실제 결과가
+정반대로 나오는 버그였다. `Game_Formula.md` 2장이 애초에 "가격 변화량은 방향성과 별도로 계산된다"고 명시하고
+있었는데, 실제 코드는 그 크기(magnitude) 계산에 Growth/Support의 부호가 그대로 새어 들어가 있어 문서 의도와
+어긋나 있었다.
+
+**수정** : `delta` 계산에 `Mathf.Abs()`를 씌워 순수 크기로만 쓰도록 고쳤다 (`PriceCalculator.cs`). 방향은 이제
+오직 `isUp`(1장의 `UpProbability` 굴림) 하나로만 결정된다.
+
+**영향** : 이번 스트리머 반응 작업에서 "실제 가격 변화량(delta) 기준"으로 반응을 판정하기로 한 것과 별개로,
+이 버그 자체가 게임 밸런스에 직접 영향을 준 심각한 문제였다 — Support/Growth를 열심히 올려도 방향 판정과
+무관하게 가격이 뒤죽박죽으로 움직였을 것이다. 수정 후에는 `UpProbability`가 낮으면 실제로 가격이 내려가는
+빈도가 높아진다.
+
+공식은 `Game_Formula.md` 2장에 반영했다 (delta는 절대값, 방향은 isUp만으로 결정한다는 점을 명시).
+
+## 버그 수정 : 코인 가격이 시작부터 0원 근처로 떨어져 못 벗어나던 문제
+
+위 delta 부호 버그를 고치고 나서, 사용자가 "코인 가격이 너무 빨리 0원이 되어버린다"는 걸 지적했다. 확인해보니
+별개의 구조적 문제 두 개가 겹쳐 있었다.
+
+1. **`CurrentPrice` 초기값이 없었다** : `MarketManager.Awake()`가 `CurrentStat = new PlayerStat();`만 하고
+   `CurrentPrice`를 따로 설정하지 않아서, 게임 시작 시점 가격이 C# 기본값인 **0원**이었다.
+2. **가격 하한선이 없었다** : `PriceCalculator`/`EventCalculator` 어디도 `CurrentPrice`가 0 이하로 못 내려가게
+   막지 않았다. 게다가 매 턴 변동폭(`delta`)이 가격 크기와 무관한 절대값(대략 0~100)이라, 가격이 0 근처에서
+   시작하면 "하락" 판정 한 번만으로도 가격이 마이너스로 꺼져버리고, 한 번 꺼지면 이벤트의 `priceRatio`(가격에
+   곱하는 충격)도 0 근처 값에 곱해져 사실상 무력화되어 회복이 잘 안 되는 상태였다.
+
+**정해야 했던 값** : 초기 가격과 하한선 둘 다 임의의 밸런스 수치라 사용자에게 확인했다. **초기 가격 1000원**,
+**하한선 1원**으로 확정.
+
+**구현** :
+- `MarketManager`에 `InitialPrice`(1000f) 상수를 추가하고, `Awake()`에서 `CurrentStat` 생성 직후
+  `CurrentStat.CurrentPrice = InitialPrice;`로 설정한다.
+- `PriceCalculator`에 `MinPrice`(1f) 상수와 `ClampPrice(PlayerStat stat)`(`Mathf.Max(MinPrice, CurrentPrice)`)를
+  추가했다. `PriceCalculator.Calculate()`가 정규 가격 변화를 반영한 직후, `EventCalculator.Apply()`가 이벤트
+  `priceRatio` 충격을 반영한 직후 양쪽 모두에서 이 메서드를 호출해 가격이 절대 1원 밑으로 안 내려가게 막는다.
+  (중복 상수 대신 `PriceCalculator.MinPrice`/`ClampPrice`를 `EventCalculator`가 그대로 재사용 — Job/Skill이
+  `StatCalculator.ApplyEffect`를 공유하는 것과 같은 패턴.)
+
+공식은 `Game_Formula.md` 2장에 반영했다 (초기 가격/하한선 값 명시).
 
 ## 현재 아키텍처 요약
 

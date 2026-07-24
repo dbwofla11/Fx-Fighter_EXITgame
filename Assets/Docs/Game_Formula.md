@@ -38,7 +38,10 @@ Support/Growth는 `CurrentPrice`처럼 턴을 넘어 유지되는 값이다. Job
 
 # 2. 가격 변화량
 
-가격 변화량은 방향성과 별도로 계산된다.
+가격 변화량은 방향성과 별도로 계산된다. **여기서 계산되는 값은 부호 없는 크기(magnitude)이며, 방향(오르는지
+내리는지)은 오직 1장의 `isUp`(Pup 확률로 굴린 결과)만으로 결정한다.** `0.6 × Growth + 0.25 × Support + 0.15 ×
+Scarcity`는 Growth/Support가 음수일 수 있어 그 자체로는 부호가 있는 값이 나오지만, 이 부호를 그대로 가격에
+반영하면 안 된다 — 절대값을 취해 크기만 쓴다 (`PriceCalculator.Calculate`가 `Mathf.Abs`로 처리).
 
 Price(t+1)
 
@@ -46,9 +49,9 @@ Price(t+1)
 
 Price(t)
 
-+
+±
 
-0.6 × Growth
+|0.6 × Growth
 
 +
 
@@ -56,7 +59,16 @@ Price(t)
 
 +
 
-0.15 × Scarcity
+0.15 × Scarcity|
+
+(`isUp`이면 +, 아니면 -)
+
+- **초기 가격(`MarketManager.InitialPrice`) = 1000**. 게임 시작 시 `CurrentPrice`가 이 값으로 설정된다
+  (이전에는 초기화 코드가 없어 C# 기본값인 0으로 시작했었다 — 아래 "가격 하한선" 참고).
+- **가격 하한선(`PriceCalculator.MinPrice`) = 1**. `CurrentPrice`는 절대 이 값 밑으로 내려가지 않는다
+  (`PriceCalculator.ClampPrice`가 정규 가격 변화·이벤트 가격 충격 양쪽 모두에 적용된 뒤 강제한다). 0 이하로
+  내려가면 거래 계산(수량×가격)이 깨지고 이벤트의 `priceRatio`(가격에 곱하는 충격)도 0에 곱해져 무력화되므로
+  반드시 필요한 하한선이다.
 
 Scarcity는 발행량(Supply)을 기반으로 계산되는 희소성 지표이다.
 
@@ -79,6 +91,43 @@ Scarcity = 100 × (1 - Supply / MaxSupply)
 
 ---
 
+# 2-1. 스트리머 반응
+
+플레이 화면 우측 "스트리머" 패널이 이번 턴 가격 변화량에 따라 반응(표정/멘트)을 바꾸기 위한 값이다. UI는
+아직 스프라이트가 준비되지 않아 로직만 먼저 확정했다 (`Next_Tesk.md` 참고).
+
+## 판정 기준
+
+이번 턴 `CurrentPrice`의 총 변화량(`PriceChangeThisTurn`)을 기준으로 5단계 중 하나를 고른다. 변화량은 그 턴의
+정규 가격 변화(2장 공식)와 시사 이벤트의 즉시 가격 충격(4장)을 모두 합산한 값이다 — "그 턴에 CurrentPrice가
+실제로 얼마나 움직였는가"를 그대로 쓴다. 퍼센트가 아니라 절대값 기준이다 (2장 공식상 정규 변화량 자체가
+Support/Growth/Scarcity 범위(-100~100)에 묶여 있어 게임 진행에 따라 가격 규모가 커져도 절대값 기준의 의미가
+크게 흔들리지 않기 때문).
+
+```
+PriceChangeThisTurn = CurrentPrice(이번 턴 계산 후) - CurrentPrice(이번 턴 계산 전)
+```
+
+| 단계 | 조건 | 의미 |
+|---|---|---|
+| Surge(폭등) | PriceChangeThisTurn >= 50 | 큰 폭의 상승 |
+| Up(상승) | 10 <= PriceChangeThisTurn < 50 | 상승 |
+| Neutral(보합) | -10 < PriceChangeThisTurn < 10 | 변화 거의 없음 |
+| Down(하락) | -50 < PriceChangeThisTurn <= -10 | 하락 |
+| Crash(폭락) | PriceChangeThisTurn <= -50 | 큰 폭의 하락 |
+
+임계값(50/10)은 정규 가격 변화의 이론상 최대치(약 ±85~100)를 참고한 예시치로, 실제 스프라이트가 들어오고
+플레이테스트가 진행되면 밸런스 조정이 필요할 수 있다.
+
+## 갱신 시점
+
+`MarketManager.NextTurn()`(자동 턴 진행)과 `HandleNewsEvent()`(시사 이벤트 수동 트리거) 양쪽 모두, 계산 전
+`CurrentPrice`를 기억해뒀다가 계산 후와 비교해 `PlayerStat.PriceChangeThisTurn`/`StreamerReaction`을 갱신한다.
+별도 `EventHub` 이벤트를 추가하지 않았다 — `PlayerStat` 전체가 이미 `EventHub.OnMarketUpdated`로 나가므로 UI는
+그 안의 두 필드만 읽으면 된다. 감쇠/이월 없이 매 턴(또는 수동 트리거 시점) 새로 계산되는 값이다.
+
+---
+
 # 3. 거래 시스템
 
 플레이어는 현재 가격으로 즉시 거래한다.
@@ -91,7 +140,8 @@ Scarcity = 100 × (1 - Supply / MaxSupply)
 
 ## Short
 
-- 현재 가격으로 판매 : Revenue = Amount × CurrentPrice (현금 증가, 코인 감소)
+- 현재 가격으로 판매 : Revenue = Amount × CurrentPrice (현금 증가, 코인 감소) — Job/토글형 스킬의 `CashBonus`가
+  있으면 이 Revenue에 배율로 붙는다 (3-3장 참고)
 - Support 감소
 - Growth 감소
 
@@ -146,6 +196,10 @@ Growth(t+1) = Growth(t) × decayRate
 - 매 턴(`StatCalculator.Calculate()`, `MarketManager.NextTurn()`에서 호출) 적용된다.
 - 직업(Job)의 Support/Growth 효과도 동일하게 취급한다 — 3-1장 참고.
 - Supply(2장)도 동일한 감쇠 대상이다.
+- **UI 표시 전용 그림자 값** : `PlayerStat.JobSkillSupportBonus`/`JobSkillGrowthBonus`는 Job 선택·재사용형 Skill
+  구매가 준 기여분만 Trade/시사 이벤트를 제외하고 별도로 누적하며, `Support`/`Growth`와 동일한 `decayRate`로
+  똑같이 감쇠한다. 게임 계산(가격, 확률 등)에는 전혀 관여하지 않고 오직 개요 화면에 "Job+Skill이 지금
+  기여하고 있는 몫"을 스탯당 하나의 숫자로 보여주기 위한 값이다.
 - **Doubt(의심도)는 감쇠하지 않는다.** Job/Skill의 `DoubtDecrease` 효과(활성 상태인 동안 매 턴 계속 재적용,
   CashBonus/Volume과 같은 그룹)와 시사 이벤트(4장)로 값이 바뀌지만, 한 번 바뀐 값은 시간이 지나도 원래대로
   돌아오지 않고 턴을 넘어 그대로 유지된다. 기획상 Doubt는 시간이 지날수록 자동으로 100을 향해 올라가다가 100이
@@ -187,6 +241,35 @@ Support/Growth 부스트형 스킬이다. 직업과 동일하게, **구매 버�
 
 ---
 
+# 3-3. CashBonus(현금 증가)
+
+`EffectType.CashBonus`는 코인을 팔아 현금화할 때(Short) 받는 수익에 배율로 붙는 버프(%)다. 매수(Long)는
+지출이라 대상이 아니다.
+
+## Job/토글형 스킬의 CashBonus
+
+Job의 효과나 토글형 스킬의 효과처럼, 활성 상태인 동안 매 턴 `PlayerStat.CashBonus`에 그 시점의 값이 다시
+채워진다(3-1/3-2장의 Doubt류와 같은 그룹 — 감쇠하지 않고, 매 턴 새로 계산됨).
+
+공식 (Short, 3장 참고)
+
+Revenue = Amount × CurrentPrice × (1 + CashBonus / 100)
+
+- `PlayerManager.HandleSellCoin`이 판매 수익(`Amount × CurrentPrice`)에 그 순간의 `CurrentStat.CashBonus`%를
+  배율로 곱해서 지급한다.
+- `CashBonus`가 0이면(기본값) 배율 없이 원래 수익 그대로 지급된다.
+- ~~매 턴 보유 현금 전체에 곱해서 불리는 방식(복리 이자)~~은 "버프가 아니라 이자 아니냐"는 지적을 받고
+  폐기했다 (`Logging.md` 참고). 지금은 실제 거래를 해야만 효과를 보는 구조다.
+
+## 재사용형 스킬의 CashBonus
+
+Support/Growth와 동일하게 **구매 시점 1회성 현금 지급**이다. `PlayerStat.CashBonus`에 이월/감쇠가 없어서
+Support/Growth처럼 값을 쌓아뒀다가 서서히 줄이는 방식이 불가능하므로, `SkillManager.HandlePurchase()`가 구매
+즉시 `currentMoney × (해당 스킬의 CashBonus 효과값 / 100)`만큼 현금을 바로 지급한다
+(`SkillManager.GrantCashBonus`). Job/토글형 스킬의 CashBonus(거래 수익 배율)와는 완전히 별개의 경로다.
+
+---
+
 # 4. 시사 이벤트
 
 시사 이벤트는 발생하는 즉시, 뽑힌 `EventSO`가 정의한 만큼 Support/Growth/Doubt/Supply/가격에 직접 반영된다
@@ -196,7 +279,10 @@ Support/Growth/Supply는 Trade/Job과 동일하게 반영 후 매 턴 감쇠하�
 
 ## 발생 시점
 
-- 자동 : `MarketManager.NextTurn()`에서 `NewsEventIntervalTurns`(30)턴마다 `NewsEventChance`(40%) 확률로 발생
+- **무조건 발생** : `EventSO.guaranteedTurn`(0이면 해당 없음, N이면 게임 시작 후 N번째 턴)이 설정된 이벤트는
+  확률 판정 없이 그 턴에 반드시 발생한다. 무조건 발생 이벤트가 있는 턴에는 아래 "자동(확률)" 판정을 건너뛴다.
+  `MarketManager.FindGuaranteedEvent(turnCount)`가 매 턴 `eventDatabase`를 훑어 찾는다.
+- 자동(확률) : `MarketManager.NextTurn()`에서 `NewsEventIntervalTurns`(30)턴마다 `NewsEventChance`(40%) 확률로 발생
   여부를 판정한다.
 - 수동 : `EventHub.OnNewsEvent`를 통해 즉시 발생시킬 수 있다 (UI/시스템 트리거용, 자동 판정과 무관).
 - 자동/수동 모두 동일하게 `EventCalculator.Calculate(CurrentStat, eventDatabase)`를 호출한다.
@@ -216,6 +302,7 @@ Support/Growth/Supply는 Trade/Job과 동일하게 반영 후 매 턴 감쇠하�
 | `effects` | `List<EffectData>`. Job/Skill과 동일한 구조로, Support/Growth/Doubt 등 **원하는 스탯만 골라 부호 있는 값**을 지정한다 (예: `SupportIncrease +15`, `GrowthIncrease +10`만 넣고 Doubt는 아예 안 넣는 식) |
 | `supplyDelta` | Supply 변화량 (부호 포함). Job/Skill은 Supply를 건드리지 않으므로 `effects`에는 포함하지 않고 전용 필드로 둔다 |
 | `priceRatio` | 가격에 즉시 반영되는 변화율 (부호 포함, 예: `0.03` = +3%, `-0.06` = -6%) |
+| `guaranteedTurn` | 0이면 확률 발생 대상. N(1 이상)이면 게임 시작 후 N번째 턴에 확률 체크 없이 무조건 발생 (예: 스트리머_소개=1, 거래소_상장=2로 초반 두 턴에 순차 발생하도록 설정됨) |
 
 `effects`에서 Doubt를 다루려면 `EffectType.DoubtIncrease`(신규 추가, Job/Skill의 기존 `DoubtDecrease`와 대칭)와
 `DoubtDecrease`를 상황에 맞게 쓴다.
