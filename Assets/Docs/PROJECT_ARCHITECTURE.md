@@ -80,6 +80,9 @@ RuntimeData는 현재 게임 상태와 계산 결과를 저장한다. `RuntimeSk
 
 `PlayerStat.Support`/`Growth`/`Supply`/`CurrentPrice`는 턴을 넘어 유지되는 값이다. Job 선택, 거래(Long/Short),
 시사 이벤트가 발생하는 순간 그 값에 직접 반영되고, 매 턴 서서히 감쇠한다 (자세한 내용은 Game_Formula.md 참고).
+`JobSkillSupportBonus`/`JobSkillGrowthBonus`는 이 중 Job 선택·재사용형 Skill 구매가 준 몫만(Trade/이벤트 제외)
+별도로 추적하는 UI 표시 전용 값으로, 게임 계산에는 관여하지 않고 Support/Growth와 동일하게 감쇠한다
+(Game_Formula.md 3장 "누적치 감쇠" 참고).
 `Supply`는 시사 이벤트, 발행량 조작 액션(`OnManipulateSupply`, `추가발행권한` 스킬 구매 후 사용 가능), 재사용형
 스킬의 `SupplyIncrease`/`SupplyDecrease` 효과로 변화한다. Job은 Supply에 영향을 주지 않는다.
 
@@ -228,7 +231,9 @@ PlayerManager를 거치지 않는다).
   `StatCalculator.ApplySkills`가 매 턴 재적용한다. 감쇠 대상이 아니다.
 
 `IsUnlocked(SkillID id)`로 특정 스킬을 구매/해금했는지 다른 Manager가 조회할 수 있다 (예: `MarketManager`가
-발행량 조작 버튼 사용 가능 여부를 판단할 때 사용).
+발행량 조작 버튼 사용 가능 여부를 판단할 때 사용). 스킬 정보 패널 UI를 위해 `GetSkillProfile(SkillID id)`(해당
+스킬의 `SkillSO` 반환, description/효과 등 정적 데이터 조회용)와 `GetCurrentCost(SkillID id)`(구매 횟수가
+반영된 실제 현재 비용 반환)도 제공한다.
 
 ---
 

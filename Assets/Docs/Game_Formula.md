@@ -91,7 +91,8 @@ Scarcity = 100 × (1 - Supply / MaxSupply)
 
 ## Short
 
-- 현재 가격으로 판매 : Revenue = Amount × CurrentPrice (현금 증가, 코인 감소)
+- 현재 가격으로 판매 : Revenue = Amount × CurrentPrice (현금 증가, 코인 감소) — Job/토글형 스킬의 `CashBonus`가
+  있으면 이 Revenue에 배율로 붙는다 (3-3장 참고)
 - Support 감소
 - Growth 감소
 
@@ -146,6 +147,10 @@ Growth(t+1) = Growth(t) × decayRate
 - 매 턴(`StatCalculator.Calculate()`, `MarketManager.NextTurn()`에서 호출) 적용된다.
 - 직업(Job)의 Support/Growth 효과도 동일하게 취급한다 — 3-1장 참고.
 - Supply(2장)도 동일한 감쇠 대상이다.
+- **UI 표시 전용 그림자 값** : `PlayerStat.JobSkillSupportBonus`/`JobSkillGrowthBonus`는 Job 선택·재사용형 Skill
+  구매가 준 기여분만 Trade/시사 이벤트를 제외하고 별도로 누적하며, `Support`/`Growth`와 동일한 `decayRate`로
+  똑같이 감쇠한다. 게임 계산(가격, 확률 등)에는 전혀 관여하지 않고 오직 개요 화면에 "Job+Skill이 지금
+  기여하고 있는 몫"을 스탯당 하나의 숫자로 보여주기 위한 값이다.
 - **Doubt(의심도)는 감쇠하지 않는다.** Job/Skill의 `DoubtDecrease` 효과(활성 상태인 동안 매 턴 계속 재적용,
   CashBonus/Volume과 같은 그룹)와 시사 이벤트(4장)로 값이 바뀌지만, 한 번 바뀐 값은 시간이 지나도 원래대로
   돌아오지 않고 턴을 넘어 그대로 유지된다. 기획상 Doubt는 시간이 지날수록 자동으로 100을 향해 올라가다가 100이
@@ -184,6 +189,35 @@ Support/Growth 부스트형 스킬이다. 직업과 동일하게, **구매 버�
 ## 재사용 불가 스킬 (`isReusable == false`, 예: `ExitUnlock`)
 
 영구 효과형 스킬이다. 기존과 동일하게 활성화(On) 상태를 유지하는 동안 매 턴 효과가 계속 재적용되며, 감쇠 대상이 아니다.
+
+---
+
+# 3-3. CashBonus(현금 증가)
+
+`EffectType.CashBonus`는 코인을 팔아 현금화할 때(Short) 받는 수익에 배율로 붙는 버프(%)다. 매수(Long)는
+지출이라 대상이 아니다.
+
+## Job/토글형 스킬의 CashBonus
+
+Job의 효과나 토글형 스킬의 효과처럼, 활성 상태인 동안 매 턴 `PlayerStat.CashBonus`에 그 시점의 값이 다시
+채워진다(3-1/3-2장의 Doubt류와 같은 그룹 — 감쇠하지 않고, 매 턴 새로 계산됨).
+
+공식 (Short, 3장 참고)
+
+Revenue = Amount × CurrentPrice × (1 + CashBonus / 100)
+
+- `PlayerManager.HandleSellCoin`이 판매 수익(`Amount × CurrentPrice`)에 그 순간의 `CurrentStat.CashBonus`%를
+  배율로 곱해서 지급한다.
+- `CashBonus`가 0이면(기본값) 배율 없이 원래 수익 그대로 지급된다.
+- ~~매 턴 보유 현금 전체에 곱해서 불리는 방식(복리 이자)~~은 "버프가 아니라 이자 아니냐"는 지적을 받고
+  폐기했다 (`Logging.md` 참고). 지금은 실제 거래를 해야만 효과를 보는 구조다.
+
+## 재사용형 스킬의 CashBonus
+
+Support/Growth와 동일하게 **구매 시점 1회성 현금 지급**이다. `PlayerStat.CashBonus`에 이월/감쇠가 없어서
+Support/Growth처럼 값을 쌓아뒀다가 서서히 줄이는 방식이 불가능하므로, `SkillManager.HandlePurchase()`가 구매
+즉시 `currentMoney × (해당 스킬의 CashBonus 효과값 / 100)`만큼 현금을 바로 지급한다
+(`SkillManager.GrantCashBonus`). Job/토글형 스킬의 CashBonus(거래 수익 배율)와는 완전히 별개의 경로다.
 
 ---
 

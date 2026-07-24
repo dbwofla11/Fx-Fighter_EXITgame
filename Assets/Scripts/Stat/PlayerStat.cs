@@ -25,6 +25,16 @@ public class PlayerStat
     public float Volume;
 
     // ==========================
+    // UI 표시용 (Job/Skill 기여분만 별도 추적)
+    // ==========================
+
+    /// <summary>Job 선택 + 재사용형 Skill 구매가 준 Support 기여분만 별도 누적 (Trade/Event 제외, Support와 동일하게 감쇠). 개요 화면 표시용.</summary>
+    public float JobSkillSupportBonus;
+
+    /// <summary>Job 선택 + 재사용형 Skill 구매가 준 Growth 기여분만 별도 누적 (Trade/Event 제외, Growth와 동일하게 감쇠). 개요 화면 표시용.</summary>
+    public float JobSkillGrowthBonus;
+
+    // ==========================
     // Event
     // ==========================
 
@@ -62,6 +72,9 @@ public class PlayerStat
 
         Supply = 0;
         Volume = 0;
+
+        JobSkillSupportBonus = 0;
+        JobSkillGrowthBonus = 0;
 
         PositiveEventRate = 0;
         NegativeEventRate = 0;

@@ -477,6 +477,131 @@ Supply를 바꾸는 값들(`EventSO.supplyDelta`, 발행량 조작 버튼의 `am
 브로드캐스트가 나가 턴 중간의 미완성 상태(Probability/Price 정규 계산 전)가 한 번 더 노출되는 중복이 생기기
 때문이다. `PROJECT_ARCHITECTURE.md`의 `OnNewsEvent` 설명에 반영했다.
 
+## 스킬/직업 정보 패널을 위한 UI 훅 정리
+
+UI 기획안(개요/스킬/직업 선택 화면) 스크린샷을 보고 지금 상태로 각 화면을 띄울 수 있는지 점검했다.
+
+- **기본 스탯(개요 화면 대부분)** : `MarketManager.CurrentStat`이 `EventHub.OnMarketUpdated(PlayerStat stat)`로
+  통째로 나가므로 UI는 리스너 하나만 걸면 바로 사용 가능. `PlayerManager.currentMoney`(목표금액 진행률)는
+  이벤트가 아니라 기존처럼 폴링 방식.
+- **직업 선택 화면** : 추가 작업 불필요. "다음으로" 버튼이 `EventHub.RaiseJobSelected(JobSO)`에 넘길 `JobSO`를
+  UI가 이미 들고 있어야 하므로, 그 참조로 `description`/`효과`를 직접 읽으면 된다 (이벤트 로그 UI가
+  `EventSO.message`를 직접 읽는 것과 동일한 패턴).
+- **스킬 화면** : `SkillManager.SelectedSkillId`로 어떤 스킬이 선택됐는지는 이미 알 수 있었지만, 정보 패널에
+  필요한 **현재 Cost**(`baseCost × costMultiplier^PurchaseCount`)는 `PurchaseCount`가 `SkillManager` 내부
+  런타임 상태라 UI가 계산할 방법이 없었다. `GetSkillProfile(SkillID id)`(SkillSO 반환)와 `GetCurrentCost(SkillID
+  id)`(현재 비용 반환) 두 개를 추가해서 막힌 부분을 풀었다. 새 DTO 클래스는 만들지 않고 기존 `GetSkill`/
+  `CalculateCost`를 재사용하는 얇은 public 래퍼로만 처리했다.
+- **뒤로 미룬 것** : 개요 화면 하단의 "코인 지지도 상승률 +20" 같은, Job/Skill발 보너스만 따로 뽑아 보여주는
+  항목은 `CurrentStat`이 거래·감쇠·이벤트를 다 합친 값이라 지금 분리해서 읽을 방법이 없다. 별도 설계가
+  필요해서 이번 작업 범위에서 제외했다.
+
+## 개요 화면 Job+Skill 보너스 표시 구현
+
+Next_Tesk.md에 후보로 남겨뒀던 "개요 화면의 Job/Skill 보너스 분리 표시"를 바로 이어서 진행했다. 먼저 표시
+방식부터 확정해야 했다 — Job과 Skill을 따로따로 보여줄지, 합쳐서 스탯당 하나로 보여줄지 물어봤고 **합쳐서
+하나**로 정해졌다.
+
+그다음 걸림돌은 재사용형 스킬(구매하면 1회 반영 후 서서히 감쇠하는 타입)이었다. Job의 Support/Growth 효과는
+선택 시 1회 반영 후 감쇠하고, 재사용형 스킬도 구매 시 1회 반영 후 감쇠한다(3-1/3-2장) — 즉 시간이 지나면
+둘 다 자연히 줄어드는 값이라, 이걸 표시에 포함시키려면 감쇠를 반영할지부터 정해야 했다. 감쇠를 반영하기로
+확정했다 — Trade/Event가 섞이지 않은 "순수 Job+Skill 몫이 지금 얼마나 남아있는지"를 보여주는 게 목적이므로.
+
+### 구현
+
+`PlayerStat`에 `JobSkillSupportBonus`/`JobSkillGrowthBonus`(float)를 추가해서, `Support`/`Growth`와 나란히
+가지만 **Trade(Long/Short)와 시사 이벤트는 반영하지 않고 Job 선택·재사용형 Skill 구매만** 반영하는 그림자
+값으로 만들었다.
+
+- `StatCalculator.ApplyJobSelection`/`ApplySkillUse`에서 `Support`/`Growth`를 올릴 때 이 두 필드에도 동일한
+  값을 같이 더한다.
+- `StatCalculator.Calculate()`의 이월(carry-over) 목록에 추가해서 매 턴 이전 값을 이어받는다.
+- `TradeCalculator.Decay`에서 `Support`/`Growth`와 동일한 `decayRate`(0.995)로 같이 감쇠시킨다.
+- 게임 계산(가격, 확률 등)에는 전혀 관여하지 않는 순수 UI 표시용 값이다.
+
+Doubt("의심도 상승률" 행)는 손대지 않았다 — Doubt는 애초에 감쇠하지 않는 값이고 Job/토글형 스킬의
+`DoubtDecrease`는 매 턴 그 시점의 `effects`를 다시 읽어 재적용하는 방식(3-1장)이라, 별도 누적 없이 UI가
+`JobManager.CurrentJob.effects` + `SkillManager.GetActiveSkills()`의 Doubt 관련 효과를 그대로 합산해서 보여주면
+된다 (이미 둘 다 public).
+
+이전에 시도했다 폐기한 "소스별 누적 데이터"(`RuntimeTradeData`, `JobBoostData`, "Support/Growth 감쇠" 절 참고)와
+겉보기엔 비슷해 보이지만, 그때는 이 누적치가 실제 게임 계산 파이프라인에 다시 합류해야 해서 복잡했던 반면
+이번 값은 순수 표시 전용이라 계산에 전혀 관여하지 않는다는 점이 달라서 훨씬 단순하게 끝났다.
+
+공식은 `Game_Formula.md` 3장 "누적치 감쇠"에 반영했다.
+
+## CashBonus를 실제 현금 증가로 연결
+
+이벤트 SO 작업 중에 "CashBonus가 실제로 돈에 반영이 안 된다"는 지적을 받았었는데, 그때는 가격 반영 버그 얘기로
+넘어갔다가 이번에 다시 짚었다. `StatCalculator.ApplyEffect`가 `stat.CashBonus += effect.value`만 하고 그 값을
+소비하는 곳이 어디에도 없었던 게 원인 — Job/Skill의 CashBonus 효과가 조용히 죽어있었다.
+
+**요구사항** : "매 턴마다 올라가는 현금의 양이 CashBonus%만큼 증가"로 확정. 별도 누적/이월 로직 없이, 이미
+매 턴 `StatCalculator.Calculate()`(`ApplyJob`/`ApplySkills`)가 다시 채워주는 `CurrentStat.CashBonus`를 그대로
+가져다 쓰면 충분했다.
+
+**구현** : `MarketManager.NextTurn()`에 `ApplyDoubtAutoRise()`와 같은 자리에 `ApplyCashBonus()`를 추가했다.
+
+```csharp
+private void ApplyCashBonus()
+{
+    long bonus = (long)(PlayerManager.Instance.currentMoney * (CurrentStat.CashBonus / 100f));
+    PlayerManager.Instance.AddMoney(bonus);
+}
+```
+
+재사용형 스킬 구매 시점의 CashBonus(`ApplySkillUse`)는 그 턴에만 1회 반영되고 다음 턴에 사라진다는 것도
+확인했다 — `CashBonus`는 Support/Growth와 달리 감쇠/이월 대상이 아니라 매 턴 `Calculate()`가 만드는 새
+`PlayerStat`에서 0부터 다시 Job/토글형 스킬 효과만으로 채워지기 때문이다. 지금 요구사항(Job/토글형 스킬의
+CashBonus를 매 턴 반영)에는 이 동작으로 충분해서 손대지 않았고, 알려진 동작으로 문서에 남겨뒀다.
+
+공식은 `Game_Formula.md` 3-3장(신규)에 반영했다.
+
+### 재사용형 스킬의 CashBonus가 실제로는 0턴도 반영 안 되던 문제 수정
+
+라이브로 시나리오를 확인해보려다(Play 모드 진입 직전에 사용자가 "돌리지 말고 설명만" 요청해서 코드를 다시
+따라가며 손으로 검증) 위에서 "다음 턴에 사라진다"고 적었던 게 부정확했다는 걸 발견했다. 실제로는:
+
+1. 구매 시점에 `ApplySkillUse`가 그 순간의 `CurrentStat`에 `CashBonus += 값`을 해준다.
+2. 근데 이 값을 소비하는 `ApplyCashBonus()`는 `NextTurn()` 안에서만 호출된다.
+3. `NextTurn()`의 첫 줄 `CurrentStat = StatCalculator.Calculate();`가 완전히 새 `PlayerStat`을 만드는데,
+   `CashBonus`는 이월 대상이 아니라서 새 오브젝트는 0에서 시작한다.
+4. `ApplyJob`/`ApplySkills`(매 턴 재적용 루프)는 재사용형 스킬을 명시적으로 건너뛰므로 그 15가 다시 채워지지도
+   않는다.
+5. 그래서 `ApplyCashBonus()`가 실행되는 시점엔 이미 `CashBonus == 0`— **단 한 턴도 실제 현금 증가에 기여하지
+   못했다.**
+
+사용자가 "케이스1(Job/토글형)도 매 턴 보유 현금의 %를 복리로 불리는 건 버프가 아니라 그냥 이자 아니냐"는
+지적을 했다 — 맞는 말이라 Job/토글형 쪽 공식은 나중에 다시 설계하기로 하고, 재사용형 스킬 쪽만 먼저 고쳤다.
+
+**수정 방향** : `CashBonus`를 매 턴 순환시키는 인프라(이월+감쇠)를 새로 만드는 대신, 재사용형 스킬의
+Support/Growth와 동일한 "구매 시점 1회성" 철학을 그대로 따랐다 — 다만 Support/Growth처럼 감쇠하며 남아있을
+방법이 없으니(`CashBonus`엔 이월/감쇠가 없음), **구매하는 순간 즉시 현금을 지급**하는 방식으로 바꿨다.
+`SkillManager.HandlePurchase()`에 `GrantCashBonus(skill.Profile)` 호출을 추가했다 — 스킬의 `effects` 중
+`CashBonus` 타입만 골라 `currentMoney × (값/100)`을 그 자리에서 바로 `AddMoney`한다. `ApplySkillUse`가 하던
+`stat.CashBonus += 값` 자체는 그대로 남겨뒀다 (해가 없고, 구매 직후~다음 턴 사이 UI가 참고할 수도 있어서).
+
+Job/토글형 스킬 쪽 `ApplyCashBonus()`(매 턴 보유 현금 대비 % 복리 증가)는 손대지 않았다 — "이자 문제"의 올바른
+해법(고정액 버프? 거래 수익 배율? 등)이 아직 안 정해져서 별도 후보로 남겨뒀다.
+
+### Job/토글형 스킬 CashBonus 재설계 — "이자"에서 "거래 수익 배율"로
+
+바로 이어서 위 후보를 처리했다. "거래(Long/Short) 수익에 배율로 적용"으로 방향을 정했고, Long(매수)은 지출이라
+"수익"이 아니므로 대상에서 제외했다.
+
+**수정** :
+- `MarketManager.NextTurn()`에서 `ApplyCashBonus()` 호출과 메서드 자체를 제거했다 (매 턴 보유 현금 전체에
+  곱하던 옛 방식 폐기).
+- `PlayerManager.HandleSellCoin()`이 판매 수익(`Amount × CurrentPrice`)에 그 순간의
+  `CurrentStat.CashBonus`%를 배율로 곱해서 지급하도록 바꿨다 — `Revenue = Amount × CurrentPrice × (1 +
+  CashBonus / 100)`.
+- `PlayerStat.CashBonus` 자체(값이 매 턴 Job/토글형 스킬 효과로 다시 채워지는 방식)는 그대로 뒀다 — 그 값을
+  "언제 어떻게 쓰는지"만 바꿨다.
+
+이제 CashBonus는 실제로 거래를 해야만 체감되는 버프가 됐다 (가만히 있으면 늘지 않음).
+
+공식은 `Game_Formula.md` 3장 "Short", 3-3장에 반영했다.
+
 ## (곁가지) MCP for Unity 연결 트러블슈팅
 
 이 세션에서 처음으로 Unity MCP가 연결됐는데, 그 과정에서 겪은 문제와 원인을 기록해둔다 (다음에 또 끊기면
