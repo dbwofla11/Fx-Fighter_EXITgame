@@ -72,6 +72,10 @@ Scarcity = 100 × (1 - Supply / MaxSupply)
   - 재사용형 스킬 구매 시 `EffectType.SupplyIncrease`/`SupplyDecrease` 효과 (`StatCalculator.ApplySkillUse`)
 - Supply는 `Support`/`Growth`와 동일하게 `CurrentPrice`처럼 턴을 넘어 유지되는 값이며, 위 소스가 반영되는 순간 직접
   반영된 뒤 매 턴 `TradeCalculator.Decay`로 0을 향해 감쇠한다 (decayRate = 0.995, 3장 "누적치 감쇠" 참고).
+- **`MaxSupply = 20000`이 실제 기준값이다.** UI 목업이 "현재 발행량 : 20,000,000개"처럼 더 큰 자릿수를 보여주는
+  경우가 있는데, 이는 `TargetAsset`(5장 참고) 때와 동일하게 예시/목업 수치일 뿐 실제 값이 아니다. 이벤트
+  `supplyDelta`, 발행량 조작 버튼의 `amount`, 스킬의 `SupplyIncrease`/`SupplyDecrease` 등 Supply를 바꾸는 모든
+  수치는 이 20000 스케일을 기준으로 정한다.
 
 ---
 

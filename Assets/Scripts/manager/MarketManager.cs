@@ -143,10 +143,11 @@ public class MarketManager : MonoBehaviour
         EventHub.RaiseGameEnded(ending);
     }
 
-    // 시사 이벤트 적용 요청 수신 (수동 트리거)
+    // 시사 이벤트 적용 요청 수신 (수동 트리거) : NextTurn()과 달리 다음 턴까지 기다리지 않고 즉시 반영한다.
     private void HandleNewsEvent()
     {
         TriggerNewsEvent();
+        EventHub.RaiseMarketUpdated(CurrentStat);
     }
 
     // EventCalculator로 이벤트를 계산해 반영하고, 실제로 발생했으면 로그에 기록한다.

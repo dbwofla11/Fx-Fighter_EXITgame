@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b44a79e4350d3a4aa333801adf77ea4, type: 3}
+  m_Name: "\uC778\uD50C\uB8E8\uC5B8\uC11C_\uD3ED\uB85C"
+  m_EditorClassIdentifier: Assembly-CSharp::EventSO
+  message: "\uC720\uBA85 \uC778\uD50C\uB8E8\uC5B8\uC11C\uAC00 \uCF54\uC778 \uC0AC\uAE30\uB97C
+    \uD3ED\uB85C\uD588\uC2B5\uB2C8\uB2E4."
+  category: 1
+  weight: 1
+  effects:
+  - effectType: 0
+    value: -15
+  - effectType: 9
+    value: 25
+  supplyDelta: 150
+  priceRatio: -0.04

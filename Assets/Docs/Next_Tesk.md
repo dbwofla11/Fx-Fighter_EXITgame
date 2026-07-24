@@ -43,26 +43,16 @@
   `TimeManager.PauseGame()`으로 정지하고 `EventHub.OnGameEnded(EndingType)`를 발행하며, 체포/거지 엔딩도
   `PlayerManager`의 실제 현금/코인 수치는 건드리지 않는다. (`Logging.md` "Doubt 자동 상승 + 엔딩 시스템" 참고,
   공식은 `Game_Formula.md` 3장/5장)
+- **완료** : Supply 스케일 재검토. `MaxSupply = 20000`(코드)이 실제 기준값이고, UI 스크린샷의 "20,000,000"은
+  `TargetAsset` 때와 동일하게 예시/목업 수치였음을 확인했다. 코드 변경 없음, 앞으로 Supply 관련 수치(이벤트
+  `supplyDelta`, 발행량 조작 버튼 `amount`, 스킬 `SupplyIncrease`/`SupplyDecrease`)는 이 스케일 기준으로 정한다.
+  (`Logging.md` "Supply 스케일 재검토" 참고, 공식은 `Game_Formula.md` 2장)
+- **완료** : EventSO 데이터 작성 + Inspector 연결. 긍정 3개(스트리머_소개/거래소_상장/규제_완화), 부정 3개
+  (당국_조사/해킹_사고/인플루언서_폭로) 예시 이벤트를 `Assets/Scripts/Profile/이벤트_프로파일/`에 만들고
+  `Managers` GameObject의 `MarketManager.eventDatabase`에 6개 모두 등록했다 (Unity MCP로 작업, 씬 저장 완료).
+  Positive/Negative 각 카테고리에 최소 1개씩 있어 이제 시사 이벤트가 실제로 발생한다. (`Logging.md` "EventSO
+  예시 데이터 작성" 참고)
 - **남음** : 아래 참고.
-
----
-
-## 후보 : EventSO 데이터 작성 + Inspector 연결
-
-`EventSO`/`EventCategory`/`EventLogEntry` 클래스와 `MarketManager.eventDatabase` 배선은 끝났지만, 실제 이벤트
-데이터(`.asset`)는 아직 하나도 없다 (Job의 `New Job.asset`처럼 플레이스홀더조차 없는 빈 리스트 상태). Unity
-에디터에서 사람이 직접 만들어야 한다.
-
-- `Create > Game > EventSO`로 이벤트 에셋을 만든다. 예시(스크린샷 기준):
-  - "유명 스트리머가 코인을 소개했습니다!" — `category`=Positive, `effects`=[SupportIncrease +15, GrowthIncrease +10]
-  - "금융당국이 코인 조사를 시작했습니다!" — `category`=Negative, `effects`=[DoubtIncrease +20, GrowthIncrease -15]
-  - Positive/Negative 각각 최소 1개 이상 있어야 그 카테고리가 뽑혔을 때 실제로 이벤트가 발생한다 (없으면
-    조용히 무시됨).
-- `weight`/`supplyDelta`/`priceRatio` 값과 이벤트 가짓수는 기획자가 원하는 만큼 자유롭게 정하면 된다 (예전처럼
-  Small/Medium/Large 3단계로 뭉뚱그릴 필요 없음 — 이벤트 하나하나가 각자 완결된 사건이다).
-- 만든 에셋들을 `MarketManager`(씬의 `DontDestroyOnLoad` 오브젝트) Inspector의 `Event Database` 리스트에 드래그해야
-  실제로 이벤트가 발생한다.
-- 이 데이터가 갖춰지고 나면, 이후 새 이벤트를 추가/조정하는 건 코드 수정 없이 에셋 추가/값 조정만으로 가능해진다.
 
 ---
 
@@ -93,12 +83,6 @@
 
 `TimeUI`, `PlayerUI`, `SettingsUI`만 기존처럼 `TimeManager`/`PlayerManager`를 직접 참조하는 상태이고, 나머지는
 설계는 끝났으나 화면이 없다.
-
-## 후보 : Supply 스케일 재검토 (MaxSupply)
-
-스크린샷 UI는 "현재 발행량 : 20,000,000개"를 보여주는데, `PriceCalculator.MaxSupply`는 코드상 `20000f`다
-(1000배 차이). 실제 밸런스를 어느 스케일로 갈지에 따라 `MaxSupply`뿐 아니라 이벤트/스킬/발행량 조작 버튼의
-Supply 변화량도 함께 다시 잡아야 할 수 있다.
 
 ## 후보 : 발행량 관련 스킬 3종에 실제 Supply 효과 부여
 

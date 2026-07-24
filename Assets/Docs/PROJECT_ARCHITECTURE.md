@@ -47,7 +47,7 @@ UI와 Manager 사이를 중계하는 정적(static) 이벤트 허브. (Assets/Sc
 - OnJobSelected : 직업 선택 요청 (JobManager 구독)
 - OnBuyCoin / OnSellCoin : 코인 매수/매도 요청 (PlayerManager, MarketManager 구독)
 - OnManipulateSupply : 발행량 조작 요청, 양수/음수로 증가·감소 (MarketManager 구독) — `추가발행권한` 스킬을 구매하기 전에는 무시된다
-- OnNewsEvent : 시사 이벤트 수동 트리거 (MarketManager 구독) — 자동 발생(30턴마다 확률)은 `MarketManager.NextTurn()`이 별도로 처리하며 동일한 `TriggerNewsEvent`/`EventCalculator.Calculate`를 호출한다
+- OnNewsEvent : 시사 이벤트 수동 트리거 (MarketManager 구독) — 자동 발생(30턴마다 확률)은 `MarketManager.NextTurn()`이 별도로 처리하며 동일한 `TriggerNewsEvent`/`EventCalculator.Calculate`를 호출한다. 수동 트리거는 다음 턴까지 기다리지 않고 처리 직후 `EventHub.RaiseMarketUpdated`를 바로 발행해 가격 변화를 즉시 반영한다
 - OnMarketUpdated : 시장 계산 완료 후 UI 갱신 (MarketManager 발행)
 - OnExitRequested : 엑시트 버튼 클릭 요청, 인자 없음 (MarketManager 구독) — `MarketManager.CanExit`(목표 자산 달성 여부)가 false면 무시된다
 - OnGameEnded : 게임 종료(엔딩 확정) 통지, `EndingType` 전달 (MarketManager 발행)

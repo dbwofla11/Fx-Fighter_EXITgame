@@ -737,6 +737,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 36bdbbbd00fc1f24ca735d8441fa79a9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MarketManager
+  eventDatabase:
+  - {fileID: 11400000, guid: e4a4c17b678611147848ed509e290f4e, type: 2}
+  - {fileID: 11400000, guid: 5950290f51ad5434699fdae5b31db3cd, type: 2}
+  - {fileID: 11400000, guid: 685fb0b8db6249049b9dd491f685d886, type: 2}
+  - {fileID: 11400000, guid: ea4d933bdaf78874287a9cafc1d2dda8, type: 2}
+  - {fileID: 11400000, guid: 362ddeb9979fcab45b72512837531ac2, type: 2}
+  - {fileID: 11400000, guid: 1beae4cd4f0e4f844a0480e734067a73, type: 2}
 --- !u!114 &211422934
 MonoBehaviour:
   m_ObjectHideFlags: 0

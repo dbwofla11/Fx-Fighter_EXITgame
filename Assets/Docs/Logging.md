@@ -424,6 +424,82 @@ Doubt 작업(위 "Doubt(의심도)도 이벤트에 포함" 절)에서 `EffectTyp
 
 공식/기획은 `Game_Formula.md` 3장(Doubt 자동 상승), 5장(엔딩 조건)에 신규 반영했다.
 
+## Supply 스케일 재검토 — 결론은 "코드 값이 맞다, UI가 예시값"
+
+`Next_Tesk.md`에 후보로 있던 "Supply 스케일 재검토"를 확인했다. `PriceCalculator.MaxSupply`가 코드상 `20000f`인데
+UI 스크린샷은 "현재 발행량 : 20,000,000개"(1000배 차이)를 보여줘서 실제 밸런스를 어느 쪽에 맞출지가 쟁점이었다.
+
+Supply를 바꾸는 값들(`EventSO.supplyDelta`, 발행량 조작 버튼의 `amount`, 스킬 `SupplyIncrease`/`SupplyDecrease`)이
+전부 아직 실제 데이터가 입력되지 않은 상태(이벤트 에셋 자체가 없고, 스킬 3종에도 Supply 효과가 없음)라 순수
+밸런스 수치 문제였고, 이전에 `TargetAsset`에서 "스크린샷은 예시값, 실제 값은 다르다"로 정리했던 것과 동일한
+패턴인지 확인 차 물어봤다.
+
+**결론** : `MaxSupply = 20000`이 실제 기준값이 맞고, UI의 "20,000,000"은 `TargetAsset` 때와 마찬가지로 예시/목업
+수치였다. 코드 변경 없음. 앞으로 이벤트 `supplyDelta`/발행량 조작 버튼 `amount`/스킬 Supply 효과 수치를 정할 때는
+이 20000 스케일을 기준으로 잡아야 한다. `Game_Formula.md` 2장에 반영했다.
+
+## EventSO 예시 데이터 작성 + Inspector 연결
+
+`EventSO` 클래스와 `MarketManager.eventDatabase` 배선은 끝나 있었지만 실제 이벤트 에셋이 하나도 없어서, 시사
+이벤트가 확률상으로만 존재하고 실제로는 절대 발생하지 않는 상태였다. Unity MCP(Unity 에디터와의 실시간 연결)가
+이 세션 중에 연결되어서, 예시 데이터를 직접 만들어 등록했다.
+
+- `Assets/Scripts/Profile/이벤트_프로파일/`(스킬의 `스킬_프로파일` 폴더와 동일한 명명 규칙)에 `EventSO` 6개를
+  생성했다.
+  - **긍정 3개** : 스트리머_소개(Support+15/Growth+10), 거래소_상장(Support+20/Growth+25, weight 0.6로 더
+    희귀하게), 규제_완화(Support+10/Doubt-8)
+  - **부정 3개** : 당국_조사(Doubt+20/Growth-15), 해킹_사고(Support-25/Growth-20/Doubt+15, weight 0.5), 인플루언서_폭로(Support-15/Doubt+25)
+  - `supplyDelta`는 긍정은 음수(-100~-300), 부정은 양수(+150~+400)로 4장 규칙(긍정=공급 감소, 부정=공급 증가)을
+    따랐고, `priceRatio`는 ±0.03~±0.11 범위로 등급에 따라 다르게 잡았다. 값 자체는 예시/플레이스홀더이므로
+    밸런스 조정은 자유롭게 해도 된다.
+- 만든 6개를 `Managers` GameObject의 `MarketManager.eventDatabase`에 전부 등록했다 (씬 저장 완료). Positive/
+  Negative 각 카테고리에 최소 1개 이상 있어야 그 카테고리가 뽑혔을 때 실제로 이벤트가 발생하는데(4장), 이제
+  양쪽 다 채워졌으므로 시사 이벤트가 정상적으로 발생한다.
+- `EventSO.effects`(`List<EffectData>`)에 배열 항목을 채울 때, Unity MCP의 `manage_scriptable_object` patch로
+  `effects.Array.size`를 직접 지정하는 건 지원되지 않았다(`Unsupported SerializedPropertyType: ArraySize`
+  에러) — 대신 `effects.Array.data[0].effectType`처럼 인덱스를 가진 항목을 바로 set하면 배열이 필요한
+  크기까지 자동으로 늘어나므로, size patch 없이 data 항목만 순서대로 지정하면 된다.
+
+## 시사 이벤트 수동 트리거가 가격 변화를 즉시 반영하지 않던 문제 수정
+
+이벤트 SO를 실제로 만들어 등록한 뒤 확인하는 과정에서, 이벤트가 발생해도 가격이 바로 반영되지 않는다는
+지적을 받았다. 확인해보니 `EventCalculator.Calculate()`는 설계(Game_Formula.md 4장)대로 `stat.CurrentPrice`를
+그 자리에서 바로 바꾸고 있었다 — 문제는 값 자체가 아니라 **전파**였다.
+
+- 자동 발생 경로(`MarketManager.NextTurn()`이 30턴마다 확률 체크) : `TriggerNewsEvent()` 호출 이후 같은
+  함수 안에서 `EventHub.RaiseMarketUpdated(CurrentStat)`을 이미 호출하고 있어서 문제없었다.
+- 수동 트리거 경로(`EventHub.OnNewsEvent` → `MarketManager.HandleNewsEvent()`) : `TriggerNewsEvent()`만 호출하고
+  끝나서, 이벤트가 `CurrentStat.CurrentPrice`를 바꿔도 그 사실을 알리는 브로드캐스트가 없었다. 다음 자연스러운
+  턴이 지나야만(`NextTurn()`이 `RaiseMarketUpdated`를 호출할 때) 비로소 반영된 게 보이는 상태였다.
+
+**수정** : `MarketManager.HandleNewsEvent()`에 `TriggerNewsEvent()` 직후 `EventHub.RaiseMarketUpdated(CurrentStat)`
+한 줄만 추가했다. 자동 경로는 건드리지 않았다 — 거기서 똑같이 추가하면 `NextTurn()` 끝에서 한 번 더
+브로드캐스트가 나가 턴 중간의 미완성 상태(Probability/Price 정규 계산 전)가 한 번 더 노출되는 중복이 생기기
+때문이다. `PROJECT_ARCHITECTURE.md`의 `OnNewsEvent` 설명에 반영했다.
+
+## (곁가지) MCP for Unity 연결 트러블슈팅
+
+이 세션에서 처음으로 Unity MCP가 연결됐는데, 그 과정에서 겪은 문제와 원인을 기록해둔다 (다음에 또 끊기면
+참고용).
+
+- 증상 : `unityMCP` 도구는 목록에 잡히는데 `mcpforunity://instances`가 계속 `instance_count: 0`을 반환.
+- 원인 1 — **설정 중복** : 프로젝트 `.mcp.json`이 Claude Code용으로 `uvx ... mcp-for-unity --transport stdio`를
+  직접 스폰하는 방식으로 되어 있었다. 이건 Unity 쪽 MCP 패널의 "Local Server"(Unity 자신이 8080 포트에 HTTP
+  허브를 직접 띄우는 방식, `MCPForUnity.Editor.Services.ServerManagementService`)와 별개의 프로세스라, 둘 다
+  8080을 쓰려고 하면 충돌한다. **해결** : `.mcp.json`을 `{"mcpServers": {"unityMCP": {"url":
+  "http://127.0.0.1:8080/mcp", "type": "http"}}}`로 바꿔서, Claude Code가 별도 프로세스를 띄우지 않고 Unity가
+  이미 띄운 서버에 클라이언트로 붙게 했다. (Unity 전역 VSCode 설정 `AppData\Roaming\Code\User\mcp.json`에는
+  이미 이 형태로 올바르게 들어 있었다 — "Configure All Detected Clients"가 VSCode 계열 클라이언트용으로 써준
+  것으로 보이며, 프로젝트 `.mcp.json`은 별도 경로로 만들어진 듯하다.)
+- 원인 2 — **실수로 정상 프로세스를 kill함** : 디버깅 중 `netstat`으로 8080을 잡고 있는 PID를 "Claude Code가 띄운
+  좀비 프로세스"로 오판해서 강제 종료했는데, 실제로는 Unity가 정상적으로 띄워서 이미 34개 도구까지 등록
+  완료된 살아있는 허브 서버였다(`Library/MCPForUnity/Logs/server-launch-8080.log`에 그 증거가 남아있었다).
+  이후 Unity가 WebSocket 연결 끊김/재연결 실패를 반복했다. **교훈** : 포트를 잡고 있는 프로세스를 죽이기 전에
+  반드시 `Library/MCPForUnity/Logs/server-launch-8080.log`와 Unity의 `Editor.log`(`AppData\Local\Unity\Editor\
+  Editor.log`)를 먼저 확인해서 그게 진짜 좀비인지 확인해야 한다.
+- 최종 해결 순서 : Unity MCP 패널에서 Stop Server → Start Server로 허브를 재기동 → VSCode 창 리로드로 새
+  `.mcp.json`(http 클라이언트 방식) 반영 → `mcpforunity://instances`에서 `instance_count: 1` 확인.
+
 ## 현재 아키텍처 요약
 
 ```
