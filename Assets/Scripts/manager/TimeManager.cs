@@ -56,18 +56,17 @@ public class TimeManager : MonoBehaviour
         Debug.Log($"현재 배속: {currentTimeScale}x");
     }
 
-    // 일시 정지 토글 함수
-    public void TogglePause()
+    // 일시정지를 토글로 만들었다가 배속 저장이 안 되서 함수 나눔
+    public void PauseGame()
     {
-        if (Time.timeScale > 0)
-        {
-            Time.timeScale = 0f;
-            Debug.Log("게임 일시정지");
-        }
-        else
-        {
-            Time.timeScale = currentTimeScale; // 원래 배속으로 복구
-            Debug.Log("게임 재개");
-        }
+        Time.timeScale = 0f;
+        Debug.Log("게임 일시정지");
+    }
+
+    public void ResumeGame()
+    {
+        // 현 TimeScale로 복귀
+        Time.timeScale = currentTimeScale; 
+        Debug.Log($"게임 재개: 현재 배속 x{currentTimeScale}");
     }
 }
