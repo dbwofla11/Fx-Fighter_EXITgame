@@ -34,6 +34,8 @@ public static class StatCalculator
 
     /// <summary>
     /// 현재 직업의 Effect를 적용한다. Support/Growth는 선택 시점에 직접 반영되므로 여기서는 제외한다.
+    /// Supply도 감쇠 대상이라 매 턴 재적용하면 Doubt에서 겪었던 것과 동일한 문제(무한정 증가)가 생기므로 제외한다
+    /// (Job은 애초에 Supply를 다루지 않는 설계지만, 방어적으로 막아둔다).
     /// </summary>
     private static void ApplyJob(PlayerStat stat)
     {
@@ -44,7 +46,10 @@ public static class StatCalculator
 
         foreach (EffectData effect in job.effects)
         {
-            if (effect.effectType == EffectType.SupportIncrease || effect.effectType == EffectType.GrowthIncrease)
+            if (effect.effectType == EffectType.SupportIncrease
+                || effect.effectType == EffectType.GrowthIncrease
+                || effect.effectType == EffectType.SupplyIncrease
+                || effect.effectType == EffectType.SupplyDecrease)
                 continue;
 
             ApplyEffect(stat, effect);
@@ -71,6 +76,7 @@ public static class StatCalculator
     /// <summary>
     /// 활성화된 토글형(재사용 불가) 스킬들의 Effect를 매 턴 재적용한다.
     /// 재사용형 스킬은 사용 시점에 ApplySkillUse로 1회 반영되고 이후 감쇠하므로 여기서 제외한다.
+    /// Supply도 감쇠 대상이라 토글형 스킬에서 매 턴 재적용하면 무한정 증가하므로 제외한다.
     /// </summary>
     private static void ApplySkills(PlayerStat stat)
     {
@@ -83,13 +89,16 @@ public static class StatCalculator
 
             foreach (EffectData effect in skill.Profile.effects)
             {
+                if (effect.effectType == EffectType.SupplyIncrease || effect.effectType == EffectType.SupplyDecrease)
+                    continue;
+
                 ApplyEffect(stat, effect);
             }
         }
     }
 
     /// <summary>
-    /// 재사용형 스킬을 사용하는 순간, 그 스킬의 Support/Growth 효과를 stat에 직접 반영한다.
+    /// 재사용형 스킬을 사용하는 순간, 그 스킬의 Support/Growth/Doubt/Supply 효과를 stat에 직접 반영한다.
     /// </summary>
     public static void ApplySkillUse(PlayerStat stat, SkillSO skill)
     {
@@ -102,6 +111,14 @@ public static class StatCalculator
                 stat.Support += effect.value;
             else if (effect.effectType == EffectType.GrowthIncrease)
                 stat.Growth += effect.value;
+            else if (effect.effectType == EffectType.DoubtDecrease)
+                stat.Doubt -= effect.value;
+            else if (effect.effectType == EffectType.DoubtIncrease)
+                stat.Doubt += effect.value;
+            else if (effect.effectType == EffectType.SupplyIncrease)
+                stat.Supply += effect.value;
+            else if (effect.effectType == EffectType.SupplyDecrease)
+                stat.Supply -= effect.value;
         }
     }
 
@@ -150,6 +167,14 @@ public static class StatCalculator
 
             case EffectType.ExitUnlock:
                 stat.ExitUnlocked = true;
+                break;
+
+            case EffectType.SupplyIncrease:
+                stat.Supply += effect.value;
+                break;
+
+            case EffectType.SupplyDecrease:
+                stat.Supply -= effect.value;
                 break;
 
             default:

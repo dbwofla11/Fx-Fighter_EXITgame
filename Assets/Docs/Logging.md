@@ -326,6 +326,54 @@ Doubt도, "시간이 지날수록 100에 가까워진다"는 기획도 애초에
   발견했다 — 대화 밖에서 직접 수정된 것으로 보여 그대로 두고 `Game_Formula.md` 4장의 발생 주기 설명만 30으로
   맞춰 고쳤다.
 
+## 발행량 조작 기능 추가, 그리고 그 과정에서 발견한 EffectType 직렬화 버그
+
+"발행량 조작은 이벤트가 아니라 플레이어가 버튼으로 따로 한다"는 지적을 받고 기존 스킬 에셋
+(`Assets/Scripts/Profile/스킬_프로파일/`)을 열어보니, 이름부터 발행량 관련인 스킬 3개
+(`추가발행권한`, `우회발행권한`, `발행량은폐`)가 이미 존재했다. 그런데 이 스킬들을 살펴보다가 직접 원인이 된
+**심각한 버그**를 하나 발견했다.
+
+### 버그 : EffectType enum 중간 삽입으로 기존 .asset 데이터 손상
+
+Doubt 작업(위 "Doubt(의심도)도 이벤트에 포함" 절)에서 `EffectType.DoubtIncrease`를 `DoubtDecrease` **바로
+다음(중간)**에 추가했었다. Unity는 enum을 이름이 아니라 선언 순서(정수값)로 직렬화하기 때문에, 중간에 끼워
+넣으면 그 뒤에 있던 모든 항목의 정수값이 하나씩 밀린다.
+
+실제로 `추가발행권한.asset`이 `effectType: 5`(원래 `CashBonus`, "위기 상황에서 자금을 빠르게 마련"이라는
+설명과 일치)를 쓰고 있었는데, 내가 중간 삽입을 하면서 5번이 `NegativeEventRate`로 뒤바뀌어 있었다 — 코드는
+멀쩡히 컴파일되지만 실제 스킬 효과가 조용히 다른 의미로 바뀌는, 발견하기 매우 어려운 종류의 버그다. 다른
+스킬(지갑분산/락업/독약조항/발행량은폐/우회발행권한)은 0~2번 값만 써서 우연히 무사했다.
+
+**수정** : `DoubtIncrease`를 기존 항목들 뒤, enum 맨 끝으로 옮겨서 `추가발행권한.asset`의 `effectType: 5`가
+다시 `CashBonus`를 가리키도록 원상복구했다. 이번에 새로 추가한 `SupplyIncrease`/`SupplyDecrease`도 반드시
+끝에만 추가했다. **앞으로 `EffectType`에 새 항목을 추가할 때는 항상 맨 끝에 추가해야 하며, 중간 삽입은
+기존 저장된 `.asset` 데이터를 조용히 손상시키므로 절대 금지**라는 원칙을 세웠다.
+
+### 발행량 조작 기능
+
+스크린샷 기준으로, Long/Short와 완전히 동일한 구조의 새 액션이다.
+
+- `EventHub.OnManipulateSupply(long amount)` 신규 (양수 = 발행량 증가, 음수 = 발행량 감소).
+- `TradeCalculator.ManipulateSupply(stat, amount)` : `stat.Supply += amount`, Long/Short와 동일한 가중치(0.1)로
+  `Support`/`Growth`는 **반대 부호**로 반영(발행량 증가=희석=Support/Growth 감소), `Doubt`는 `amount`의
+  **절대값**에 비례해 항상 증가(늘리든 줄이든 "조작했다는 사실"이 의심을 키운다는 설정, 감쇠하지 않으므로 그대로
+  누적).
+- 현금 비용 없음 (Long/Short와 달리 `PlayerManager`를 거치지 않고 `MarketManager`가 바로 처리).
+- **`추가발행권한` 스킬을 구매하기 전에는 사용할 수 없다.** `SkillManager`에 `IsUnlocked(SkillID id)`를
+  추가했다 — 재사용형 스킬도 `HandlePurchase` 성공 시 `IsUnlocked = true`가 되는 걸 그대로 활용한 것이라 별도
+  잠금 상태를 새로 만들 필요가 없었다. `MarketManager.HandleManipulateSupply`가 이 값을 확인해서 잠겨 있으면
+  조용히 무시한다.
+- `StatCalculator.ApplyEffect`/`ApplySkillUse`에 `SupplyIncrease`/`SupplyDecrease`(그리고 김에 빠져 있던
+  `DoubtDecrease`/`DoubtIncrease`도 `ApplySkillUse`에) 처리를 추가했다 — 재사용형 스킬이 구매 시점에 이 효과를
+  낼 수 있게 하기 위해서다. `ApplyJob`/`ApplySkills`(매 턴 재적용 루프)에서는 `SupplyIncrease`/`SupplyDecrease`를
+  방어적으로 제외했다 — Supply는 감쇠 대상이라 매 턴 재적용하면 Doubt 때 겪은 것과 같은 무한정 증가 문제가
+  생기기 때문이다 (지금은 Job/토글형 스킬 어디에도 이 효과를 쓰지 않지만, 나중에 실수로 넣어도 안전하게 막힌다).
+- `추가발행권한`/`우회발행권한`/`발행량은폐` 세 스킬의 `.asset` 데이터 자체에는 아직 `SupplyIncrease`/
+  `SupplyDecrease` 값을 넣지 않았다 — 이 세 스킬이 발행량 조작 **버튼의 해금 조건**이라는 것만 확정됐고, 스킬
+  구매 자체가 추가로 Supply를 직접 바꿀지는 아직 논의되지 않았다 (`Next_Tesk.md` 참고).
+
+공식은 `Game_Formula.md` 3장 "발행량 조작"에 반영했다.
+
 ## 현재 아키텍처 요약
 
 ```

@@ -107,6 +107,14 @@ public class SkillManager : MonoBehaviour
         skill.PurchaseCount++;
     }
 
+    // 해당 스킬을 구매(재사용형)했거나 해금(토글형)했는지 여부. 다른 기능의 사용 가능 조건으로 참조된다
+    // (예: 발행량 조작 버튼은 추가발행권한을 구매하기 전까지 사용할 수 없다).
+    public bool IsUnlocked(SkillID id)
+    {
+        SkillRuntimeInfo skill = GetSkill(id);
+        return skill != null && skill.IsUnlocked;
+    }
+
     private SkillRuntimeInfo GetSkill(SkillID id)
     {
         foreach (var skill in runtimeSkillData.Skills)

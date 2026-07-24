@@ -66,9 +66,12 @@ Scarcity = 100 × (1 - Supply / MaxSupply)
 
 - MaxSupply = 20000 (`PriceCalculator.MaxSupply`)
 - Supply가 0에 가까울수록 Scarcity는 100(최대 희소성)에 가까워지고, Supply가 MaxSupply에 가까워질수록 0에 가까워진다.
-- `PlayerStat.Supply`의 기본값은 0이며, 시사 이벤트(4장)에 의해서만 변화한다. Job/Skill은 Supply에 영향을 주지 않는다.
-- Supply는 `Support`/`Growth`와 동일하게 `CurrentPrice`처럼 턴을 넘어 유지되는 값이며, 이벤트가 발생한 순간 직접 반영된 뒤
-  매 턴 `TradeCalculator.Decay`로 0을 향해 감쇠한다 (decayRate = 0.995, 3장 "누적치 감쇠" 참고).
+- `PlayerStat.Supply`의 기본값은 0이며, 아래 소스로 변화한다. Job은 Supply에 영향을 주지 않는다.
+  - 시사 이벤트(4장)의 `EventSO.supplyDelta`
+  - 플레이어의 "발행량 조작" 액션 (3장 "발행량 조작") — `추가발행권한` 스킬을 구매해야 사용할 수 있다
+  - 재사용형 스킬 구매 시 `EffectType.SupplyIncrease`/`SupplyDecrease` 효과 (`StatCalculator.ApplySkillUse`)
+- Supply는 `Support`/`Growth`와 동일하게 `CurrentPrice`처럼 턴을 넘어 유지되는 값이며, 위 소스가 반영되는 순간 직접
+  반영된 뒤 매 턴 `TradeCalculator.Decay`로 0을 향해 감쇠한다 (decayRate = 0.995, 3장 "누적치 감쇠" 참고).
 
 ---
 
@@ -101,6 +104,30 @@ Growth += ±Amount × wg_trade
 - ws_trade = 0.1 (Support 가중치)
 - wg_trade = 0.1 (Growth 가중치)
 - 부호는 Long(+) / Short(-)
+
+## 발행량 조작
+
+Long/Short와 마찬가지로 플레이어가 수량을 직접 입력해 즉시 실행하는 액션이다 (`EventHub.RaiseManipulateSupply(long amount)`,
+`TradeCalculator.ManipulateSupply`). 현금 비용은 없다.
+
+- `추가발행권한` 스킬을 구매하기 전에는 사용할 수 없다 (`SkillManager.IsUnlocked(SkillID.추가발행권한)`가 false면
+  `MarketManager.HandleManipulateSupply`가 아무 일도 하지 않는다).
+- amount가 양수면 발행량 증가(희석), 음수면 발행량 감소(소각)를 의미한다.
+
+Supply += amount
+
+Support -= amount × ws_trade
+
+Growth -= amount × wg_trade
+
+Doubt += |amount| × wd_supply
+
+- ws_trade/wg_trade = 0.1 (Long/Short와 동일한 가중치를 그대로 재사용한다)
+- wd_supply = 0.1 (Doubt 가중치)
+- 발행량 증가(희석)든 감소(소각)든 "조작했다는 사실 자체"가 의심을 키우므로 Doubt는 amount의 **절대값**에 비례해
+  증가한다. Doubt는 감쇠하지 않으므로(3장 참고) 한 번 늘어난 만큼 그대로 남는다.
+- Support/Growth는 부호가 거래와 반대다 : 발행량 증가는 시장에 코인이 흔해진다는 뜻이라 Support/Growth를
+  깎고, 발행량 감소(소각)는 희소해진다는 뜻이라 Support/Growth를 올린다.
 
 ## 누적치 감쇠
 

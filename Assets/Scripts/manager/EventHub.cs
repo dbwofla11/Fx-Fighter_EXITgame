@@ -40,6 +40,13 @@ public static class EventHub
     public static void RaiseSellCoin(long amount) => OnSellCoin?.Invoke(amount);
 
     // ==========================
+    // Supply
+    // ==========================
+    // 발행량 조작 요청 (양수 = 발행량 증가, 음수 = 발행량 감소). 추가발행권한 스킬을 구매하기 전에는 무시된다.
+    public static event Action<long> OnManipulateSupply;
+    public static void RaiseManipulateSupply(long amount) => OnManipulateSupply?.Invoke(amount);
+
+    // ==========================
     // Market
     // ==========================
     // 시사 이벤트 적용 요청

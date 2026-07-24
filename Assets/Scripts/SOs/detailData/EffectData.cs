@@ -37,11 +37,6 @@ public enum EffectType
     DoubtDecrease,
 
     /// <summary>
-    /// 의심도 증가
-    /// </summary>
-    DoubtIncrease,
-
-    /// <summary>
     /// 긍정 이벤트 등장 확률 증가
     /// </summary>
     PositiveEventRate,
@@ -69,5 +64,24 @@ public enum EffectType
     /// <summary>
     /// 엑시트(엔딩) 조건 해금
     /// </summary>
-    ExitUnlock
+    ExitUnlock,
+
+    // 아래는 이번 세션에서 추가한 항목이다. Unity는 enum을 선언 순서(정수값)로 직렬화하므로,
+    // 기존에 저장된 .asset 데이터(예: 추가발행권한.asset의 effectType: 5 = CashBonus)가 깨지지 않도록
+    // 반드시 기존 항목 다음, 맨 끝에만 추가한다 (중간 삽입 금지).
+
+    /// <summary>
+    /// 의심도 증가
+    /// </summary>
+    DoubtIncrease,
+
+    /// <summary>
+    /// 발행량 증가
+    /// </summary>
+    SupplyIncrease,
+
+    /// <summary>
+    /// 발행량 감소
+    /// </summary>
+    SupplyDecrease
 }

@@ -43,6 +43,7 @@ public class MarketManager : MonoBehaviour
         EventHub.OnNewsEvent += HandleNewsEvent;
         EventHub.OnBuyCoin += HandleBuyCoin;
         EventHub.OnSellCoin += HandleSellCoin;
+        EventHub.OnManipulateSupply += HandleManipulateSupply;
     }
 
     private void OnDisable()
@@ -51,6 +52,7 @@ public class MarketManager : MonoBehaviour
         EventHub.OnNewsEvent -= HandleNewsEvent;
         EventHub.OnBuyCoin -= HandleBuyCoin;
         EventHub.OnSellCoin -= HandleSellCoin;
+        EventHub.OnManipulateSupply -= HandleManipulateSupply;
     }
 
     // 매 턴마다 ( 1일이 지날때 마다 패시브로 계산하는 함수 로직 )
@@ -106,6 +108,15 @@ public class MarketManager : MonoBehaviour
     private void HandleSellCoin(long amount)
     {
         TradeCalculator.Short(CurrentStat, amount);
+    }
+
+    // 발행량 조작 요청 수신 : 추가발행권한 스킬을 구매하기 전에는 무시한다.
+    private void HandleManipulateSupply(long amount)
+    {
+        if (!SkillManager.Instance.IsUnlocked(SkillID.추가발행권한))
+            return;
+
+        TradeCalculator.ManipulateSupply(CurrentStat, amount);
     }
 
 }

@@ -46,6 +46,7 @@ UI와 Manager 사이를 중계하는 정적(static) 이벤트 허브. (Assets/Sc
 - OnSkillPurchased : 스킬 구매 버튼 클릭 요청, 인자 없음, 재사용형 전용 (SkillManager 구독) — `SelectedSkillId` 기준으로 구매+사용을 함께 처리, 잠기지 않음
 - OnJobSelected : 직업 선택 요청 (JobManager 구독)
 - OnBuyCoin / OnSellCoin : 코인 매수/매도 요청 (PlayerManager, MarketManager 구독)
+- OnManipulateSupply : 발행량 조작 요청, 양수/음수로 증가·감소 (MarketManager 구독) — `추가발행권한` 스킬을 구매하기 전에는 무시된다
 - OnNewsEvent : 시사 이벤트 수동 트리거 (MarketManager 구독) — 자동 발생(30턴마다 확률)은 `MarketManager.NextTurn()`이 별도로 처리하며 동일한 `TriggerNewsEvent`/`EventCalculator.Calculate`를 호출한다
 - OnMarketUpdated : 시장 계산 완료 후 UI 갱신 (MarketManager 발행)
 
@@ -77,7 +78,8 @@ RuntimeData는 현재 게임 상태와 계산 결과를 저장한다. `RuntimeSk
 
 `PlayerStat.Support`/`Growth`/`Supply`/`CurrentPrice`는 턴을 넘어 유지되는 값이다. Job 선택, 거래(Long/Short),
 시사 이벤트가 발생하는 순간 그 값에 직접 반영되고, 매 턴 서서히 감쇠한다 (자세한 내용은 Game_Formula.md 참고).
-`Supply`의 유일한 소스는 시사 이벤트이다.
+`Supply`는 시사 이벤트, 발행량 조작 액션(`OnManipulateSupply`, `추가발행권한` 스킬 구매 후 사용 가능), 재사용형
+스킬의 `SupplyIncrease`/`SupplyDecrease` 효과로 변화한다. Job은 Supply에 영향을 주지 않는다.
 
 `PlayerStat.Doubt`도 턴을 넘어 유지되지만 **감쇠하지 않는다.** Job/Skill의 `DoubtDecrease`(활성 상태인 동안 매 턴
 재적용)와 시사 이벤트로 변화하며, 100에 도달하면 게임오버가 되는 지표다 (자세한 내용은 Game_Formula.md 3장/4장 참고).
@@ -144,6 +146,18 @@ PlayerManager : 현재가 기준 현금 정산 + 코인 증감
 
 MarketManager : TradeCalculator.Long/Short → CurrentStat.Support/Growth에 직접 반영 (매 턴 감쇠)
 
+## 발행량 조작
+
+EventHub.OnManipulateSupply(amount)
+
+↓
+
+MarketManager : SkillManager.IsUnlocked(추가발행권한) 확인 → 실패 시 무시
+
+↓ 성공
+
+TradeCalculator.ManipulateSupply → CurrentStat.Supply/Support/Growth/Doubt에 직접 반영 (현금 비용 없음)
+
 ---
 
 # 역할
@@ -166,6 +180,10 @@ MarketManager : TradeCalculator.Long/Short → CurrentStat.Support/Growth에 직
 `priceRatio`)을 그대로 적용한다. 실제로 발생했으면 `RuntimeEventData`에 기록되고 `MarketManager.EventLog`로
 노출된다.
 
+`EventHub.OnManipulateSupply`도 구독한다. `SkillManager.IsUnlocked(SkillID.추가발행권한)`이 true일 때만
+`TradeCalculator.ManipulateSupply(CurrentStat, amount)`를 호출한다 (현금 비용 없음, Long/Short와 달리
+PlayerManager를 거치지 않는다).
+
 ---
 
 ## SkillManager
@@ -180,6 +198,9 @@ MarketManager : TradeCalculator.Long/Short → CurrentStat.Support/Growth에 직
   감쇠는 Trade/Job과 동일하게 자동 처리된다.
 - 재사용 불가(`isReusable == false`, 예: `ExitUnlock`) : 기존 토글(On/Off) 방식 그대로, 활성 상태인 동안
   `StatCalculator.ApplySkills`가 매 턴 재적용한다. 감쇠 대상이 아니다.
+
+`IsUnlocked(SkillID id)`로 특정 스킬을 구매/해금했는지 다른 Manager가 조회할 수 있다 (예: `MarketManager`가
+발행량 조작 버튼 사용 가능 여부를 판단할 때 사용).
 
 ---
 
