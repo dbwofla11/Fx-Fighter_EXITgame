@@ -60,6 +60,16 @@ Price(t)
 
 Scarcity는 발행량(Supply)을 기반으로 계산되는 희소성 지표이다.
 
+공식
+
+Scarcity = 100 × (1 - Supply / MaxSupply)
+
+- MaxSupply = 20000 (`PriceCalculator.MaxSupply`)
+- Supply가 0에 가까울수록 Scarcity는 100(최대 희소성)에 가까워지고, Supply가 MaxSupply에 가까워질수록 0에 가까워진다.
+- `PlayerStat.Supply`의 기본값은 0이며, 시사 이벤트(4장)에 의해서만 변화한다. Job/Skill은 Supply에 영향을 주지 않는다.
+- Supply는 `Support`/`Growth`와 동일하게 `CurrentPrice`처럼 턴을 넘어 유지되는 값이며, 이벤트가 발생한 순간 직접 반영된 뒤
+  매 턴 `TradeCalculator.Decay`로 0을 향해 감쇠한다 (decayRate = 0.995, 3장 "누적치 감쇠" 참고).
+
 ---
 
 # 3. 거래 시스템
@@ -104,6 +114,11 @@ Growth(t+1) = Growth(t) × decayRate
 - decayRate = 0.995 (매 턴 0.5%씩 감소, 절반이 되는 데 약 138턴)
 - 매 턴(`StatCalculator.Calculate()`, `MarketManager.NextTurn()`에서 호출) 적용된다.
 - 직업(Job)의 Support/Growth 효과도 동일하게 취급한다 — 3-1장 참고.
+- Supply(2장)도 동일한 감쇠 대상이다.
+- **Doubt(의심도)는 감쇠하지 않는다.** Job/Skill의 `DoubtDecrease` 효과(활성 상태인 동안 매 턴 계속 재적용,
+  CashBonus/Volume과 같은 그룹)와 시사 이벤트(4장)로 값이 바뀌지만, 한 번 바뀐 값은 시간이 지나도 원래대로
+  돌아오지 않고 턴을 넘어 그대로 유지된다. 기획상 Doubt는 시간이 지날수록 자동으로 100을 향해 올라가다가 100이
+  되면 게임오버가 되는 지표이기 때문이다 (자동 상승 로직은 아직 미구현, 4장 "후보" 참고).
 
 ---
 
@@ -143,16 +158,75 @@ Support/Growth 부스트형 스킬이다. 직업과 동일하게, **구매 버�
 
 # 4. 시사 이벤트
 
-시사 이벤트는 가격에 직접 영향을 준다.
+시사 이벤트는 발생하는 즉시, 뽑힌 `EventSO`가 정의한 만큼 Support/Growth/Doubt/Supply/가격에 직접 반영된다
+(`EventCalculator.Calculate(PlayerStat stat, IReadOnlyList<EventSO> eventDatabase)`).
+Support/Growth/Supply는 Trade/Job과 동일하게 반영 후 매 턴 감쇠하지만, Doubt는 감쇠하지 않고 그대로 유지된다
+(3장 참고).
 
-큰 이벤트일수록 긴 양봉 또는 긴 음봉이 발생한다.
+## 발생 시점
 
-또한 이벤트 종류에 따라
+- 자동 : `MarketManager.NextTurn()`에서 `NewsEventIntervalTurns`(30)턴마다 `NewsEventChance`(40%) 확률로 발생
+  여부를 판정한다.
+- 수동 : `EventHub.OnNewsEvent`를 통해 즉시 발생시킬 수 있다 (UI/시스템 트리거용, 자동 판정과 무관).
+- 자동/수동 모두 동일하게 `EventCalculator.Calculate(CurrentStat, eventDatabase)`를 호출한다.
+  `eventDatabase`는 `MarketManager`가 `[SerializeField] List<EventSO>`로 들고 있다 (`SkillManager.skillDatabase`와
+  동일한 패턴).
 
-- Support
-- Growth
+## EventSO — 이벤트 하나의 정의
 
-값이 변경된다.
+각 이벤트는 `EventSO`(`Assets/Scripts/SOs/EventSo.cs`) 에셋 하나로 완결된다. Job/Skill과 마찬가지로 여러 개를
+에셋으로 만들어 `MarketManager.eventDatabase`(`List<EventSO>`)에 등록해둔다.
+
+| 필드 | 설명 |
+|---|---|
+| `message` | 이벤트 로그에 표시될 문구 (예: "유명 스트리머가 코인을 소개했습니다!") |
+| `category` | `Positive`/`Negative`. 선택 확률 편향과 UI 색상(초록/빨강) 구분에 쓰인다 |
+| `weight` | 같은 `category` 안에서 가중치 랜덤 선택에 쓰이는 값. 클수록 자주 뽑힌다 |
+| `effects` | `List<EffectData>`. Job/Skill과 동일한 구조로, Support/Growth/Doubt 등 **원하는 스탯만 골라 부호 있는 값**을 지정한다 (예: `SupportIncrease +15`, `GrowthIncrease +10`만 넣고 Doubt는 아예 안 넣는 식) |
+| `supplyDelta` | Supply 변화량 (부호 포함). Job/Skill은 Supply를 건드리지 않으므로 `effects`에는 포함하지 않고 전용 필드로 둔다 |
+| `priceRatio` | 가격에 즉시 반영되는 변화율 (부호 포함, 예: `0.03` = +3%, `-0.06` = -6%) |
+
+`effects`에서 Doubt를 다루려면 `EffectType.DoubtIncrease`(신규 추가, Job/Skill의 기존 `DoubtDecrease`와 대칭)와
+`DoubtDecrease`를 상황에 맞게 쓴다.
+
+## 방향 (긍정/부정) — 카테고리 선택
+
+Pup_event = Clamp(0.5 + PositiveEventRate / 100 - NegativeEventRate / 100, 0, 1)
+
+이벤트가 `Positive` 카테고리로 뽑힐 확률이다. `PlayerStat.PositiveEventRate`/`NegativeEventRate`는 Job/Skill의
+기존 `EffectType`(`PositiveEventRate`/`NegativeEventRate`)으로 조정될 수 있다.
+
+먼저 이 확률로 카테고리(Positive/Negative)를 정한 뒤, `eventDatabase` 중 **그 카테고리에 속한 `EventSO`들만**
+대상으로 `weight` 가중치 랜덤을 돌려 하나를 뽑는다. 해당 카테고리에 속한 이벤트가 하나도 없으면 그 턴은 아무
+이벤트도 발생하지 않는다.
+
+## 반영 방식
+
+뽑힌 `EventSO`(`chosen`)의 값을 그대로, 부호 변환 없이 적용한다 (부호는 이미 각 `EventSO`의 `effects`/
+`supplyDelta`/`priceRatio`에 authored되어 있다).
+
+- Support/Growth/Doubt : `chosen.effects`를 하나씩 `StatCalculator.ApplyEffect(stat, effect)`로 적용 (Job/Skill과
+  동일한 함수 재사용). Support/Growth는 이후 매 턴 감쇠(3장), Doubt는 감쇠하지 않고 그대로 누적(3장)
+- Supply : `stat.Supply += chosen.supplyDelta` (이후 매 턴 감쇠, 2장 참고)
+- 가격 : `stat.CurrentPrice += stat.CurrentPrice × chosen.priceRatio` — 그 턴의 `PriceCalculator` 정규 가격
+  변화(2장 공식)와는 별개로 이벤트가 즉시 일으키는 1회성 충격이며, 감쇠하지 않는다.
+
+발생한 이벤트는 `MarketManager.EventLog`(`IReadOnlyList<EventLogEntry>`)에 `{EventSO 참조, 발생 날짜
+(TimeManager.CurrentGameDate)}`로 기록되어, 나중에 이벤트 로그 UI가 그대로 읽어 그릴 수 있다.
+
+## Doubt와 게임오버
+
+Doubt는 100에 도달하면 게임오버가 되는 지표다. 현재는 Job/Skill의 `DoubtDecrease`(활성 상태인 동안 매 턴 감소)와
+시사 이벤트(위 표, 부정 이벤트 시 증가)로만 값이 바뀐다.
+
+## 후보 : 2년 경과 후 자동 Doubt 상승 (+ 게임오버 판정)
+
+기획상 게임 시간으로 2년이 지나면 자동으로 Doubt가 +20 이상 반영되고, 그 이후로는 매 턴 자동으로 Doubt가 계속
+증가하는 것으로 예정되어 있다. 아직 구현 전이며, 아래를 확정해야 한다 (`Next_Tesk.md` 참고).
+
+- 트리거 조건 (게임 시간 2년 = 몇 턴인지)
+- 최초 +20(혹은 그 이상) 반영량과 이후 매 턴 증가량
+- `Doubt >= 100`이 됐을 때의 게임오버 처리(어디서 판정하고 어떻게 종료시킬지)도 아직 구현되어 있지 않다.
 
 ---
 

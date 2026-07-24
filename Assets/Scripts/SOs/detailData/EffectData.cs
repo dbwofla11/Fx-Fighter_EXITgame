@@ -37,6 +37,11 @@ public enum EffectType
     DoubtDecrease,
 
     /// <summary>
+    /// 의심도 증가
+    /// </summary>
+    DoubtIncrease,
+
+    /// <summary>
     /// 긍정 이벤트 등장 확률 증가
     /// </summary>
     PositiveEventRate,

@@ -214,6 +214,118 @@ StatCalculator.ApplySkillUse(CurrentStat, skill) + PurchaseCount++ (잠기지 �
 이로써 Support/Growth에 영향을 주는 세 소스(Job 선택, Trade, 재사용형 Skill 사용) 모두 "발생 시점에 직접 반영 →
 매 턴 감쇠" 패턴으로 통일되었다.
 
+## 시사 이벤트(EventCalculator) 구현 & 발행량(Supply)/Scarcity 활성화
+
+`EventCalculator.Calculate()`가 빈 스텁이었던 것을 구현했다. 설계 과정에서 두 가지가 확정됐다.
+
+- **발행량(Supply)의 소스를 시사 이벤트로 한정**한다. Job/Skill은 Supply에 영향을 주지 않는다. 덕분에
+  `Next_Tesk.md`에 별도 후보로 있던 "발행량 조작"과 "시사 이벤트"가 이번 작업 하나로 함께 끝났다 —
+  `PriceCalculator.CalculateScarcity`(`100 × (1 - Supply / 20000)`)는 이미 코드에 있었지만 `Supply`를 바꾸는
+  소스가 없어 항상 0(→ Scarcity 100 고정)이었던 죽은 값이었다.
+- **Supply도 Support/Growth와 동일한 "직접 반영 → 매 턴 감쇠" 패턴**을 따른다. 이벤트가 발생한 순간
+  `PlayerStat.Supply`에 직접 반영되고, 매 턴 0을 향해 감쇠한다 (Job/Skill처럼 활성 상태 동안 계속 재적용되는
+  Doubt/CashBonus 패턴이 아니라, 뉴스가 만든 "일시적 공급 충격"이 시간이 지나며 잦아드는 것으로 설계했다).
+
+### 필요했던 선행 수정 : `StatCalculator.Calculate()`가 Supply를 이월하지 않던 문제
+
+Support/Growth 감쇠 구조를 만들 때(위 "Support/Growth 감쇠" 절)는 `Supply` 필드가 아직 쓰이지 않아 이월 대상에서
+빠져 있었다. `StatCalculator.Calculate()`가 매 턴 새 `PlayerStat`을 만들면서 `Supply`를 이전 값에서 이어받지 않으면,
+이벤트가 반영한 값이 다음 턴에 `Reset()`의 기본값 0으로 사라져버린다. `CurrentPrice`/`Support`/`Growth`와 동일하게
+`stat.Supply = previous.Supply;`를 이월 목록에 추가했다.
+
+### 이벤트 설계
+
+- **발생 시점** : `MarketManager.NextTurn()`에서 7턴마다(`turnCount % 7 == 0`) 40% 확률로 자동 발생을 판정한다.
+  기존에 연결만 되어 있던 `EventHub.OnNewsEvent`(수동 트리거)도 동일한 `EventCalculator.Calculate(CurrentStat)`를
+  호출하도록 그대로 유지했다 — 자동/수동 두 경로 모두 같은 계산 로직을 공유한다.
+- **방향(긍정/부정)** : 그동안 어디서도 읽히지 않던 `PlayerStat.PositiveEventRate`/`NegativeEventRate`(Job/Skill의
+  기존 `EffectType`)를 여기서 처음 사용한다. `Pup_event = Clamp(0.5 + PositiveEventRate/100 - NegativeEventRate/100, 0, 1)`.
+- **크기(등급)** : Small(60%, ±8) / Medium(30%, ±16) / Large(10%, ±30) 세 등급 중 무작위 선택. 등급이 클수록 Support/Growth/
+  Supply/가격 변화량이 커진다.
+- **가격에 대한 즉시 충격** : `Game_Formula.md` 4장의 "큰 이벤트일수록 긴 양봉/음봉"을 표현하기 위해, 그 턴의
+  `PriceCalculator` 정규 가격 변화와는 별도로 `stat.CurrentPrice`에 `±3%~±12%`의 1회성 가격 변화를 즉시 더한다
+  (감쇠하지 않음 — 그 턴에만 반영되는 충격이라 다음 턴부터는 남지 않는다).
+- **Supply 부호는 이벤트 방향과 반대** : 긍정 이벤트 = 공급 감소(→ Scarcity 상승 → 가격에 우호적), 부정 이벤트 =
+  공급 증가(→ Scarcity 하락 → 가격에 불리). Scarcity 공식과 앞뒤가 맞아야 하므로 부호를 반전시켰다.
+- `EventCalculator`를 다른 Calculator(StatCalculator, TradeCalculator, PriceCalculator)와 동일하게 `static` 클래스로
+  바꿨다 (기존에는 `new EventCalculator().Calculate()`로 인스턴스를 생성해 호출하는 유일한 예외였다).
+  `MarketManager.HandleNewsEvent`도 `EventCalculator.Calculate(CurrentStat)` 호출로 맞춰 수정했다.
+
+공식은 `Game_Formula.md` 2장(Scarcity), 4장(시사 이벤트)에 반영했다.
+
+### Doubt(의심도)도 이벤트에 포함 — 감쇠는 없다는 것을 뒤늦게 확인하고 되돌림
+
+처음에는 이벤트가 Support/Growth/Supply/가격만 건드리도록 구현했는데, "이벤트가 Doubt도 바꾸는 게 맞지 않냐"는
+질문을 받고 Doubt를 포함시키는 과정에서 한 차례 설계를 잘못 짚었다가 되돌렸다.
+
+**1차 시도(잘못됨)** : Doubt를 Support/Growth와 완전히 같은 "1회 반영 → 매 턴 감쇠" 그룹으로 통합했다. Job의
+`DoubtDecrease`를 "선택 시점 1회 반영"으로 바꾸고(`ApplyJobSelection`), `TradeCalculator.Decay`에 Doubt 감쇠를
+추가했다. Doubt가 매 턴 이월되지 않던 것을 이월하게 만드는 김에, Job의 기존 "매 턴 재적용" 방식과 감쇠가
+충돌하는(무한정 내려가는) 문제까지 같이 잡으려다 벌어진 일이었다.
+
+**되돌린 이유** : 이 프로젝트의 실제 기획은 "Doubt는 감쇠하지 않고, 오히려 시간이 지날수록 자동으로 100을 향해
+올라가다가 100이 되면 게임오버가 되는 지표"였다. 감쇠가 있으면 안 되는 값이었으므로, 애초에 "Job의 DoubtDecrease가
+매 턴 재적용되면 감쇠와 충돌한다"는 문제 자체가 성립하지 않았다 — 감쇠를 넣지 않으면 충돌도 없다.
+
+**최종** : `TradeCalculator.Decay`에서 Doubt 관련 코드를 제거하고, `ApplyJob`/`ApplyJobSelection`/`ApplySkills`/
+`ApplySkillUse`의 `DoubtDecrease` 처리를 전부 원래대로(Job/토글형 스킬이 활성 상태인 동안 매 턴 계속 재적용,
+CashBonus/Volume과 같은 그룹) 되돌렸다. 다만 `StatCalculator.Calculate()`가 `stat.Doubt = previous.Doubt;`로
+이전 값을 이어받는 것만은 유지했다 — 이게 없으면 매 턴 `Reset()`으로 0에서 다시 시작해버려서, 이벤트가 반영한
+Doubt도, "시간이 지날수록 100에 가까워진다"는 기획도 애초에 성립할 수 없기 때문이다. `EventCalculator`가 Doubt에
+주는 영향(이벤트 방향과 반대 부호, `Game_Formula.md` 4장)은 그대로 유지된다 — 감쇠가 없으니 이벤트로 바뀐 값도
+다음 턴에 그대로 남는다.
+
+### 후보로 남은 것 : 2년 경과 후 자동 Doubt 상승 + 게임오버 판정
+
+이 대화 중에 "게임 시간 2년이 지나면 자동으로 Doubt +20, 그 이후 매 턴 자동 증가, Doubt가 100이 되면 게임오버"라는
+기획 의도를 확인했다. 자동 상승 로직도, `Doubt >= 100` 게임오버 판정도 현재는 구현되어 있지 않다. 트리거 턴
+수·매 턴 증가량 등 세부 수치가 미확정이라 이번 작업 범위에서는 제외하고 `Next_Tesk.md`에 다음 후보로 남겼다.
+
+## EventSO 도입 — 이벤트 크기를 코드 상수에서 데이터로 분리
+
+게임오버 작업에 들어가기 전에, `EventCalculator`에 하드코딩돼 있던 Small/Medium/Large 등급 상수
+(`SmallStatDelta`, `MediumSupplyDelta`, `LargePriceRatio` 등)를 `EventSO`(ScriptableObject)로 빼달라는 요청을
+받았다. Job/Skill이 이미 `JobSO`/`SkillSO` + `List<EffectData>` 구조를 쓰고 있어서 같은 패턴을 따랐다.
+
+**1차 시도(수정됨)** : 처음에는 `weight`/`statDelta`(Support/Growth/Doubt 공통 변화량)/`supplyDelta`/`priceRatio`
+네 필드만 가진 SO로 만들었다. 그런데 실제로 원하는 그림은 "유명 스트리머가 코인을 소개했습니다! → 지지도+15,
+상승률+10 (Doubt는 안 건드림)" / "금융당국이 조사 시작 → 의심도+20, 상승률-15 (지지도는 안 건드림)" 처럼
+**이벤트마다 어떤 스탯을 얼마나 바꿀지 제각각**이고, 이벤트 로그에 표시할 **문구(message)**도 필요했다.
+`statDelta` 하나로 세 스탯을 항상 같은 크기로 묶어 움직이는 구조로는 이걸 표현할 수 없어서 다시 설계했다.
+
+**최종** :
+
+- **`EventSO`**(`Assets/Scripts/SOs/EventSo.cs`) : `message`(이벤트 로그 문구), `category`(`Positive`/`Negative`,
+  신규 enum `Assets/Scripts/SOs/detailData/EventCategory.cs`), `weight`(같은 카테고리 안에서의 가중치 랜덤),
+  `effects`(`List<EffectData>` — Job/Skill과 동일한 구조를 재사용해 이벤트마다 원하는 스탯만 부호 있는 값으로
+  지정), `supplyDelta`/`priceRatio`(부호 포함, Job/Skill이 다루지 않는 이벤트 전용 값이라 `effects`와는 별도
+  필드로 유지)로 구성된다. `effects`에서 "의심도 +20"처럼 Doubt를 늘리는 경우를 표현하려고 `EffectType`에
+  `DoubtIncrease`를 추가했다 (기존엔 `DoubtDecrease`만 있어서 증가를 못 나타냈다).
+  `StatCalculator.ApplyEffect`를 `private`에서 `public`으로 바꿔 `EventCalculator`가 그대로 재사용한다
+  (Job/Skill과 같은 스위치문을 또 만들지 않기 위해).
+- **방향(긍정/부정) 결정과 선택 로직 분리** : `EventCalculator.Calculate`가 먼저 `RollCategory`(기존
+  `PositiveEventRate`/`NegativeEventRate` 기반 확률)로 `Positive`/`Negative` 중 하나를 정하고, 그 다음
+  `eventDatabase` 중 **그 카테고리에 속한 EventSO만** 대상으로 `weight` 가중치 랜덤(누적 합 룰렛 휠 방식)을 돌려
+  하나를 뽑는다. 뽑힌 SO의 `effects`/`supplyDelta`/`priceRatio`는 이미 authored된 부호를 그대로 쓰므로, 기존에
+  있던 "sign을 곱한다" 로직은 전부 제거했다. 해당 카테고리에 이벤트가 하나도 없으면 그 턴은 조용히 아무 일도
+  안 일어난다.
+- **`MarketManager`** : `SkillManager.skillDatabase`와 동일한 패턴으로 `[SerializeField] private List<EventSO>
+  eventDatabase;`를 들고 있다. `NextTurn()`의 자동 발생 체크와 `HandleNewsEvent()`(수동 트리거) 모두 새로 추가한
+  `TriggerNewsEvent()`를 거친다 — `EventCalculator.Calculate`가 반환한 `EventSO`(발생 안 했으면 null)를 받아서
+  발생했을 때만 로그에 기록한다.
+- **이벤트 로그** : `RuntimeSkillData`/`RuntimeJobData`와 같은 위치(`Assets/Scripts/Stat/`)에 `RuntimeEventData`
+  (`List<EventLogEntry> Log`)와 `EventLogEntry`(`EventSO Profile` + `DateTime Date`)를 새로 만들었다.
+  `MarketManager.EventLog`(`IReadOnlyList<EventLogEntry>`)로 노출해서, 이벤트 로그 UI(스크린샷의 좌측 패널)가
+  나중에 이 리스트를 그대로 순회하며 `Profile.message`/`Date`/`Profile.effects`를 그릴 수 있게 했다. 아직 UI는
+  없다 (`Next_Tesk.md` "UI 연결" 후보).
+- **`.asset` 데이터는 여전히 비어 있음** : `EventSO` 클래스와 `eventDatabase` 배선은 끝났지만, 실제 이벤트
+  에셋(스크린샷의 "유명 스트리머가 코인을 소개했습니다!" 같은 것들)은 아직 하나도 만들어지지 않았다. Unity
+  에디터에서 `Create > Game > EventSO`로 직접 만들고 `MarketManager` Inspector의 `Event Database`에 등록해야
+  실제로 이벤트가 발생한다 (`Next_Tesk.md` 참고).
+- 작업 중 `MarketManager.NewsEventIntervalTurns`가 이전 세션에서 정한 7이 아니라 30으로 바뀌어 있는 것을
+  발견했다 — 대화 밖에서 직접 수정된 것으로 보여 그대로 두고 `Game_Formula.md` 4장의 발생 주기 설명만 30으로
+  맞춰 고쳤다.
+
 ## 현재 아키텍처 요약
 
 ```
@@ -226,5 +338,5 @@ Systems (Calculator)
 
 - **Manager**: TimeManager, MarketManager, SkillManager, JobManager, PlayerManager — 게임 상태를 관리하며 `EventHub`를 구독한다.
 - **RuntimeData**: PlayerStat, RuntimeSkillData, RuntimeJobData — 현재 상태와 계산 결과를 저장한다.
-- **Systems**: StatCalculator, ProbabilityCalculator, PriceCalculator, TradeCalculator — 상태를 변경하지 않고 계산만 수행한다.
+- **Systems**: StatCalculator, ProbabilityCalculator, PriceCalculator, TradeCalculator, EventCalculator — 상태를 변경하지 않고 계산만 수행한다 (단, TradeCalculator/EventCalculator는 `PlayerStat`을 인자로 받아 그 자리에서 값을 직접 갱신한다).
 - **EventHub**: UI ↔ Manager 사이의 이벤트를 중계한다.

@@ -9,6 +9,7 @@ public static class TradeCalculator
 
     private const float SupportDecayRate = 0.995f;
     private const float GrowthDecayRate = 0.995f;
+    private const float SupplyDecayRate = 0.995f;
 
     // Long : 구매 -> Support/Growth 증가
     public static void Long(PlayerStat stat, long amount)
@@ -24,7 +25,7 @@ public static class TradeCalculator
         stat.Growth -= amount * GrowthWeightPerCoin;
     }
 
-    // 시간이 지나면 Support/Growth가 0으로 서서히 수렴한다.
+    // 시간이 지나면 Support/Growth/Supply가 0으로 서서히 수렴한다. Doubt는 감쇠 대상이 아니다 (Game_Formula.md 3장 참고).
     public static void Decay(PlayerStat stat)
     {
         stat.Support *= SupportDecayRate;

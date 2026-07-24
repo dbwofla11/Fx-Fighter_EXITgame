@@ -15,11 +15,16 @@ public static class StatCalculator
         // PlayerStat이 매 턴 새로 생성되므로, PriceCalculator가 이어서 계산할 수 있도록 이전 턴 가격을 이월한다.
         stat.CurrentPrice = previous.CurrentPrice;
 
-        // Support/Growth는 Job 선택/거래로 그 순간 직접 반영되는 값이라, 매 턴 새로 계산하지 않고
+        // Support/Growth/Supply는 거래·직업 선택·시사 이벤트로 그 순간 직접 반영되는 값이라, 매 턴 새로 계산하지 않고
         // 이전 값을 그대로 이어받아 감쇠시킨다 (CurrentPrice와 동일한 이월 패턴).
         stat.Support = previous.Support;
         stat.Growth = previous.Growth;
+        stat.Supply = previous.Supply;
         TradeCalculator.Decay(stat);
+
+        // Doubt는 감쇠하지 않고 계속 쌓이는 값이다 (시간이 지날수록 자동으로 100을 향해 오르다가 100이 되면
+        // 게임오버가 되는 기획). 매 턴 새로 계산하지 않고 이전 값을 그대로 이어받는다.
+        stat.Doubt = previous.Doubt;
 
         ApplyJob(stat);
         ApplySkills(stat);
@@ -101,9 +106,9 @@ public static class StatCalculator
     }
 
     /// <summary>
-    /// Effect 하나를 PlayerStat에 적용한다.
+    /// Effect 하나를 PlayerStat에 적용한다. EventCalculator도 EventSO의 효과를 적용할 때 재사용한다.
     /// </summary>
-    private static void ApplyEffect(PlayerStat stat, EffectData effect)
+    public static void ApplyEffect(PlayerStat stat, EffectData effect)
     {
         switch (effect.effectType)
         {
@@ -117,6 +122,10 @@ public static class StatCalculator
 
             case EffectType.DoubtDecrease:
                 stat.Doubt -= effect.value;
+                break;
+
+            case EffectType.DoubtIncrease:
+                stat.Doubt += effect.value;
                 break;
 
             case EffectType.PositiveEventRate:

@@ -46,7 +46,7 @@ UI와 Manager 사이를 중계하는 정적(static) 이벤트 허브. (Assets/Sc
 - OnSkillPurchased : 스킬 구매 버튼 클릭 요청, 인자 없음, 재사용형 전용 (SkillManager 구독) — `SelectedSkillId` 기준으로 구매+사용을 함께 처리, 잠기지 않음
 - OnJobSelected : 직업 선택 요청 (JobManager 구독)
 - OnBuyCoin / OnSellCoin : 코인 매수/매도 요청 (PlayerManager, MarketManager 구독)
-- OnNewsEvent : 시사 이벤트 적용 요청 (MarketManager 구독)
+- OnNewsEvent : 시사 이벤트 수동 트리거 (MarketManager 구독) — 자동 발생(30턴마다 확률)은 `MarketManager.NextTurn()`이 별도로 처리하며 동일한 `TriggerNewsEvent`/`EventCalculator.Calculate`를 호출한다
 - OnMarketUpdated : 시장 계산 완료 후 UI 갱신 (MarketManager 발행)
 
 ---
@@ -68,12 +68,19 @@ Manager는 게임 상태를 관리하며, EventHub를 구독하여 요청을 처
 - PlayerStat
 - RuntimeSkillData
 - RuntimeJobData
+- RuntimeEventData
 
 RuntimeData는 현재 게임 상태와 계산 결과를 저장한다. `RuntimeSkillData.SelectedSkillId`는 재사용형 스킬 아이콘을
-클릭해 선택한 상태를 들고 있으며, 구매 버튼(`OnSkillPurchased`)이 이 값을 기준으로 동작한다.
+클릭해 선택한 상태를 들고 있으며, 구매 버튼(`OnSkillPurchased`)이 이 값을 기준으로 동작한다. `RuntimeEventData.Log`
+(`List<EventLogEntry>`)는 지금까지 발생한 시사 이벤트 기록(`EventSO` 참조 + 발생 날짜)을 들고 있으며,
+`MarketManager.EventLog`로 노출된다.
 
-`PlayerStat.Support`/`Growth`/`CurrentPrice`는 턴을 넘어 유지되는 값이다. Job 선택, 거래(Long/Short)가
-발생하는 순간 그 값에 직접 반영되고, 매 턴 서서히 감쇠한다 (자세한 내용은 Game_Formula.md 참고).
+`PlayerStat.Support`/`Growth`/`Supply`/`CurrentPrice`는 턴을 넘어 유지되는 값이다. Job 선택, 거래(Long/Short),
+시사 이벤트가 발생하는 순간 그 값에 직접 반영되고, 매 턴 서서히 감쇠한다 (자세한 내용은 Game_Formula.md 참고).
+`Supply`의 유일한 소스는 시사 이벤트이다.
+
+`PlayerStat.Doubt`도 턴을 넘어 유지되지만 **감쇠하지 않는다.** Job/Skill의 `DoubtDecrease`(활성 상태인 동안 매 턴
+재적용)와 시사 이벤트로 변화하며, 100에 도달하면 게임오버가 되는 지표다 (자세한 내용은 Game_Formula.md 3장/4장 참고).
 
 ---
 
@@ -105,7 +112,11 @@ MarketManager.NextTurn()
 
 ↓
 
-StatCalculator.Calculate() (Support/Growth 이월 후 감쇠, Job/Skill 효과 적용)
+StatCalculator.Calculate() (Support/Growth/Supply 이월 후 감쇠, Doubt는 감쇠 없이 이월, Job/Skill 효과 적용)
+
+↓
+
+(30턴마다 확률) EventCalculator.Calculate() — eventDatabase에서 가중치 랜덤으로 뽑은 EventSO 값을 Support/Growth/Supply/Doubt/가격에 직접 반영
 
 ↓
 
@@ -145,7 +156,15 @@ MarketManager : TradeCalculator.Long/Short → CurrentStat.Support/Growth에 직
 
 ## MarketManager
 
-시장 계산을 수행한다. `CurrentStat`(Support/Growth 포함)을 보유하며, 거래는 이 값에 직접 반영된다.
+시장 계산을 수행한다. `CurrentStat`(Support/Growth/Supply/Doubt 포함)을 보유하며, 거래·시사 이벤트는 이 값에 직접
+반영된다. `NextTurn()`에서 `NewsEventIntervalTurns`(30)턴마다 `NewsEventChance`(40%) 확률로 시사 이벤트를 자동
+발생시킨다. `[SerializeField] List<EventSO> eventDatabase`(`SkillManager.skillDatabase`와 동일한 패턴)를 들고
+있으며, 자동/수동(`EventHub.OnNewsEvent`) 두 경로 모두 내부 `TriggerNewsEvent()`를 거쳐
+`EventCalculator.Calculate(CurrentStat, eventDatabase)`를 호출한다. `EventCalculator`는 먼저
+`PositiveEventRate`/`NegativeEventRate`로 `Positive`/`Negative` 카테고리를 정하고, 그 카테고리에 속한 `EventSO`
+중 하나를 `weight` 가중치 랜덤으로 골라 그 SO에 authored된 값(`effects`의 Support/Growth/Doubt, `supplyDelta`,
+`priceRatio`)을 그대로 적용한다. 실제로 발생했으면 `RuntimeEventData`에 기록되고 `MarketManager.EventLog`로
+노출된다.
 
 ---
 
