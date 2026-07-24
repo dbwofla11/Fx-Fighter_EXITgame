@@ -19,6 +19,16 @@ public static class EventCalculator
         if (chosen == null)
             return null;
 
+        Apply(stat, chosen);
+
+        return chosen;
+    }
+
+    /// <summary>
+    /// 이미 정해진 EventSO를 stat에 그대로 적용한다. 랜덤 선택(Calculate)과 무조건 발생(guaranteedTurn) 양쪽에서 재사용한다.
+    /// </summary>
+    public static void Apply(PlayerStat stat, EventSO chosen)
+    {
         foreach (EffectData effect in chosen.effects)
         {
             StatCalculator.ApplyEffect(stat, effect);
@@ -28,8 +38,6 @@ public static class EventCalculator
 
         // 그 턴의 PriceCalculator 정규 가격 변화와 별도로, 이벤트 자체로 즉시 발생하는 1회성 가격 충격이다.
         stat.CurrentPrice += stat.CurrentPrice * chosen.priceRatio;
-
-        return chosen;
     }
 
     private static EventCategory RollCategory(PlayerStat stat)

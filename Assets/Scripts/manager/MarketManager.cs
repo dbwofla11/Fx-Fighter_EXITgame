@@ -84,8 +84,15 @@ public class MarketManager : MonoBehaviour
 
         ApplyDoubtAutoRise();
 
-        // 1-1. 시사 이벤트 자동 발생 체크 (30턴마다 확률 판정)
-        if (turnCount % NewsEventIntervalTurns == 0 && Random.value <= NewsEventChance)
+        // 1-1. 시사 이벤트 자동 발생 체크 : 이번 턴에 무조건 발생하는 이벤트가 있으면 그걸 우선 발생시키고,
+        // 없으면 기존 30턴마다 확률 판정으로 넘어간다.
+        EventSO guaranteed = FindGuaranteedEvent(turnCount);
+
+        if (guaranteed != null)
+        {
+            TriggerGuaranteedEvent(guaranteed);
+        }
+        else if (turnCount % NewsEventIntervalTurns == 0 && Random.value <= NewsEventChance)
         {
             TriggerNewsEvent();
         }
@@ -158,6 +165,30 @@ public class MarketManager : MonoBehaviour
         if (fired == null)
             return;
 
+        LogEvent(fired);
+    }
+
+    // eventDatabase 중 이번 턴(turn)에 무조건 발생하도록 지정된 이벤트를 찾는다 (없으면 null).
+    private EventSO FindGuaranteedEvent(int turn)
+    {
+        foreach (EventSO candidate in eventDatabase)
+        {
+            if (candidate.guaranteedTurn == turn)
+                return candidate;
+        }
+
+        return null;
+    }
+
+    // 확률 판정 없이 지정된 이벤트를 그대로 발생시킨다 (EventSO.guaranteedTurn 전용).
+    private void TriggerGuaranteedEvent(EventSO chosen)
+    {
+        EventCalculator.Apply(CurrentStat, chosen);
+        LogEvent(chosen);
+    }
+
+    private void LogEvent(EventSO fired)
+    {
         runtimeEventData.Log.Add(new EventLogEntry
         {
             Profile = fired,

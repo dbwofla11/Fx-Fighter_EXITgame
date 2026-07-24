@@ -230,7 +230,10 @@ Support/Growth/Supply는 Trade/Job과 동일하게 반영 후 매 턴 감쇠하�
 
 ## 발생 시점
 
-- 자동 : `MarketManager.NextTurn()`에서 `NewsEventIntervalTurns`(30)턴마다 `NewsEventChance`(40%) 확률로 발생
+- **무조건 발생** : `EventSO.guaranteedTurn`(0이면 해당 없음, N이면 게임 시작 후 N번째 턴)이 설정된 이벤트는
+  확률 판정 없이 그 턴에 반드시 발생한다. 무조건 발생 이벤트가 있는 턴에는 아래 "자동(확률)" 판정을 건너뛴다.
+  `MarketManager.FindGuaranteedEvent(turnCount)`가 매 턴 `eventDatabase`를 훑어 찾는다.
+- 자동(확률) : `MarketManager.NextTurn()`에서 `NewsEventIntervalTurns`(30)턴마다 `NewsEventChance`(40%) 확률로 발생
   여부를 판정한다.
 - 수동 : `EventHub.OnNewsEvent`를 통해 즉시 발생시킬 수 있다 (UI/시스템 트리거용, 자동 판정과 무관).
 - 자동/수동 모두 동일하게 `EventCalculator.Calculate(CurrentStat, eventDatabase)`를 호출한다.
@@ -250,6 +253,7 @@ Support/Growth/Supply는 Trade/Job과 동일하게 반영 후 매 턴 감쇠하�
 | `effects` | `List<EffectData>`. Job/Skill과 동일한 구조로, Support/Growth/Doubt 등 **원하는 스탯만 골라 부호 있는 값**을 지정한다 (예: `SupportIncrease +15`, `GrowthIncrease +10`만 넣고 Doubt는 아예 안 넣는 식) |
 | `supplyDelta` | Supply 변화량 (부호 포함). Job/Skill은 Supply를 건드리지 않으므로 `effects`에는 포함하지 않고 전용 필드로 둔다 |
 | `priceRatio` | 가격에 즉시 반영되는 변화율 (부호 포함, 예: `0.03` = +3%, `-0.06` = -6%) |
+| `guaranteedTurn` | 0이면 확률 발생 대상. N(1 이상)이면 게임 시작 후 N번째 턴에 확률 체크 없이 무조건 발생 (예: 스트리머_소개=1, 거래소_상장=2로 초반 두 턴에 순차 발생하도록 설정됨) |
 
 `effects`에서 Doubt를 다루려면 `EffectType.DoubtIncrease`(신규 추가, Job/Skill의 기존 `DoubtDecrease`와 대칭)와
 `DoubtDecrease`를 상황에 맞게 쓴다.

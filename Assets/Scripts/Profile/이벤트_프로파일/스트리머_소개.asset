@@ -22,3 +22,4 @@ MonoBehaviour:
     value: 10
   supplyDelta: -150
   priceRatio: 0.05
+  guaranteedTurn: 1

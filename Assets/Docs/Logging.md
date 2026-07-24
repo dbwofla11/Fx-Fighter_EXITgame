@@ -602,6 +602,32 @@ Job/토글형 스킬 쪽 `ApplyCashBonus()`(매 턴 보유 현금 대비 % 복�
 
 공식은 `Game_Formula.md` 3장 "Short", 3-3장에 반영했다.
 
+## 초반 이벤트 무조건 발생 + 스트리머 UI 힌트
+
+UI 기획안(플레이 화면 스크린샷)을 보니 우측에 캐릭터 초상화+가짜 채팅으로 반응하는 "스트리머" 패널이 있었다.
+"초기 이벤트가 발생하면 그게 켜지게 하자"는 요청을 받았는데, 확인해보니 이건 이전에 본 3개(개요/스킬/직업)
+화면에는 없던 새 UI 요소였다.
+
+**스트리머 패널** : 새 코드 필요 없음으로 결론. `스트리머_소개` 이벤트가 발생하면 `MarketManager.EventLog`에
+그대로 기록되므로(이미 public), UI가 `스트리머_소개` `EventSO` 에셋 참조를 들고 있다가 `EventLog`에 그 항목이
+있는지 확인하면 패널을 켤 수 있다.
+
+**초반 이벤트 무조건 발생** : "거래소 상장", "스트리머 소개" 같은 이벤트는 확률에 맡기지 않고 게임 시작 직후
+정해진 턴에 반드시 발생하게 해달라는 요청. 순서는 1턴 스트리머_소개, 2턴 거래소_상장으로 확정했다.
+
+**구현** :
+- `EventSO`에 `guaranteedTurn`(int, 기본 0) 필드 추가 — 0이면 기존처럼 확률 발생, N이면 해당 턴에 무조건 발생.
+- `EventCalculator.Calculate()`에서 "골라진 EventSO를 stat에 적용하는 부분"을 `EventCalculator.Apply(stat,
+  chosen)`으로 분리했다 — 랜덤 선택 경로(`Calculate`)와 무조건 발생 경로가 같은 적용 로직을 재사용하도록.
+- `MarketManager.NextTurn()`이 매 턴 먼저 `FindGuaranteedEvent(turnCount)`로 이번 턴에 무조건 발생할 이벤트가
+  있는지 찾는다. 있으면 `TriggerGuaranteedEvent()`(확률 체크 없이 `EventCalculator.Apply` 호출 + 로그 기록)로
+  처리하고, 이번 턴의 기존 30턴 확률 체크는 건너뛴다(같은 턴에 이벤트가 두 번 겹치는 걸 방지).
+- 로그 기록 부분(`runtimeEventData.Log.Add(...)`)이 `TriggerNewsEvent`/`TriggerGuaranteedEvent` 양쪽에서
+  중복돼서 `LogEvent(EventSO)` 헬퍼로 뺐다.
+- `스트리머_소개.guaranteedTurn = 1`, `거래소_상장.guaranteedTurn = 2`로 설정 (Unity MCP로 작업).
+
+공식은 `Game_Formula.md` 4장 "발생 시점"/"EventSO — 이벤트 하나의 정의"에 반영했다.
+
 ## (곁가지) MCP for Unity 연결 트러블슈팅
 
 이 세션에서 처음으로 Unity MCP가 연결됐는데, 그 과정에서 겪은 문제와 원인을 기록해둔다 (다음에 또 끊기면
