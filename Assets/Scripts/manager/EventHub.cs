@@ -56,4 +56,15 @@ public static class EventHub
     // 시장 계산 완료 후 UI 갱신
     public static event Action<PlayerStat> OnMarketUpdated;
     public static void RaiseMarketUpdated(PlayerStat stat) => OnMarketUpdated?.Invoke(stat);
+
+    // ==========================
+    // Ending
+    // ==========================
+    // 엑시트 시도 요청 (목표 금액 달성 후 활성화되는 버튼 클릭)
+    public static event Action OnExitRequested;
+    public static void RaiseExitRequested() => OnExitRequested?.Invoke();
+
+    // 게임 종료(엔딩 확정) 통지
+    public static event Action<EndingType> OnGameEnded;
+    public static void RaiseGameEnded(EndingType ending) => OnGameEnded?.Invoke(ending);
 }

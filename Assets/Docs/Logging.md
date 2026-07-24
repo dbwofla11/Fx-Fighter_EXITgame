@@ -374,6 +374,56 @@ Doubt 작업(위 "Doubt(의심도)도 이벤트에 포함" 절)에서 `EffectTyp
 
 공식은 `Game_Formula.md` 3장 "발행량 조작"에 반영했다.
 
+## Doubt 자동 상승 + 엔딩 시스템(4종)
+
+"2년 경과 후 자동 Doubt 상승 + 게임오버 판정" 후보 작업을 진행하면서, 사용자가 엔딩 조건 3가지(체포/엑시트/영웅)
+전체 기획을 전달했고, 여기에 거지 엔딩(현금 0 + 코인 0)이 하나 더 추가됐다. 기존 문서(`Game_Formula.md`,
+`PROJECT_OVERVIEW.md`)에는 이 엔딩 기획이 전혀 없어서 5장으로 새로 반영했다.
+
+### Doubt 자동 상승
+
+`MarketManager.ApplyDoubtAutoRise()`가 `NextTurn()`마다 호출된다. 1턴=1일 기준으로 게임 시간 2년을 730턴으로
+환산했다 : 730턴째 Doubt +20 (1회), 731턴부터는 매 턴 +0.5. Doubt는 감쇠하지 않으므로(이전 절 참고) 그대로
+누적된다.
+
+### 엔딩 4종
+
+- **체포(Bad)** : `Doubt >= 100`. 자동 판정(매 턴 `CheckAutomaticEndings`).
+- **거지** : 현금 0 + 코인 0. 자동 판정. 결과 서사는 아직 미정 (`Next_Tesk.md` 참고).
+- **엑시트(Neutral)** / **영웅(True)** : 둘 다 새로 만든 `EventHub.OnExitRequested`(엑시트 버튼) 트리거로
+  판정한다. `MarketManager.CanExit`(`PlayerManager.currentMoney >= TargetAsset`)를 만족해야 하고, 그 순간의
+  `Doubt <= 50 && Support >= 80`이면 영웅, 아니면 엑시트로 갈린다.
+
+### 설계 확정 과정에서 바뀐 것들 (스크린샷 기반)
+
+기획 원문에는 엑시트/영웅 조건에 "보유 코인 전량 매도"가 포함돼 있었는데, 실제 UI 스크린샷(목표금액/현재금액
+패널)을 보여주면서 "이 화면에서 목표금액 달성하면 눌리는 버튼 하나로 만든다"는 요구가 추가로 들어왔다. 확인
+결과:
+
+- 목표 자산(`TargetAsset`)은 화면상 100,000,000으로 보였지만, 실제로는 이전에 정한 1,000,000,000(10억)이 맞는
+  것으로 확인함 (스크린샷은 예시 값이었음).
+- 버튼 활성화 조건은 **현금만** 본다 (`currentMoney >= TargetAsset`). "코인 전량 매도" 조건은 이 버튼에서는
+  빠졌다 — 코인을 안 팔고 들고 있어도 현금만 충분하면 버튼이 활성화된다.
+- 기존에 있던 `PlayerStat.ExitUnlocked`(스킬의 `EffectType.ExitUnlock`으로 해금되는 플래그)는 이 버튼과 **연결하지
+  않기로** 했다. 즉 `ExitUnlocked`는 지금 이 엔딩 판정 로직 어디에서도 쓰이지 않는 상태로 남아 있다 (다른 용도로
+  쓰일 수도 있으니 삭제하지는 않음).
+
+### 구현
+
+- `Assets/Scripts/Stat/EndingType.cs` 신규 : `Arrest`/`Exit`/`Hero`/`Broke` 4종 enum.
+- `EventHub`에 `OnExitRequested`(엑시트 버튼, 인자 없음)와 `OnGameEnded(EndingType)`(엔딩 확정 통지) 추가.
+- `MarketManager` :
+  - `TargetAsset`(1,000,000,000) 상수, `IsGameOver`/`CanExit` 프로퍼티 추가.
+  - `NextTurn()`이 `IsGameOver`면 아무 것도 안 하도록 가드하고, `RaiseMarketUpdated` 직후 `CheckAutomaticEndings()`를
+    호출해 체포/거지를 확인한다 (동시 성립 시 체포 우선).
+  - `HandleExitRequested()`가 `OnExitRequested`를 받아 `CanExit` 확인 후 영웅/엑시트를 가른다.
+  - `EndGame(EndingType)`이 `IsGameOver = true` 설정, `TimeManager.Instance.PauseGame()` 호출, `EventHub.RaiseGameEnded`
+    발행을 한 곳에서 처리한다.
+- 체포/거지 엔딩 모두 `PlayerManager`의 실제 현금/코인 수치는 건드리지 않는다 (사용자가 "몰수는 서사일 뿐,
+  어차피 게임이 끝나니 수치는 안 건드려도 된다"고 확인함).
+
+공식/기획은 `Game_Formula.md` 3장(Doubt 자동 상승), 5장(엔딩 조건)에 신규 반영했다.
+
 ## 현재 아키텍처 요약
 
 ```

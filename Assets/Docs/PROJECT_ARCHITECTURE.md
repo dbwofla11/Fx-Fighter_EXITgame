@@ -49,6 +49,8 @@ UI와 Manager 사이를 중계하는 정적(static) 이벤트 허브. (Assets/Sc
 - OnManipulateSupply : 발행량 조작 요청, 양수/음수로 증가·감소 (MarketManager 구독) — `추가발행권한` 스킬을 구매하기 전에는 무시된다
 - OnNewsEvent : 시사 이벤트 수동 트리거 (MarketManager 구독) — 자동 발생(30턴마다 확률)은 `MarketManager.NextTurn()`이 별도로 처리하며 동일한 `TriggerNewsEvent`/`EventCalculator.Calculate`를 호출한다
 - OnMarketUpdated : 시장 계산 완료 후 UI 갱신 (MarketManager 발행)
+- OnExitRequested : 엑시트 버튼 클릭 요청, 인자 없음 (MarketManager 구독) — `MarketManager.CanExit`(목표 자산 달성 여부)가 false면 무시된다
+- OnGameEnded : 게임 종료(엔딩 확정) 통지, `EndingType` 전달 (MarketManager 발행)
 
 ---
 
@@ -82,7 +84,9 @@ RuntimeData는 현재 게임 상태와 계산 결과를 저장한다. `RuntimeSk
 스킬의 `SupplyIncrease`/`SupplyDecrease` 효과로 변화한다. Job은 Supply에 영향을 주지 않는다.
 
 `PlayerStat.Doubt`도 턴을 넘어 유지되지만 **감쇠하지 않는다.** Job/Skill의 `DoubtDecrease`(활성 상태인 동안 매 턴
-재적용)와 시사 이벤트로 변화하며, 100에 도달하면 게임오버가 되는 지표다 (자세한 내용은 Game_Formula.md 3장/4장 참고).
+재적용)와 시사 이벤트로 변화하고, 게임 시간 2년(730턴)째부터는 매 턴 자동으로도 오른다
+(`MarketManager.ApplyDoubtAutoRise`). 100에 도달하면 체포 엔딩으로 게임이 종료된다 (5장 "엔딩 판정" 참고,
+공식은 Game_Formula.md 3장/5장).
 
 ---
 
@@ -158,6 +162,25 @@ MarketManager : SkillManager.IsUnlocked(추가발행권한) 확인 → 실패 �
 
 TradeCalculator.ManipulateSupply → CurrentStat.Supply/Support/Growth/Doubt에 직접 반영 (현금 비용 없음)
 
+## 5. 엔딩 판정
+
+자동 판정(체포/거지) : `MarketManager.NextTurn()`의 `EventHub.OnMarketUpdated` 발행 직후 `CheckAutomaticEndings()`가
+매 턴 확인한다. `Doubt >= 100` → 체포, 아니면 `(현금 == 0 && 코인 == 0)` → 거지. 둘 다 성립하면 체포가 우선.
+
+플레이어 판정(엑시트/영웅) : `EventHub.OnExitRequested`
+
+↓
+
+MarketManager.HandleExitRequested : `CanExit`(현금 >= TargetAsset) 확인 → 실패 시 무시
+
+↓ 성공
+
+`Doubt <= 50 && Support >= 80`이면 영웅 엔딩, 아니면 엑시트 엔딩
+
+어느 쪽이든 확정되면 `MarketManager.EndGame(EndingType)`이 `IsGameOver = true` 설정, `TimeManager.PauseGame()`
+호출, `EventHub.RaiseGameEnded(ending)` 발행을 수행한다. `IsGameOver`가 true인 동안 `NextTurn()`은 아무것도
+하지 않는다.
+
 ---
 
 # 역할
@@ -183,6 +206,11 @@ TradeCalculator.ManipulateSupply → CurrentStat.Supply/Support/Growth/Doubt에 
 `EventHub.OnManipulateSupply`도 구독한다. `SkillManager.IsUnlocked(SkillID.추가발행권한)`이 true일 때만
 `TradeCalculator.ManipulateSupply(CurrentStat, amount)`를 호출한다 (현금 비용 없음, Long/Short와 달리
 PlayerManager를 거치지 않는다).
+
+게임 종료(엔딩) 판정도 담당한다. `IsGameOver`(게임 종료 여부), `CanExit`(현금이 `TargetAsset`(10억) 이상인지,
+엑시트 버튼 활성화 조건)를 외부에 노출한다. 매 턴 자동으로 체포(`Doubt>=100`)/거지(현금·코인 모두 0) 엔딩을
+확인하고, `EventHub.OnExitRequested`를 받으면 `CanExit`을 만족할 때만 Doubt/Support 기준으로 영웅/엑시트 엔딩을
+확정한다. 엔딩이 확정되면 `TimeManager.PauseGame()`으로 게임을 멈추고 `EventHub.OnGameEnded`를 발행한다.
 
 ---
 

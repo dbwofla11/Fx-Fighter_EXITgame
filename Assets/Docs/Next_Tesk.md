@@ -34,6 +34,15 @@
   `StatCalculator.ApplySkillUse`가 재사용형 스킬 구매 시 이를 반영하도록 했다 (Job/토글형 스킬 매 턴 재적용
   루프에서는 Supply 관련 타입을 방어적으로 제외 — 감쇠와 충돌해 무한 증가하는 걸 막기 위해, Doubt 때와 동일한
   이유). (`Logging.md` "발행량 조작 기능 추가" 참고, 공식은 `Game_Formula.md` 3장 "발행량 조작")
+- **완료** : Doubt 자동 상승 + 엔딩 시스템(4종). 게임 시간 2년(730턴)째 Doubt +20, 이후 매 턴 +0.5씩 자동 증가
+  (`MarketManager.ApplyDoubtAutoRise`, 감쇠 없이 누적). 엔딩 4종을 구현했다 — 체포(Bad, `Doubt>=100`, 자동),
+  거지(현금·코인 모두 0, 자동, 결과 서사 미정), 엑시트(Neutral)/영웅(True)은 새 `EventHub.OnExitRequested` 버튼으로
+  플레이어가 트리거하며 `MarketManager.CanExit`(현금 >= `TargetAsset`=10억)을 만족해야 하고, 그 시점의
+  `Doubt<=50 && Support>=80`이면 영웅, 아니면 엑시트로 갈린다. 코인 보유량과 `PlayerStat.ExitUnlocked`(기존 스킬
+  해금 플래그)는 이 판정과 무관하다. 자동 판정 두 개가 같은 턴에 겹치면 체포가 우선. 엔딩 확정 시
+  `TimeManager.PauseGame()`으로 정지하고 `EventHub.OnGameEnded(EndingType)`를 발행하며, 체포/거지 엔딩도
+  `PlayerManager`의 실제 현금/코인 수치는 건드리지 않는다. (`Logging.md` "Doubt 자동 상승 + 엔딩 시스템" 참고,
+  공식은 `Game_Formula.md` 3장/5장)
 - **남음** : 아래 참고.
 
 ---
@@ -57,18 +66,10 @@
 
 ---
 
-## 후보 : 2년 경과 후 자동 Doubt 상승 + Doubt 100 게임오버
+## 후보 : 거지 엔딩 결과 서사 정의
 
-기획 의도 : 게임 시간으로 2년이 지나면 자동으로 Doubt가 +20 이상 반영되고, 그 이후로는 매 턴 자동으로 Doubt가
-계속 증가한다. `Doubt`가 100에 도달하면 게임오버다. 현재는 Doubt를 자동으로 증가시키는 로직도, `Doubt >= 100`
-게임오버 판정 로직도 전혀 없다 (Job/Skill의 `DoubtDecrease`, 시사 이벤트만 존재 — 둘 다 감소 위주이거나 이벤트에
-따라 증감).
-
-- 트리거 조건을 턴 수로 환산해야 한다 (게임 시간 2년 = 몇 턴인지 `TimeManager`/`MarketManager` 기준으로 정의 필요).
-- 2년 시점의 최초 +20(혹은 그 이상) 반영량과, 이후 매 턴 증가량을 확정해야 한다.
-- `Doubt >= 100` 게임오버를 어디서 판정하고(`MarketManager.NextTurn()` 등) 어떻게 종료 처리할지(EventHub 이벤트
-  추가 여부, UI 등) 정의해야 한다.
-- `Doubt`는 감쇠하지 않으므로 이 자동 증가분도 그대로 누적되면 된다 (별도 감쇠 처리 불필요).
+체포/엑시트/영웅 엔딩은 결과 서사(수사·체포/해외 도피/합법적 운영 등)가 있는데, 거지 엔딩은 트리거 조건(현금 0
++ 코인 0)만 정해졌고 결과 설명 문구가 아직 없다. 나머지 세 엔딩과 톤을 맞춰 확정해야 한다.
 
 ---
 
@@ -84,6 +85,11 @@
 - 시사 이벤트 수동 트리거가 필요한 경우의 UI (`EventHub.RaiseNewsEvent`) — 자동 발생은 이미 `MarketManager`에 구현됨
 - 이벤트 로그 패널 — `MarketManager.EventLog`(`IReadOnlyList<EventLogEntry>`)를 순회하며 `Profile.message`/`Date`/
   `Profile.effects`를 표시. 데이터는 이미 쌓이고 있으니 UI만 그리면 된다.
+- 엑시트 버튼 (`EventHub.RaiseExitRequested`) — `MarketManager.CanExit`(현금 >= `TargetAsset`=10억)가 true일 때만
+  누를 수 있도록 활성화 처리. 목표 금액 진행률 표시(스크린샷의 "목표금액/현재금액/목표까지 남은 금액")도 이
+  값들을 그대로 읽으면 된다.
+- 엔딩 결과 화면 — `EventHub.OnGameEnded(EndingType)`을 구독해 4종 엔딩(체포/엑시트/영웅/거지)에 맞는 결과 문구를
+  표시. 각 엔딩의 설명 텍스트는 `Game_Formula.md` 5장에 정리되어 있음.
 
 `TimeUI`, `PlayerUI`, `SettingsUI`만 기존처럼 `TimeManager`/`PlayerManager`를 직접 참조하는 상태이고, 나머지는
 설계는 끝났으나 화면이 없다.
@@ -106,11 +112,3 @@ Supply 변화량도 함께 다시 잡아야 할 수 있다.
 - `발행량은폐`는 설명상 Supply 자체보다는 "정보를 숨긴다"는 쪽이라 `DoubtDecrease`만으로 충분해 보이는데,
   이대로 유지할지 확인 필요.
 - 만약 Supply 효과를 추가한다면 구체적 수치도 함께 정해야 한다.
-
-## 후보 : EXIT 조건
-
-`PROJECT_OVERVIEW.md`의 게임 목표는 "EXIT 조건을 달성하는 것"이라고 되어 있으나, `PlayerStat.ExitUnlocked`
-(스킬 `EffectType.ExitUnlock`으로 켜짐) 외에 실제로 게임을 종료시키거나 결과를 정산하는 로직은 아직 없다.
-
-- `ExitUnlocked`가 true일 때 플레이어가 취할 수 있는 행동(엑싯 버튼 등)을 정의해야 한다.
-- 엑싯 시 최종 자산 정산/결과 화면 등 종료 처리를 정의해야 한다.
