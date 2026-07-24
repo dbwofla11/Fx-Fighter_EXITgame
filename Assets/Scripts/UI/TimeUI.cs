@@ -19,20 +19,14 @@ public class TimeUI : MonoBehaviour
 
     private void Start()
     {
-        // 1. 멈춤 버튼: 시간을 0배속으로
+        // 멈춤 버튼: 0배속 시키는 PauseGame 불러잇
         pauseButton.onClick.AddListener(() =>
-        {
-            TimeManager.Instance.SetTimeScale(0f);
-        });
+            TimeManager.Instance.PauseGame());
 
-        // 2. 진행 버튼: 1배속으로 정상 진행시키고, 배속 사이클도 1배속(인덱스 0)으로 초기화
-        playButton.onClick.AddListener(() =>
-        {
-            currentSpeedIndex = 0;
-            ApplySpeed();
-        });
-
-        // 3. 배속 버튼: 누를 때마다 배열의 다음 속도로 넘어가기
+        // 진행 버튼: 원래 배속으로 돌아가게 ResumeGame 호출
+        playButton.onClick.AddListener(() => 
+            TimeManager.Instance.ResumeGame());
+        // 배속 버튼: 누를 때마다 배열(1,2,4,8)의 다음 속도로 넘어가기
         speedButton.onClick.AddListener(() =>
         {
             currentSpeedIndex++; // 인덱스 1 증가
