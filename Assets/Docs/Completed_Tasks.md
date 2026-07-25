@@ -122,3 +122,26 @@
   있었지만 문서에 누락돼 있던 Doubt 항(`wd`, 기존 동작 그대로 1.0)도 `Game_Formula.md` 1장에 반영했다. Play
   모드에서 `MarketManager.Instance.NextTurn()`을 반복 호출해 확률이 0.774 → 0.998 → 0.995 → 0.993처럼 자연스럽게
   변동/감쇠하는 것을 확인했다. (공식은 `Game_Formula.md` 1장)
+- **완료** : Long/Short 거래 버튼 + Support/Growth/Doubt 게이지 연결. `TradePanel`의 `BtnPlus1/10/100/MAX`가
+  하나의 거래 수량(`tradeAmount`, `TradeAmountText`)을 공유하도록 `PlayerUI.cs`(기존 파일)를 확장했다.
+  `BtnPlusMAX`는 "현재 현금으로 살 수 있는 최대 수량"(`currentMoney / CurrentPrice`, Long 기준)으로 정의했고,
+  `BtnLong`/`BtnShort`는 각각 `EventHub.RaiseBuyCoin`/`RaiseSellCoin`을 호출한 뒤 수량을 0으로 초기화한다.
+  `PlayerManager.HandleBuyCoin`/`HandleSellCoin`이 잔액/보유량 검증 없이 그대로 반영하는 기존 구조라 마이너스로
+  빠지지 않도록, UI 쪽에서 `BtnLong`은 결제 가능 금액(amount×price <= currentMoney), `BtnShort`는 보유 코인
+  수량(amount <= currentCoins) 기준으로 매 프레임 `interactable`을 갱신한다. Support/Growth/Doubt 게이지
+  (`SupportPanel`/`IncreaseScorePanel`/`DoubtScorePanel`)는 신규 `Assets/Scripts/UI/StatGaugeUI.cs`(공용
+  컴포넌트, `EventHub.OnMarketUpdated` 구독)로 연결했다 — Support/Growth는 `PositiveBar`/`NegativeBar`(Filled
+  Image, fillOrigin 좌/우) 양쪽을 값의 부호에 따라 채우고, Doubt는 `negativeBar`를 비워두면 `PositiveBar` 하나가
+  전체 폭(0~100)을 채우도록 분기한다. 값 텍스트는 기존 씬의 "+0" placeholder 포맷을 따라 부호를 항상 표시한다
+  (`+34`, `-12`, Doubt도 `+72`처럼 표시). Play 모드에서 거래 체결/수치 갱신/게이지 클램핑(극단값에서 fill이
+  0~1로 정상 clamp)까지 확인했다. (공식/구조는 `Game_Formula.md` 3장, `PROJECT_ARCHITECTURE.md` 참고)
+- **완료** : Support/Growth/Doubt가 문서 범위(-100~100, Doubt는 0~100)를 벗어나 찍히는 버그 수정. 거래
+  (Long/Short/발행량 조작)·이벤트·스킬·직업 효과 등 여러 경로가 `PlayerStat.Support`/`Growth`/`Doubt`를 직접
+  가감하는데, 어디에도 상한/하한을 강제하는 코드가 없어서 값이 문서 범위를 한참 벗어난 채로 UI에 그대로
+  찍히고 있었다 (게이지 UI 클램프(`StatGaugeUI`, `Clamp01`)는 막대 길이만 0~1로 눌러줄 뿐 텍스트/실제 계산에는
+  영향이 없어서 근본 원인이 아니었음). 신규 `StatCalculator.ClampStat(stat)`을 추가해 `MarketManager`가
+  `EventHub.RaiseMarketUpdated`를 발행하기 직전(자동 턴 진행 `NextTurn()`과 수동 시사 이벤트 트리거
+  `HandleNewsEvent()` 양쪽 모두, `ProbabilityCalculator`/`PriceCalculator`가 그 값을 읽기 전) 호출해 Support/
+  Growth를 [-100, 100], Doubt를 [0, 100]으로 강제한다. Play 모드에서 비정상적으로 큰 매수/매도/발행량 조작을
+  실행해 클램프가 정확히 걸리는지(Support/Growth=±100, Doubt=100에서 체포 엔딩까지 정상 발동) 확인했다.
+  (공식은 `Game_Formula.md` 1장/2장/3장 — Support/Growth (-100~100), Doubt (0~100) 범위 정의 참고)

@@ -35,6 +35,17 @@ public static class StatCalculator
     }
 
     /// <summary>
+    /// Support/Growth(-100~100), Doubt(0~100)가 거래·이벤트·스킬 등으로 문서 범위를 벗어나지 않도록 강제한다.
+    /// 매 턴/시사 이벤트 수동 트리거가 끝나고 EventHub.OnMarketUpdated를 발행하기 직전에 호출한다.
+    /// </summary>
+    public static void ClampStat(PlayerStat stat)
+    {
+        stat.Support = Mathf.Clamp(stat.Support, -100f, 100f);
+        stat.Growth = Mathf.Clamp(stat.Growth, -100f, 100f);
+        stat.Doubt = Mathf.Clamp(stat.Doubt, 0f, 100f);
+    }
+
+    /// <summary>
     /// 현재 직업의 Effect를 적용한다. Support/Growth는 선택 시점에 직접 반영되므로 여기서는 제외한다.
     /// Supply도 감쇠 대상이라 매 턴 재적용하면 Doubt에서 겪었던 것과 동일한 문제(무한정 증가)가 생기므로 제외한다
     /// (Job은 애초에 Supply를 다루지 않는 설계지만, 방어적으로 막아둔다).

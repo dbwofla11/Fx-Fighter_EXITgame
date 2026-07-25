@@ -923,6 +923,65 @@ Play 모드에서 `MarketManager.Instance.NextTurn()`을 `execute_code`로 반�
 
 공식은 `Game_Formula.md` 1장에 반영했다.
 
+## Long/Short 거래 버튼 + Support/Growth/Doubt 게이지 연결
+
+`Next_Tesk.md`의 "후보 : UI 연결" 중 Long/Short 거래 버튼과, 그동안 손대지 않았던 좌측 상단 3종 게이지(Support/
+Growth/Doubt)를 연결했다.
+
+**TradePanel(`PlayerUI.cs`, 기존 파일 확장)** — `BtnPlus1/10/100/MAX`가 하나의 `tradeAmount`를 공유하고
+`BtnLong`/`BtnShort` 둘 다 그 수량으로 실행되는 구조라, `BtnPlusMAX`가 뭘 의미해야 하는지와 거래 후 수량을
+어떻게 할지 사용자에게 먼저 물어봤다 — "현재 현금으로 살 수 있는 최대 수량(Long 기준)", "거래 후 0으로
+초기화"로 답을 받고 그대로 구현했다. `PlayerManager.HandleBuyCoin`/`HandleSellCoin`을 다시 확인해보니 잔액/
+보유량 검증이 전혀 없어서(무조건 반영) Long/Short를 그냥 연결하면 현금이나 코인이 마이너스로 빠질 수 있었다.
+`PlayerManager` 쪽 로직을 고치는 건 이번 범위를 벗어난다고 판단해, 대신 UI에서 `Update()`마다 `BtnLong`은
+`amount×price <= currentMoney`, `BtnShort`는 `amount <= currentCoins`일 때만 `interactable=true`가 되도록
+막았다 (발행량 조작 버튼을 스킬 해금 여부로 비활성화하기로 했던 기존 방침과 동일한 패턴).
+
+**Support/Growth/Doubt 게이지(신규 `StatGaugeUI.cs`)** — 씬을 까보니 슬라이더가 아니라 `BaseWhiteBar`(트랙) +
+`PositiveBar`/`NegativeBar`(Filled 타입 Image) + `REDBAR`(중앙 고정 마커, 손댈 필요 없음) 조합이었다.
+`PositiveBar`는 fillOrigin=Left로 패널 중앙에서 오른쪽으로, `NegativeBar`는 fillOrigin=Right로 중앙에서
+왼쪽으로 채워지는 구조(각각 절반 폭)라 `Mathf.Max(0, value)/100`, `Mathf.Max(0, -value)/100`로 매핑했다.
+Doubt 패널은 애초에 `NegativeBar`가 없고 `PositiveBar`가 패널 전체 폭(0~100)이라, `negativeBar`를
+Inspector에서 비워두면 자동으로 "전체 폭 하나만 채우는" 모드로 분기하도록 만들어 Support/Growth/Doubt 세
+패널에 같은 컴포넌트를 재사용했다. 값 텍스트는 기존 씬에 이미 있던 "+0" placeholder를 보고 부호를 항상
+표시하는 포맷("+34", "-12")으로 맞췄다.
+
+Play 모드에서 검증하는 도중 `MarketManager.Instance.NextTurn()`을 직접 호출한 직후 게이지가 갱신 안 되는
+것처럼 보이는 순간이 있었는데, 원인을 파고들어보니 그 시점에 Play 모드가 이미 (테스트 스크립트 밖에서)
+정지된 상태였다 — 정지된 플레이 세션의 `MarketManager` C# 객체가 좀비 상태로 계속 `NextTurn()`을 실행해
+`CurrentStat` 필드는 계속 바뀌는데, 실제 씬의 UI 오브젝트는 이미 에디터 상태로 되돌아가 있어서 발행되는
+`EventHub.OnMarketUpdated`에 아무도 구독하고 있지 않았던 것. Play 모드를 다시 깨끗하게 시작해서 재현했더니
+구독자 수(5개)와 게이지 갱신(`fill=0.3475, text="+35", raw=34.75` 등)이 정확히 일치함을 확인했다 — 실제
+버그는 아니었다.
+
+공식/구조는 `Game_Formula.md` 3장, `PROJECT_ARCHITECTURE.md`에 이미 있는 내용을 그대로 따랐다 (신규 공식
+추가 없음).
+
+## Support/Growth/Doubt 상한선 초과 버그 수정
+
+게이지를 연결하고 나니 사용자가 "Support/Growth/Doubt가 -100~100(Doubt는 0~100) 범위를 넘어서 찍힌다"고
+제보했다. 코드를 훑어보니 `TradeCalculator.Long/Short/ManipulateSupply`, `StatCalculator.ApplyEffect`(Job/
+Skill/이벤트가 공유하는 함수), `EventCalculator` 등 값을 가감하는 모든 경로 중 어디에도 클램프가 없었다 —
+`StatGaugeUI`가 게이지 막대 길이를 `Clamp01`로 누르고 있어서 막대는 안 터졌지만, 텍스트와 실제 계산에 쓰이는
+원본 값(`PlayerStat.Support` 등)은 그대로 범위를 벗어난 채였다. 실제로 아주 큰 수량으로 Long을 몇 번만 해도
+Support/Growth가 수백~수천까지 쉽게 올라갔다.
+
+수정 지점을 어디로 할지 고민했다. 가감이 일어나는 모든 지점(`TradeCalculator`, `StatCalculator.ApplyEffect`,
+`EventCalculator`)마다 개별적으로 클램프를 넣는 건 산발적이고 놓치기 쉬워서, 대신 "값이 실제로 화면에 나가기
+직전"인 `EventHub.OnMarketUpdated` 발행 지점 한 곳(정확히는 두 곳 — 자동 턴 `NextTurn()`과 수동 시사 이벤트
+`HandleNewsEvent()`)에서 그 턴에 있었던 모든 변경(감쇠+Job+Skill+이벤트+Doubt 자동 상승)이 끝난 뒤 한 번에
+클램프하기로 했다. 신규 `StatCalculator.ClampStat(stat)`을 추가해 두 지점 모두 `EventHub.RaiseMarketUpdated`
+호출 직전에 넣었는데, `NextTurn()`에서는 `ProbabilityCalculator`/`PriceCalculator`가 Support/Growth를 그대로
+읽어 확률/가격 변동폭을 계산하므로 그 계산 전에(이벤트 처리 다음, 확률 계산 이전) 클램프를 넣어야 값이 크게
+부풀려진 채로 가격에 영향을 주지 않는다는 점도 함께 고려했다.
+
+Play 모드에서 `EventHub.RaiseBuyCoin(999999999)`처럼 극단적인 수량으로 검증했다 — 클램프 전이었다면
+Support/Growth가 수만 단위로 튀었을 상황에서 정확히 100/-100에서 멈췄고, 발행량 조작으로 Doubt를 100 이상으로
+밀어붙이자 100에서 멈추면서 체포 엔딩(`IsGameOver=true`)까지 정상적으로 발동하는 것을 확인했다.
+
+공식은 `Game_Formula.md`가 이미 정의한 범위(Support/Growth -100~100, Doubt 0~100)를 그대로 따랐다 — 문서
+변경 없음, 코드가 문서를 못 따라가고 있던 걸 맞춘 것.
+
 ---
 
 ## 현재 아키텍처 요약

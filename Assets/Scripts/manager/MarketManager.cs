@@ -108,6 +108,8 @@ public class MarketManager : MonoBehaviour
             TriggerNewsEvent();
         }
 
+        StatCalculator.ClampStat(CurrentStat);
+
         ProbabilityCalculator.Calculate(CurrentStat);
 
         PriceCalculator.Calculate(CurrentStat);
@@ -171,6 +173,8 @@ public class MarketManager : MonoBehaviour
         float priceBefore = CurrentStat.CurrentPrice;
 
         TriggerNewsEvent();
+
+        StatCalculator.ClampStat(CurrentStat);
 
         UpdateStreamerReaction(priceBefore);
         EventHub.RaiseMarketUpdated(CurrentStat);

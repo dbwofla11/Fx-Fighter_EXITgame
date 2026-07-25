@@ -31,7 +31,7 @@ Main_Canvas (1920x1080)
 │   │   ├─ PauseBtn
 │   │   ├─ PlayBtn
 │   │   └─ SpeedBtn
-│   ├─ TradePanel [PlayerUI]   (자산/코인 표시 + Long/Short 거래, 우측 중단)
+│   ├─ TradePanel [PlayerUI]   (자산/코인 표시 + Long/Short 거래 연결 완료, 우측 중단)
 │   │   ├─ MoneyText / CoinText
 │   │   ├─ Money_Image / Coin_Image
 │   │   ├─ TradeAmountText
@@ -46,13 +46,13 @@ Main_Canvas (1920x1080)
 ├─ SettingsPanel                 (전체화면 설정 모달)
 │   ├─ SettingsCloseBtn
 │   └─ SetttingsQuitBtn
-├─ SupportPanel     (x:19~569,   y:30~155 — "코인 지지도" 게이지, 좌측)
+├─ SupportPanel  [StatGaugeUI] (x:19~569,   y:30~155 — "코인 지지도" 게이지, 좌측, 연결 완료)
 │   ├─ BaseWhiteBar / PositiveBar / NegativeBar / REDBAR
 │   ├─ SupportImage / SupportText
 │   ├─ SupValueText, "+100"/"-100" 라벨
-├─ IncreaseScorePanel (x:603~1153, y:30~155 — "코인 상승률" 게이지, 중앙)
+├─ IncreaseScorePanel [StatGaugeUI] (x:603~1153, y:30~155 — "코인 상승률" 게이지, 중앙, 연결 완료)
 │   └─ SupportPanel와 동일 구조 (IncreaseText/IncValueText/IncreaseImage)
-├─ DoubtScorePanel   (x:1189~1739, y:30~155 — "의심도" 게이지, 우측)
+├─ DoubtScorePanel [StatGaugeUI] (x:1189~1739, y:30~155 — "의심도" 게이지, 우측, 연결 완료)
 │   └─ 동일 구조 단순화 버전 (PositiveBar만, NegativeBar 없음 — Doubt는 0~100만 존재)
 │   ├─ DoubtImage / DoubtText / DoubtValueText
 ├─ SkillBtn                      (x:1830, y:92 — 스킬 패널 진입 버튼, 최우측 하단)
