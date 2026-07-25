@@ -20,6 +20,7 @@ Pup = Clamp(
 0.5
 + ws × Support / 100
 + wg × Growth / 100
+- wd × Doubt / 100
 ,0,1)
 
 Pdown = 1 - Pup
@@ -28,8 +29,16 @@ Pdown = 1 - Pup
 
 - Support : 코인 지지도 (-100 ~ 100)
 - Growth : 코인 상승률 (-100 ~ 100)
-- ws : 지지도 가중치
-- wg : 상승률 가중치
+- Doubt : 의심도 (0 ~ 100, 감쇠 없음)
+- ws : 지지도 가중치 = 0.5 (`ProbabilityCalculator.SupportWeight`)
+- wg : 상승률 가중치 = 0.5 (`ProbabilityCalculator.GrowthWeight`)
+- wd : 의심도 가중치 = 1 (`ProbabilityCalculator.DoubtWeight`)
+
+`ws`/`wg`가 원래 1.0이었을 때는 Support+Growth 합이 50만 넘어도(둘 다 -100~100 범위인데 절반도 안 채운
+수준) score가 1.0을 넘어 `Clamp01`에 걸려 확률이 그대로 100%에 고정돼버리는 문제가 있었다. 게다가
+decayRate=0.995(3장)로 감쇠가 느려서 한 번 포화되면 수십~수백 턴 동안 100%가 유지됐다 (플레이 로그에서
+`확률:1`이 계속 찍히는 현상으로 확인됨). 0.5로 낮춰 Support/Growth가 훨씬 많이 쌓여야 포화되도록 완화했다.
+Doubt 항은 코드에는 원래부터 있었으나 이 문서에 누락돼 있던 것을 반영했다 (기존 동작 변경 없음).
 
 Support/Growth는 `CurrentPrice`처럼 턴을 넘어 유지되는 값이다. Job 선택, 거래(Long/Short), 스킬 사용이
 발생하는 순간 그 값에 직접 반영되고, 매 턴 서서히 0으로 감쇠한다 (자세한 내용은 3장 "누적치 감쇠" 참고).

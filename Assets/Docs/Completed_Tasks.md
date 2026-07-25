@@ -115,3 +115,10 @@
   "UI뉴스아이콘_off" 두 스프라이트를 토글한다. 처음 48x48로 만들었다가 목업 비율 대비 작다는 피드백을 받고
   80x80으로 키웠다. 이벤트 로그 패널 본체는 아직 씬에 없어서 패널을 실제로 열고 닫는 연결은 비워뒀다 —
   패널이 만들어지면 `Toggle()`에 이어서 붙이면 된다. (`Logging.md` "이벤트 로그 패널 진입 버튼" 참고)
+- **완료** : 가격 상승 확률이 100%(`확률:1`)에 고정되는 버그 수정. `ProbabilityCalculator.CalculateScore`가
+  `ws`/`wg` 가중치를 사실상 1.0으로 하드코딩하고 있어서, Support+Growth 합이 50만 넘어도 score가 1.0을 초과해
+  `Clamp01`에 걸려버렸다 (decayRate=0.995로 감쇠가 느려 한 번 포화되면 수십~수백 턴 유지됨). `ws`/`wg`를 0.5로
+  낮춰 포화 임계값을 합 100으로 올렸다 (`ProbabilityCalculator.SupportWeight`/`GrowthWeight` 상수 추가). 코드에는
+  있었지만 문서에 누락돼 있던 Doubt 항(`wd`, 기존 동작 그대로 1.0)도 `Game_Formula.md` 1장에 반영했다. Play
+  모드에서 `MarketManager.Instance.NextTurn()`을 반복 호출해 확률이 0.774 → 0.998 → 0.995 → 0.993처럼 자연스럽게
+  변동/감쇠하는 것을 확인했다. (공식은 `Game_Formula.md` 1장)

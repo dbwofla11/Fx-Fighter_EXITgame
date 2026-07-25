@@ -901,6 +901,28 @@ Unity MCP로 `Main_Canvas` 하위에 `ChartPanel`(RectTransform + Image + `Price
 
 공식/설계는 `Game_Formula.md` 2-2장에 반영했다.
 
+## 가격 상승 확률이 항상 100%(`확률:1`)로 찍히는 문제 수정
+
+플레이 로그(`PriceCalculator.Calculate`의 디버그 출력)에서 `확률:1`이 여러 턴 연속으로 찍히는 게 이상하다는
+제보를 받고 `ProbabilityCalculator`를 확인했다.
+
+`CalculateScore`가 `score += stat.Support * 0.01f; score += stat.Growth * 0.01f;`처럼 `Game_Formula.md`의
+`ws`/`wg` 가중치를 사실상 1.0으로 하드코딩하고 있었다. 문제는 Support/Growth가 각각 -100~100 범위인데, 가중치가
+1.0이면 **둘의 합이 50만 넘어도** `score = 0.5 + Support/100 + Growth/100`이 1.0을 초과해 `Clamp01`에 걸려버린다는
+점이다. 거래(Long 1회당 ±0.1) 몇 번이나 시사 이벤트 한 번만으로도 쉽게 도달하는 수준인데, `decayRate=0.995`
+(반감기 약 138턴)로 감쇠가 아주 느려서 한 번 포화되면 수십~수백 턴 동안 확률이 100%에 그대로 고정된 채 보였다.
+
+`ws`/`wg`를 0.5로 낮춰(`ProbabilityCalculator.SupportWeight`/`GrowthWeight` 상수 신설) 포화에 필요한 Support+Growth
+합의 임계값을 50 → 100으로 올렸다. 코드에는 이미 있었지만 `Game_Formula.md` 1장 공식에는 빠져 있던 Doubt 차감
+항(`wd`, 기존 동작 그대로 1.0 유지, 동작 변경 없음)도 이번에 문서에 반영해 공식과 코드를 일치시켰다.
+
+Play 모드에서 `MarketManager.Instance.NextTurn()`을 `execute_code`로 반복 호출해 검증했다 — 수정 전 재현 조건과
+비슷하게 거래로 Support/Growth를 50 안팎까지 올린 뒤 턴을 진행시키자, 수정 전이라면 즉시 1.000에 고정됐을
+상황에서 확률이 0.774 → 0.998 → 0.995 → 0.993 → 0.990 → 0.988처럼 자연스럽게 변동하며 서서히 감쇠하는 것을
+확인했다.
+
+공식은 `Game_Formula.md` 1장에 반영했다.
+
 ---
 
 ## 현재 아키텍처 요약
