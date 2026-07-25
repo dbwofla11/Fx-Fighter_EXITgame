@@ -72,6 +72,7 @@ Manager는 게임 상태를 관리하며, EventHub를 구독하여 요청을 처
 - RuntimeSkillData
 - RuntimeJobData
 - RuntimeEventData
+- RuntimePriceHistory
 
 RuntimeData는 현재 게임 상태와 계산 결과를 저장한다. `RuntimeSkillData.SelectedSkillId`는 재사용형 스킬 아이콘을
 클릭해 선택한 상태를 들고 있으며, 구매 버튼(`OnSkillPurchased`)이 이 값을 기준으로 동작한다. `RuntimeEventData.Log`
@@ -220,6 +221,12 @@ PlayerManager를 거치지 않는다).
 
 매 턴(및 시사 이벤트 수동 트리거 시점)마다 계산 전후 `CurrentPrice` 차이로 `PriceChangeThisTurn`을 구해
 `StreamerReactionCalculator.Calculate()`로 `StreamerReaction`을 갱신한다 (2-1장 참고).
+
+매 턴(`NextTurn()`)마다 그 턴의 가격 캔들(`PricePoint` — Open=턴 시작 전 가격, Close=턴 계산 후 가격,
+Date=`TimeManager.CurrentGameDate`)을 `RuntimePriceHistory`에 기록하고, `MarketManager.PriceHistory`
+(`IReadOnlyList<PricePoint>`)로 노출한다. 시사 이벤트 수동 트리거(`HandleNewsEvent`)는 턴을 넘기지 않으므로
+기록 대상이 아니다 (1턴=1캔들 유지, 2장 "캔들 차트" 참고). 캔들 차트 UI(`PriceChartUI`)가 이 리스트의 최근
+N개만 읽어 그린다.
 
 게임 종료(엔딩) 판정도 담당한다. `IsGameOver`(게임 종료 여부), `CanExit`(현금이 `TargetAsset`(10억) 이상인지,
 엑시트 버튼 활성화 조건)를 외부에 노출한다. 매 턴 자동으로 체포(`Doubt>=100`)/거지(현금·코인 모두 0) 엔딩을

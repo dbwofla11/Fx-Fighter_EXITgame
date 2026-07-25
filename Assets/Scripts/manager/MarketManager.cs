@@ -22,6 +22,11 @@ public class MarketManager : MonoBehaviour
     /// <summary>지금까지 발생한 시사 이벤트 기록 (이벤트 로그 UI가 읽어서 그린다).</summary>
     public IReadOnlyList<EventLogEntry> EventLog => runtimeEventData.Log;
 
+    private RuntimePriceHistory runtimePriceHistory = new();
+
+    /// <summary>지금까지 지난 턴들의 가격 캔들 기록 (캔들 차트 UI가 읽어서 그린다). 1턴 = 캔들 1개.</summary>
+    public IReadOnlyList<PricePoint> PriceHistory => runtimePriceHistory.Points;
+
     // 엑시트/영웅 엔딩 조건인 목표 자산. 코인 보유량과 무관하게 현금만 본다.
     public const long TargetAsset = 1_000_000_000L;
 
@@ -109,6 +114,8 @@ public class MarketManager : MonoBehaviour
 
         UpdateStreamerReaction(priceBefore);
 
+        LogPricePoint(priceBefore);
+
         // 2. UI 갱신 이벤트 발행
         EventHub.RaiseMarketUpdated(CurrentStat);
 
@@ -176,6 +183,18 @@ public class MarketManager : MonoBehaviour
 
         CurrentStat.PriceChangeThisTurn = priceChange;
         CurrentStat.StreamerReaction = StreamerReactionCalculator.Calculate(priceChange);
+    }
+
+    // 이번 턴의 가격 캔들(Open=턴 시작 전 가격, Close=턴 계산 후 가격)을 이력에 기록한다.
+    // 시사 이벤트 수동 트리거(HandleNewsEvent)는 턴을 넘기지 않으므로 여기서는 기록하지 않는다 (1턴=1캔들 유지).
+    private void LogPricePoint(float open)
+    {
+        runtimePriceHistory.Points.Add(new PricePoint
+        {
+            Date = TimeManager.Instance.CurrentGameDate,
+            Open = open,
+            Close = CurrentStat.CurrentPrice
+        });
     }
 
     // EventCalculator로 이벤트를 계산해 반영하고, 실제로 발생했으면 로그에 기록한다.

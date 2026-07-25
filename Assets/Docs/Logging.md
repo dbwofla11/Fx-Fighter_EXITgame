@@ -736,6 +736,173 @@ UI 기획안(플레이 화면 스크린샷)을 보니 우측에 캐릭터 초상
 
 공식은 `Game_Formula.md` 2장에 반영했다 (초기 가격/하한선 값 명시).
 
+## 캔들스틱 가격 차트 UI 구현
+
+목업 이미지를 기준으로 플레이 화면 중앙의 캔들스틱 차트를 만들어달라는 요청을 받았다. 이번엔 "UI 쪽은 팀원
+담당"이라는 기존 원칙과 별개로 사용자가 UI 작업(씬 GameObject 구성 포함)까지 직접 해달라고 명시적으로
+요청했다 — 팀원과 사전에 합의됐다고 확인받았다.
+
+### 작업 전 : 씬 오브젝트 관계 문서화
+
+코드를 짜기 전에 Unity MCP로 씬(`Main_Canvas` 하위 트리)을 전부 조회해 `Scene_Hierarchy.md`(신규)에 정리했다.
+`RightPanel`(TimePanel/TradePanel/SettingsBtn), `CoinControlPanel`(발행량 조작 오버레이),
+`SupportPanel`/`IncreaseScorePanel`/`DoubtScorePanel`(하단 스탯 게이지 3종), `SettingsPanel`, `SkillBtn` 7개가
+`Main_Canvas` 직계 자식이었고, "그래프/차트" 관련 오브젝트는 씬에 전혀 없었다. `CoinControlPanel`의 가로 폭
+(1414)과 좌우 정렬을 그대로 재사용하고, 그 위쪽부터 캔버스 상단까지의 빈 공간(y: 375~1060)에 차트를 배치하기로
+계산했다 (자세한 좌표는 `Scene_Hierarchy.md` 참고).
+
+### 데이터 설계 : 캔들 1개 = 턴(하루) 1개
+
+"1턴 = 1일" 기획을 그대로 살려 캔들 1개를 그 턴의 Open(턴 시작 전 `CurrentPrice`)→Close(턴 계산 후
+`CurrentPrice`)로 정의했다. 목업 이미지의 캔들도 심지(High/Low) 없이 단순 사각 막대였어서 Open-Close 몸통만
+그리기로 하고 별도 High/Low 추적은 만들지 않았다.
+
+- `Assets/Scripts/Stat/Enums/PricePoint.cs`(신규) : `Date`/`Open`/`Close`만 가진 캔들 1개 데이터.
+- `Assets/Scripts/Stat/RuntimeData/RuntimePriceHistory.cs`(신규) : `List<PricePoint>` 보관, `RuntimeEventData`와
+  동일한 패턴.
+- `MarketManager`에 `PriceHistory`(`IReadOnlyList<PricePoint>`) 프로퍼티를 추가하고, `NextTurn()`이 이미 갖고
+  있던 `priceBefore`(스트리머 반응 계산용으로 이미 기억해두던 값)를 그대로 재사용해 `LogPricePoint()`로 매 턴
+  캔들 하나씩 기록한다. 시사 이벤트 수동 트리거(`HandleNewsEvent`)는 턴을 넘기지 않으므로 캔들을 만들지 않는다
+  (1턴=1캔들 유지).
+- 이력은 잘라내지 않고 전부 보관한다 — 수천 턴이 지나도 `List<PricePoint>` 메모리 부담은 무시할 수준이라
+  캡을 두는 건 불필요한 복잡도라고 판단했다.
+
+### 렌더링 : 오브젝트 풀링 + 자동 스케일링
+
+`Assets/Scripts/UI/PriceChartUI.cs`(신규)를 만들었다. `TimeUI`/`PlayerUI`처럼 Manager를 직접 폴링하는 구식
+패턴 대신, `PROJECT_ARCHITECTURE.md`가 정의한 "UI는 EventHub만 구독" 원칙대로 `EventHub.OnMarketUpdated`를
+구독해 매 턴 다시 그린다.
+
+- 이력 전체가 아니라 최근 `visibleCandleCount`개(기본 14, Inspector로 조절 가능)만 그린다. `Awake()`에서 Image
+  GameObject를 미리 14개 만들어두고(오브젝트 풀링), `Redraw()`는 이 풀의 위치(`anchoredPosition`)/크기
+  (`sizeDelta`)/색상만 갱신한다 — 이력이 수천 턴 쌓여도 매 프레임 부담이 없다.
+  프리팹 없이 코드로 직접 `new GameObject(...)`해서 만든다 (에셋 하나 추가하는 것보다 단순).
+- Y축은 화면에 보이는 캔들들의 Open/Close 최소~최대 값 기준으로 매번 자동 스케일링한다 (위아래 10% 여백).
+  X축은 왼쪽부터 오래된 캔들을 채우고, 이력이 `visibleCandleCount`를 넘으면 오래된 캔들이 왼쪽으로 밀려나며
+  사라지는 슬라이딩 윈도우 방식이다.
+- 색상은 `BtnLong`(#4B692F)/`BtnShort`(#AC3232)와 동일한 값을 그대로 재사용해 기존 거래 버튼과 색 통일감을
+  맞췄다.
+- 이번 범위에서 제외한 것 : X축 날짜 라벨, 상단 코인명/현재가 헤더, 스트리머 패널 스프라이트 연결. 셋 다
+  대응하는 UI 오브젝트가 씬에 아직 없어서(헤더/스트리머 패널) 또는 우선순위 밖(날짜 라벨)이라 이번 작업에서는
+  만들지 않았다 (`Next_Tesk.md` 참고).
+
+### 씬 배치 및 검증
+
+Unity MCP로 `Main_Canvas` 하위에 `ChartPanel`(RectTransform + Image + `PriceChartUI`) GameObject를 생성해
+`Scene_Hierarchy.md`에서 계산한 위치(anchoredPosition -244.48, 172.5 / sizeDelta 1414.48 x 674)로 배치하고
+씬을 저장했다. Play 모드에 진입해 배속을 8배로 올리고 실제로 며칠 지나가는 걸 스크린샷으로 확인했다 — 캔들이
+좌에서 우로 순서대로 쌓이고, 상승/하락에 따라 초록/빨강이 정확히 갈리며, Y축 자동 스케일링과 슬라이딩 윈도우
+모두 의도대로 동작함을 확인했다. 검증 스크린샷은 확인 후 삭제했다 (`Assets/Screenshots/` 폴더 자체는 남음).
+
+플레이 중 `SkillManager.cs:43`에서 발생한 `NullReferenceException`을 콘솔에서 발견했는데, 이번에 건드리지 않은
+기존 코드에서 나는 에러라 이번 작업과 무관한 별개의 기존 버그로 판단해 손대지 않았다 (`Next_Tesk.md`에 후보로
+남김).
+
+### 후속 요청 : 코인명/가격 헤더 + 차트 모서리 둥글게
+
+같은 세션에서 이어서 두 가지를 추가로 요청받았다 — 목업의 좌측 상단 "코인명 + 현재가" 표시, 그리고 차트
+패널을 다른 패널들처럼 둥근 모서리로 바꿔달라는 것.
+
+- **차트 모서리** : 기존 패널들이 쓰는 `Nobi.UiRoundedCorners.ImageWithRoundedCorners` 컴포넌트를 `ChartPanel`에
+  그대로 추가했다. 재질(`UI/RoundedCorners/RoundedCorners`)은 에셋으로 존재하지 않고 컴포넌트가 런타임에 직접
+  생성해 `Image.material`에 꽂아준다는 걸 확인했다 — 다른 패널들의 `materialForRendering` 인스턴스ID가 모두
+  음수(런타임 생성 오브젝트)였던 것으로 짐작했고, `radius`(30, `CoinControlPanel`과 동일)만 지정하면 나머지는
+  컴포넌트가 알아서 처리했다.
+- **코인명/가격 헤더** : `Assets/Scripts/UI/CoinPriceHeaderUI.cs`(신규)를 만들었다. `PriceChartUI`와 동일하게
+  `EventHub.OnMarketUpdated`를 구독해 `MarketManager.CurrentStat.CurrentPrice`를 `"BitBitCoin(BBIT)  ₩1,000"`
+  형식으로 표시한다. 목업은 "$"였지만 이 프로젝트의 다른 화면(`PlayerUI` 등)이 전부 "₩"를 쓰고 있어 통화 표기를
+  기존 관례에 맞춰 통일했다.
+- 헤더는 목업처럼 차트 위쪽에 겹치지 않는 별도 줄로 배치하기 위해 `ChartPanel`의 세로 크기를 살짝 줄이고
+  (기존 674 → 575, 상단에 헤더 자리 확보) 그 위 공간에 `CoinPriceHeader`(아이콘 + 텍스트) GameObject를 새로
+  만들어 배치했다. 배경 패널 없이 아이콘+텍스트만 캔버스 배경 위에 직접 떠 있는 형태로, 목업과 동일하다.
+- Play 모드로 실제 가격이 갱신되며 헤더 숫자가 바뀌는 것과 차트 모서리가 둥글게 렌더링되는 것을 스크린샷으로
+  확인했다. 이 과정에서 에디터 창이 포커스를 잃으면(`EditorApplication.isFocused == false`) 8배속을 걸어도
+  실제 게임 시간이 거의 안 흐르는(프레임이 크게 throttle되는) 현상을 발견했다 — 코드 버그가 아니라 Unity
+  에디터가 백그라운드일 때 프레임을 줄이는 동작이라, 다음에 Play 모드로 검증할 땐 대기 시간을 넉넉히 잡아야
+  한다는 걸 기록해둔다.
+
+### 캔들 간격 좁히기
+
+목업과 비교해 캔들 사이 간격이 넓다는 피드백을 받고 `PriceChartUI.candleWidthRatio`를 0.6 → 0.85로 올렸다
+(슬롯 폭 대비 캔들 몸통이 차지하는 비율 — 값이 클수록 옆 캔들과의 틈이 좁아진다). 씬에 이미 저장된
+`ChartPanel` 컴포넌트 값도 함께 갱신했다.
+
+검증 중 에디터가 포커스를 잃은 상태에서 Play 모드 진입 직후 "playmode_transition" 상태에 멈춰
+`TimeManager`의 `Update()`가 전혀 진행되지 않고 `manage_camera` 스크린샷도 그 시점의 정지 프레임만 반환하는
+현상을 겪었다 (배속을 8배로 걸어도 게임 날짜가 전혀 안 흐름). 코드 문제인지 확인하려고 `execute_code`로
+`MarketManager.Instance.NextTurn()`을 직접 20회 호출해 턴을 강제로 진행시켰더니 `PriceHistory.Count`가
+정상적으로 20까지 올라갔고, 런타임에 생성된 `Candle_0`/`Candle_1` GameObject의 `RectTransform`을 직접 조회해
+슬롯 폭(101.03px) 대비 캔들 폭(85.88px)이 새 비율(0.85)대로 정확히 반영된 것을 확인했다 — 로직 자체는
+정상이고, 화면 캡처만 멈춰있던 것으로 결론지었다. **다음에 비슷한 상황(스크린샷이 하나도 안 바뀜)을 겪으면**
+스크린샷에만 의존하지 말고 `execute_code`로 관련 오브젝트의 컴포넌트 값을 직접 조회해서 로직과 렌더링
+문제를 구분할 것.
+
+## 캔들 차트 후속 작업 : X축 날짜 라벨 + 호버 툴팁
+
+`Next_Tesk.md`에 후보로 남겨뒀던 캔들 차트 후속 작업을 이어서 진행했다.
+
+- **X축 날짜 라벨** : `PriceChartUI`가 캔들과 동일한 방식(오브젝트 풀링)으로 각 캔들 아래에 `TextMeshProUGUI`
+  라벨을 만들어 `"MM/dd"` 형식으로 날짜를 표시한다. 차트 영역 하단 `dateLabelAreaHeight`(32px)만큼을 라벨
+  전용 공간으로 비워두고, 캔들은 그 위쪽 영역에만 그리도록 `Redraw()`의 Y 계산에 오프셋을 추가했다.
+- **버그 발견** : `DateTime.ToString("MM/dd")`처럼 형식 문자열에 `/`를 직접 쓰면, 실제 출력되는 구분자는
+  리터럴 슬래시가 아니라 **현재 시스템 문화권(Culture)의 날짜 구분자**로 치환된다는 걸 Play 모드 검증 중
+  발견했다 — 이 환경에서는 `/` 대신 `-`가 나와 "01/01"이 "01-01"로 표시되고 있었다. `CultureInfo.InvariantCulture`를
+  쓰거나 직접 포맷하는 방법 중, 별도 라이브러리 using 추가 없이 가장 단순한 `$"{date.Month:00}/{date.Day:00}"`
+  형태의 `FormatDate()` 헬퍼를 만들어 고정했다. 캔들 호버 툴팁에도 동일한 함수를 재사용한다.
+- **호버 툴팁** : 캔들 위에 마우스를 올리면 그 캔들의 날짜/시가/종가("01/04  Open ₩2,098 → Close ₩2,140")를
+  차트 좌상단에 띄운다. `PriceChartUI` 내부에 `CandleHoverTarget`(`IPointerEnterHandler`/`IPointerExitHandler`
+  구현) private nested class를 만들어 각 캔들 GameObject에 붙이고, 캔들의 `Image.raycastTarget`을
+  `false`→`true`로 바꿔 포인터 이벤트를 받게 했다. 어떤 풀 슬롯(index)이 지금 어떤 `PricePoint`를 표시
+  중인지는 `Redraw()`가 매번 채우는 `boundPoints` 리스트로 추적한다 — 풀링 구조상 슬롯 i가 매 턴 다른
+  데이터를 가리키므로, 생성 시점 값을 캡처해두는 방식은 쓸 수 없었다.
+- **밸런스 동기화** : 사용자가 직접 스크립트 필드 기본값을 `visibleCandleCount` 14→16, `candleWidthRatio`
+  0.85→0.95로 조정했다. 스크립트 기본값과 별개로 씬에 이미 저장된 `ChartPanel` 컴포넌트 값은 명시적으로
+  덮어써야 반영되므로(스크립트 기본값 변경만으로는 기존 씬의 직렬화된 값을 갱신 못함) Unity MCP로 같이
+  동기화했다.
+- **검증 트러블슈팅** : 스크립트를 Play 모드 도중에 수정하면 Unity가 플레이 상태를 유지한 채 도메인 리로드를
+  수행하는데, 이 과정에서 `EventHub`의 static 이벤트나 각 Manager의 `Instance` 정적 필드가 일시적으로
+  초기화 순서가 꼬여 `NullReferenceException`/`ArgumentOutOfRangeException`이 발생하는 걸 겪었다 — 실제
+  게임 로직 버그가 아니라 "플레이 중 스크립트 편집"이라는 비정상적인 테스트 절차 자체의 부작용이었다.
+  **교훈** : 스크립트를 고칠 일이 생기면 반드시 Play 모드를 완전히 종료한 뒤 편집하고, 컴파일이 끝난 걸
+  확인한 다음 새로 Play 모드에 진입해서 검증할 것.
+
+### 헤더 우측 아이콘 — 햄버거 메뉴로 잘못 만들었다가 되돌림
+
+목업에서 코인명/가격 헤더 우측에 있는 아이콘을 "햄버거 메뉴 → 설정창 열기"로 오해하고, `SettingsUI`에
+`static Instance`를 추가하고 `OpenSettings()`를 public으로 바꾼 뒤 `HamburgerMenuButton.cs`(신규)를 만들어
+`game-icons_hamburger-menu` 아이콘 버튼을 헤더 우측에 배치했었다. Play 모드에서 클릭 시 실제로 설정창이
+열리는 것까지 확인했는데, 사용자가 스크린샷을 보여주며 그 아이콘은 설정이 아니라 **이벤트 로그(개요) 전체화면
+패널로 넘어가는 버튼**이고 아이콘도 "UI뉴스아이콘"을 써야 한다고 정정했다.
+
+이벤트 로그 패널 자체가 씬에 아직 없어서(확인 완료 — `find_gameobjects`로 검색해도 없음) 지금 당장 그
+패널까지 만드는 건 이번 범위를 벗어난다고 판단해, 잘못 만든 햄버거 버튼(`MenuBtn` GameObject,
+`HamburgerMenuButton.cs`)과 `SettingsUI`의 관련 변경(`Instance`, `OpenSettings` public화)을 전부 원상복구했다.
+아이콘/연결 대상 정보는 `Next_Tesk.md`의 "이벤트 로그 패널" 항목에 남겨서, 나중에 그 패널을 실제로 만들 때
+헤더 우측에 "UI뉴스아이콘"으로 진입 버튼을 놓으면 된다는 걸 알 수 있게 했다.
+
+공식/설계는 `Game_Formula.md` 2-2장에 반영했다.
+
+## 이벤트 로그 패널 진입 버튼
+
+정정받은 대로 헤더 우측 자리에 "이벤트 로그 패널로 넘어가는 버튼"을 다시 만들었다. 다만 이번엔 진입 버튼만
+요청받았고 이벤트 로그 패널 본체(개요/커뮤니티 탭, X 닫기, 카드 리스트)는 만들지 않았다 — 아직 씬에 그
+패널이 없는 상태에서 버튼만 먼저 준비해두는 게 범위에 맞다고 판단했다.
+
+- `Assets/Scripts/UI/EventLogButton.cs`(신규) : `Awake()`에서 `offSprite`로 초기화하고, 클릭할 때마다
+  `onSprite`/`offSprite`를 토글한다. 스킬 아이콘 클릭이 `RuntimeSkillData.SelectedSkillId`만 저장하고 끝나는
+  것과 비슷하게, 지금은 시각적 토글만 하고 실제로 패널을 열고 닫는 로직은 없다 — 패널이 생기면 `Toggle()`
+  안에서 패널 `SetActive`도 같이 처리하면 된다.
+  - `햄버거 버튼` 실수 이후 이번엔 아이콘부터 정확히 확인했다 — `Assets/Sprites/UI아이콘/UI뉴스아이콘_on.png`/
+    `_off.png` 두 상태가 이미 있었다 (다른 스킬/발행량 조작 버튼들도 이런 두 상태 아이콘 패턴을 이미 쓰고
+    있음).
+- 씬에 `EventLogBtn` GameObject를 헤더 우측(x:1383, y:1010 근방 — 이전 햄버거 버튼과 같은 자리)에 배치했다.
+- Play 모드에서 `Button.onClick.Invoke()`를 두 번 호출해 `off → on → off` 토글이 스프라이트 레벨까지 정확히
+  반영되는 걸 확인했다.
+
+공식/설계는 `Game_Formula.md` 2-2장에 반영했다.
+
+---
+
 ## 현재 아키텍처 요약
 
 ```
@@ -747,6 +914,6 @@ Systems (Calculator)
 ```
 
 - **Manager**: TimeManager, MarketManager, SkillManager, JobManager, PlayerManager — 게임 상태를 관리하며 `EventHub`를 구독한다.
-- **RuntimeData**: PlayerStat, RuntimeSkillData, RuntimeJobData — 현재 상태와 계산 결과를 저장한다.
+- **RuntimeData**: PlayerStat, RuntimeSkillData, RuntimeJobData, RuntimeEventData, RuntimePriceHistory — 현재 상태와 계산 결과를 저장한다.
 - **Systems**: StatCalculator, ProbabilityCalculator, PriceCalculator, TradeCalculator, EventCalculator — 상태를 변경하지 않고 계산만 수행한다 (단, TradeCalculator/EventCalculator는 `PlayerStat`을 인자로 받아 그 자리에서 값을 직접 갱신한다).
 - **EventHub**: UI ↔ Manager 사이의 이벤트를 중계한다.

@@ -26,7 +26,7 @@ public static class PriceCalculator
 
         ClampPrice(stat);
 
-        Debug.Log($"현재가격 : {stat.CurrentPrice}, 변동폭: {delta}, stat표시<growth>: {stat.Growth},stat표시<Support>:{ stat.Support} ");
+        Debug.Log($"현재가격 : {stat.CurrentPrice}, 변동폭: {delta}, stat표시<growth>: {stat.Growth},stat표시<Support>:{ stat.Support} 확률:{stat.UpProbability}");
     }
 
     /// <summary>CurrentPrice가 MinPrice 밑으로 내려가지 않도록 고정한다. EventCalculator도 가격 충격 적용 후 재사용한다.</summary>

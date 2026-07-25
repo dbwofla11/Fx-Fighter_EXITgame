@@ -128,6 +128,43 @@ PriceChangeThisTurn = CurrentPrice(이번 턴 계산 후) - CurrentPrice(이번 
 
 ---
 
+# 2-2. 캔들 차트
+
+플레이 화면 중앙의 코인 가격 캔들스틱 차트를 위한 데이터/렌더링 정의다.
+
+## 캔들 정의
+
+"1턴 = 1일" 기획을 그대로 살려 **캔들 1개 = 하루(한 턴)**로 정의한다. High/Low(꼭지 심지)는 두지 않고
+Open-Close 몸통만 그린다 (목업 디자인에도 심지가 없는 단순 사각 막대 형태).
+
+- **Open** : 그 턴 계산 시작 전의 `CurrentPrice`
+- **Close** : 그 턴 계산(정규 가격 변화 + 그 턴에 발생한 시사 이벤트 가격 충격 포함) 후의 `CurrentPrice`
+- **색상** : `Close >= Open`이면 상승(초록), 아니면 하락(빨강) — `BtnLong`/`BtnShort` 버튼과 동일한 색을 그대로 재사용한다
+
+시사 이벤트 수동 트리거(`EventHub.OnNewsEvent`)는 턴을 넘기지 않는 즉시 반영이라 별도 캔들을 만들지 않는다.
+정규 턴 진행(`MarketManager.NextTurn()`) 시점에만 캔들 1개가 기록된다.
+
+## 데이터 : PriceHistory
+
+`MarketManager.PriceHistory`(`IReadOnlyList<PricePoint>`)로 노출된다. `RuntimeEventData`/`EventLog`와 동일한
+패턴 — `RuntimePriceHistory`가 `List<PricePoint>`를 들고 있고, 매 턴 하나씩 쌓인다. 이력은 잘라내지 않고 전부
+보관한다 (게임 특성상 수천 턴이 지나도 메모리 부담이 무시할 수준).
+
+## 렌더링
+
+`Assets/Scripts/UI/PriceChartUI.cs`가 `EventHub.OnMarketUpdated`를 구독해 매 턴 다시 그린다. 이력 전체가 아니라
+최근 `visibleCandleCount`개(기본 14개)만 오브젝트 풀링(미리 만들어둔 Image를 재사용)으로 그리므로 이력이 아무리
+쌓여도 성능에 영향이 없다. Y축은 화면에 보이는 캔들들의 Open/Close 최소~최대 값 기준으로 매번 자동 스케일링된다
+(위아래 10% 여백 포함).
+
+차트 바로 위에는 `Assets/Scripts/UI/CoinPriceHeaderUI.cs`가 같은 방식(`EventHub.OnMarketUpdated` 구독)으로
+코인명과 현재가(`MarketManager.CurrentStat.CurrentPrice`)를 "코인명 ₩현재가" 형식으로 표시한다.
+
+차트 하단에는 각 캔들의 날짜("MM/dd")를 표시하는 X축 라벨이 있고, 캔들에 마우스를 올리면 그 캔들의
+날짜/시가/종가를 차트 좌상단에 툴팁으로 보여준다 (캔들의 `raycastTarget`을 켜서 포인터 이벤트를 받는다).
+
+---
+
 # 3. 거래 시스템
 
 플레이어는 현재 가격으로 즉시 거래한다.
