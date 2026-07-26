@@ -2,6 +2,8 @@ using UnityEngine;
 
 public static class StatCalculator
 {
+    #region 턴 계산
+
     /// <summary>
     /// 이번 턴의 스탯을 계산한다.
     /// </summary>
@@ -44,6 +46,10 @@ public static class StatCalculator
         stat.Growth = Mathf.Clamp(stat.Growth, -100f, 100f);
         stat.Doubt = Mathf.Clamp(stat.Doubt, 0f, 100f);
     }
+
+    #endregion
+
+    #region 직업 효과
 
     /// <summary>
     /// 현재 직업의 Effect를 적용한다. Support/Growth는 선택 시점에 직접 반영되므로 여기서는 제외한다.
@@ -91,6 +97,10 @@ public static class StatCalculator
             }
         }
     }
+
+    #endregion
+
+    #region 스킬 효과
 
     /// <summary>
     /// 활성화된 토글형(재사용 불가) 스킬들의 Effect를 매 턴 재적용한다.
@@ -146,6 +156,10 @@ public static class StatCalculator
                 stat.Supply -= effect.value;
         }
     }
+
+    #endregion
+
+    #region 공용 Effect 적용
 
     /// <summary>
     /// Effect 하나를 PlayerStat에 적용한다. EventCalculator도 EventSO의 효과를 적용할 때 재사용한다.
@@ -207,4 +221,6 @@ public static class StatCalculator
                 break;
         }
     }
+
+    #endregion
 }

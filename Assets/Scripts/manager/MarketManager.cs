@@ -1,9 +1,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// 계산 결과를 최종적으로 관리하고 UI에 전달하는 관리자 
+// 계산 결과를 최종적으로 관리하고 UI에 전달하는 관리자
 public class MarketManager : MonoBehaviour
 {
+    #region 필드 / 프로퍼티
+
     public static MarketManager Instance { get; private set; }
 
     // 계산된 현재 플레이어 능력치
@@ -44,6 +46,10 @@ public class MarketManager : MonoBehaviour
     /// <summary>엑시트 버튼을 누를 수 있는지 여부 (목표 자산 달성 여부만 본다).</summary>
     public bool CanExit => !IsGameOver && PlayerManager.Instance.currentMoney >= TargetAsset;
 
+    #endregion
+
+    #region Unity 생명주기
+
     private void Awake()
     {
         if (Instance == null)
@@ -79,6 +85,10 @@ public class MarketManager : MonoBehaviour
         EventHub.OnManipulateSupply -= HandleManipulateSupply;
         EventHub.OnExitRequested -= HandleExitRequested;
     }
+
+    #endregion
+
+    #region 턴 진행
 
     // 매 턴마다 ( 1일이 지날때 마다 패시브로 계산하는 함수 로직 )
     public void NextTurn()
@@ -133,39 +143,9 @@ public class MarketManager : MonoBehaviour
             CurrentStat.Doubt += DoubtAutoRisePerTurn;
     }
 
-    // 자동으로 판정되는 엔딩(체포/거지)을 확인한다. 둘 다 성립하면 체포가 우선이다.
-    private void CheckAutomaticEndings()
-    {
-        if (CurrentStat.Doubt >= 100f)
-        {
-            EndGame(EndingType.Arrest);
-        }
-        else if (PlayerManager.Instance.currentMoney == 0 && PlayerManager.Instance.currentCoins == 0)
-        {
-            EndGame(EndingType.Broke);
-        }
-    }
+    #endregion
 
-    // 엑시트 버튼 클릭 요청 수신 : 목표 자산에 못 미치면 무시한다. 조건을 만족하면 Doubt/Support에 따라
-    // 영웅 엔딩(True) 또는 엑시트 엔딩(Neutral)으로 갈린다.
-    private void HandleExitRequested()
-    {
-        if (IsGameOver || PlayerManager.Instance.currentMoney < TargetAsset)
-            return;
-
-        if (CurrentStat.Doubt <= 50f && CurrentStat.Support >= 80f)
-            EndGame(EndingType.Hero);
-        else
-            EndGame(EndingType.Exit);
-    }
-
-    // 엔딩을 확정하고 게임을 정지시킨다. 체포/거지 엔딩은 자산을 몰수하지 않는다 (수치는 그대로 둔다).
-    private void EndGame(EndingType ending)
-    {
-        IsGameOver = true;
-        TimeManager.Instance.PauseGame();
-        EventHub.RaiseGameEnded(ending);
-    }
+    #region 시사 이벤트
 
     // 시사 이벤트 적용 요청 수신 (수동 트리거) : NextTurn()과 달리 다음 턴까지 기다리지 않고 즉시 반영한다.
     private void HandleNewsEvent()
@@ -178,27 +158,6 @@ public class MarketManager : MonoBehaviour
 
         UpdateStreamerReaction(priceBefore);
         EventHub.RaiseMarketUpdated(CurrentStat);
-    }
-
-    // 이번 턴(또는 수동 트리거)의 가격 변화량을 계산해 스트리머 반응 상태로 변환한다.
-    private void UpdateStreamerReaction(float priceBefore)
-    {
-        float priceChange = CurrentStat.CurrentPrice - priceBefore;
-
-        CurrentStat.PriceChangeThisTurn = priceChange;
-        CurrentStat.StreamerReaction = StreamerReactionCalculator.Calculate(priceChange);
-    }
-
-    // 이번 턴의 가격 캔들(Open=턴 시작 전 가격, Close=턴 계산 후 가격)을 이력에 기록한다.
-    // 시사 이벤트 수동 트리거(HandleNewsEvent)는 턴을 넘기지 않으므로 여기서는 기록하지 않는다 (1턴=1캔들 유지).
-    private void LogPricePoint(float open)
-    {
-        runtimePriceHistory.Points.Add(new PricePoint
-        {
-            Date = TimeManager.Instance.CurrentGameDate,
-            Open = open,
-            Close = CurrentStat.CurrentPrice
-        });
     }
 
     // EventCalculator로 이벤트를 계산해 반영하고, 실제로 발생했으면 로그에 기록한다.
@@ -240,6 +199,74 @@ public class MarketManager : MonoBehaviour
         });
     }
 
+    #endregion
+
+    #region 엔딩 판정
+
+    // 자동으로 판정되는 엔딩(체포/거지)을 확인한다. 판정 자체는 EndingCalculator가 순수하게 계산하고,
+    // 여기서는 그 결과로 실제 게임 종료 처리만 수행한다.
+    private void CheckAutomaticEndings()
+    {
+        EndingType? ending = EndingCalculator.CheckAutomatic(
+            CurrentStat,
+            PlayerManager.Instance.currentMoney,
+            PlayerManager.Instance.currentCoins);
+
+        if (ending.HasValue)
+            EndGame(ending.Value);
+    }
+
+    // 엑시트 버튼 클릭 요청 수신 : 목표 자산에 못 미치면 무시한다. 조건을 만족하면 EndingCalculator가
+    // Doubt/Support 기준으로 영웅 엔딩(True) 또는 엑시트 엔딩(Neutral)을 판정한다.
+    private void HandleExitRequested()
+    {
+        if (IsGameOver || PlayerManager.Instance.currentMoney < TargetAsset)
+            return;
+
+        EndGame(EndingCalculator.CheckExit(CurrentStat));
+    }
+
+    // 엔딩을 확정하고 게임을 정지시킨다. 체포/거지 엔딩은 자산을 몰수하지 않는다 (수치는 그대로 둔다).
+    private void EndGame(EndingType ending)
+    {
+        IsGameOver = true;
+        TimeManager.Instance.PauseGame();
+        EventHub.RaiseGameEnded(ending);
+    }
+
+    #endregion
+
+    #region 캔들 기록
+
+    // 이번 턴의 가격 캔들(Open=턴 시작 전 가격, Close=턴 계산 후 가격)을 이력에 기록한다.
+    // 시사 이벤트 수동 트리거(HandleNewsEvent)는 턴을 넘기지 않으므로 여기서는 기록하지 않는다 (1턴=1캔들 유지).
+    private void LogPricePoint(float open)
+    {
+        runtimePriceHistory.Points.Add(new PricePoint
+        {
+            Date = TimeManager.Instance.CurrentGameDate,
+            Open = open,
+            Close = CurrentStat.CurrentPrice
+        });
+    }
+
+    #endregion
+
+    #region 스트리머 반응
+
+    // 이번 턴(또는 수동 트리거)의 가격 변화량을 계산해 스트리머 반응 상태로 변환한다.
+    private void UpdateStreamerReaction(float priceBefore)
+    {
+        float priceChange = CurrentStat.CurrentPrice - priceBefore;
+
+        CurrentStat.PriceChangeThisTurn = priceChange;
+        CurrentStat.StreamerReaction = StreamerReactionCalculator.Calculate(priceChange);
+    }
+
+    #endregion
+
+    #region 거래 / 발행량
+
     // 코인 매수 요청 수신 -> Support/Growth에 직접 반영
     private void HandleBuyCoin(long amount)
     {
@@ -261,4 +288,5 @@ public class MarketManager : MonoBehaviour
         TradeCalculator.ManipulateSupply(CurrentStat, amount);
     }
 
+    #endregion
 }

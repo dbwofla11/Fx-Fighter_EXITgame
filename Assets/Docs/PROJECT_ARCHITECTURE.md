@@ -108,8 +108,12 @@ RuntimeData는 현재 게임 상태와 계산 결과를 저장한다. `RuntimeSk
 - TradeCalculator
 - EventCalculator
 - StreamerReactionCalculator
+- EndingCalculator
 
-Calculator는 상태를 변경하지 않고 계산만 수행한다.
+Calculator는 상태를 변경하지 않고 계산만 수행한다. `EndingCalculator`는 체포/거지(`CheckAutomatic`)와
+영웅/엑시트(`CheckExit`) 판정을 순수 함수로 제공하며, 실제 게임 종료 처리(`IsGameOver`, `TimeManager.PauseGame`,
+`EventHub.RaiseGameEnded`)는 여전히 `MarketManager.EndGame()`이 담당한다 (MarketManager 책임 분리 리팩토링,
+`Completed_Tasks.md` 참고).
 
 ---
 
@@ -225,13 +229,16 @@ PlayerManager를 거치지 않는다).
 매 턴(`NextTurn()`)마다 그 턴의 가격 캔들(`PricePoint` — Open=턴 시작 전 가격, Close=턴 계산 후 가격,
 Date=`TimeManager.CurrentGameDate`)을 `RuntimePriceHistory`에 기록하고, `MarketManager.PriceHistory`
 (`IReadOnlyList<PricePoint>`)로 노출한다. 시사 이벤트 수동 트리거(`HandleNewsEvent`)는 턴을 넘기지 않으므로
-기록 대상이 아니다 (1턴=1캔들 유지, 2장 "캔들 차트" 참고). 캔들 차트 UI(`PriceChartUI`)가 이 리스트의 최근
-N개만 읽어 그린다.
+기록 대상이 아니다 (원본은 1턴=1개 일별 `PricePoint` 그대로 유지, 2장 "캔들 차트" 참고). 캔들 차트 UI
+(`PriceChartUI`)는 이 일별 리스트를 7일씩 모아 캔들(주봉) 1개로 집계해서 최근 N개(주 단위)만 읽어 그린다 —
+집계는 UI 쪽에서만 하고 `MarketManager`/`RuntimePriceHistory`의 기록 방식 자체는 바뀌지 않는다.
 
 게임 종료(엔딩) 판정도 담당한다. `IsGameOver`(게임 종료 여부), `CanExit`(현금이 `TargetAsset`(10억) 이상인지,
 엑시트 버튼 활성화 조건)를 외부에 노출한다. 매 턴 자동으로 체포(`Doubt>=100`)/거지(현금·코인 모두 0) 엔딩을
 확인하고, `EventHub.OnExitRequested`를 받으면 `CanExit`을 만족할 때만 Doubt/Support 기준으로 영웅/엑시트 엔딩을
-확정한다. 엔딩이 확정되면 `TimeManager.PauseGame()`으로 게임을 멈추고 `EventHub.OnGameEnded`를 발행한다.
+확정한다. 어떤 엔딩인지 "판정"하는 순수 로직은 `EndingCalculator.CheckAutomatic`/`CheckExit`이 맡고,
+`MarketManager`는 그 결과를 받아 `EndGame()`으로 `IsGameOver` 설정, `TimeManager.PauseGame()`,
+`EventHub.RaiseGameEnded` 발행 등 실제 상태 변경만 수행한다.
 
 ---
 

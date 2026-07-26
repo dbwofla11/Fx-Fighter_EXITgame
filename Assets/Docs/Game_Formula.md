@@ -30,15 +30,23 @@ Pdown = 1 - Pup
 - Support : 코인 지지도 (-100 ~ 100)
 - Growth : 코인 상승률 (-100 ~ 100)
 - Doubt : 의심도 (0 ~ 100, 감쇠 없음)
-- ws : 지지도 가중치 = 0.5 (`ProbabilityCalculator.SupportWeight`)
-- wg : 상승률 가중치 = 0.5 (`ProbabilityCalculator.GrowthWeight`)
-- wd : 의심도 가중치 = 1 (`ProbabilityCalculator.DoubtWeight`)
+- ws : 지지도 가중치 = 0.25 (`ProbabilityCalculator.SupportWeight`)
+- wg : 상승률 가중치 = 0.25 (`ProbabilityCalculator.GrowthWeight`)
+- wd : 의심도 가중치 = 0.25 (`ProbabilityCalculator.DoubtWeight`)
 
 `ws`/`wg`가 원래 1.0이었을 때는 Support+Growth 합이 50만 넘어도(둘 다 -100~100 범위인데 절반도 안 채운
 수준) score가 1.0을 넘어 `Clamp01`에 걸려 확률이 그대로 100%에 고정돼버리는 문제가 있었다. 게다가
 decayRate=0.995(3장)로 감쇠가 느려서 한 번 포화되면 수십~수백 턴 동안 100%가 유지됐다 (플레이 로그에서
-`확률:1`이 계속 찍히는 현상으로 확인됨). 0.5로 낮춰 Support/Growth가 훨씬 많이 쌓여야 포화되도록 완화했다.
-Doubt 항은 코드에는 원래부터 있었으나 이 문서에 누락돼 있던 것을 반영했다 (기존 동작 변경 없음).
+`확률:1`이 계속 찍히는 현상으로 확인됨). 1차로 0.5로 낮췄지만, `TradeCalculator.Long/Short`가 거래 1건마다
+Support/Growth를 항상 동일한 양만큼 같이 움직이는 탓에(3장 `ws_trade`/`wg_trade` 참고) 실질적으로는 독립된
+두 신호가 아니라 "거래 신호" 하나가 `ws+wg`로 두 배 반영되는 셈이라, 몇 번만 거래해도 여전히 바로 포화됐다.
+0.25로 다시 절반 낮춰 Support/Growth가 **둘 다 클램프 상한(100)까지 차야만** 포화되도록 완화했다.
+
+`wd`도 원래 코드에 있었으나(1.0) 이 문서에는 누락돼 있었다. 1.0이면 Doubt=100(3장 "Doubt 자동 상승"으로
+게임 후반 730턴 이후 계속 오름)일 때 Support/Growth가 아무리 좋아도(둘 다 최대 100이어도)
+`score = 0.5+0.25+0.25-1.0 = 0.0`으로 상승확률이 완전히 0까지 눌려 후반 게임이 사실상 진행 불가능하다는
+피드백을 받았다. `ws`/`wg`와 동일하게 0.25로 낮춰서, Doubt가 100까지 차도 Support/Growth가 최대치면
+`Pup`이 최대 0.75까지는 유지되도록(= Doubt 하나만으로 확률을 완전히 압도하지 못하도록) 완화했다.
 
 Support/Growth는 `CurrentPrice`처럼 턴을 넘어 유지되는 값이다. Job 선택, 거래(Long/Short), 스킬 사용이
 발생하는 순간 그 값에 직접 반영되고, 매 턴 서서히 0으로 감쇠한다 (자세한 내용은 3장 "누적치 감쇠" 참고).
@@ -143,34 +151,46 @@ PriceChangeThisTurn = CurrentPrice(이번 턴 계산 후) - CurrentPrice(이번 
 
 ## 캔들 정의
 
-"1턴 = 1일" 기획을 그대로 살려 **캔들 1개 = 하루(한 턴)**로 정의한다. High/Low(꼭지 심지)는 두지 않고
-Open-Close 몸통만 그린다 (목업 디자인에도 심지가 없는 단순 사각 막대 형태).
+**데이터 기록은 "1턴 = 1일" 그대로**이지만, **화면에 그리는 캔들 1개는 7일(1주)**을 모은 주봉이다
+(플레이 피드백 반영 — 매일 찍히는 일봉은 선처럼 촘촘해서 보기 불편하다는 이유로 변경). High/Low(꼭지 심지)는
+두지 않고 Open-Close 몸통만 그린다 (목업 디자인에도 심지가 없는 단순 사각 막대 형태).
 
-- **Open** : 그 턴 계산 시작 전의 `CurrentPrice`
-- **Close** : 그 턴 계산(정규 가격 변화 + 그 턴에 발생한 시사 이벤트 가격 충격 포함) 후의 `CurrentPrice`
+- **Open** : 그 주(7일 그룹) 첫날 턴 계산 시작 전의 `CurrentPrice`
+- **Close** : 그 주 마지막 날(또는 아직 7일이 안 찼으면 지금까지의 마지막 날) 턴 계산 후의 `CurrentPrice`
 - **색상** : `Close >= Open`이면 상승(초록), 아니면 하락(빨강) — `BtnLong`/`BtnShort` 버튼과 동일한 색을 그대로 재사용한다
 
-시사 이벤트 수동 트리거(`EventHub.OnNewsEvent`)는 턴을 넘기지 않는 즉시 반영이라 별도 캔들을 만들지 않는다.
-정규 턴 진행(`MarketManager.NextTurn()`) 시점에만 캔들 1개가 기록된다.
+진행 중인 마지막 주는 1~6일차엔 Open이 고정된 채 Close/Date만 매 턴 갱신되며 같은 캔들 자리에 그려지고,
+7일째가 되는 순간 그 캔들이 확정되며 8일째부터는 다음 캔들 자리가 새로 시작된다 (한 번 확정된 캔들은 이후
+값이 바뀌지 않는다).
+
+시사 이벤트 수동 트리거(`EventHub.OnNewsEvent`)는 턴을 넘기지 않는 즉시 반영이라 별도 일별 기록을 만들지
+않는다. 정규 턴 진행(`MarketManager.NextTurn()`) 시점에만 일별 `PricePoint` 1개가 기록된다.
 
 ## 데이터 : PriceHistory
 
 `MarketManager.PriceHistory`(`IReadOnlyList<PricePoint>`)로 노출된다. `RuntimeEventData`/`EventLog`와 동일한
-패턴 — `RuntimePriceHistory`가 `List<PricePoint>`를 들고 있고, 매 턴 하나씩 쌓인다. 이력은 잘라내지 않고 전부
-보관한다 (게임 특성상 수천 턴이 지나도 메모리 부담이 무시할 수준).
+패턴 — `RuntimePriceHistory`가 `List<PricePoint>`를 들고 있고, 매 턴(하루) 하나씩 쌓인다. **이 리스트 자체는
+여전히 일별 데이터**이며, 7일 단위 주봉 집계는 저장 단계가 아니라 아래 렌더링 단계에서만 이뤄진다 (다른
+기능이 일별 원본을 참조할 수도 있어 원본 해상도를 그대로 유지). 이력은 잘라내지 않고 전부 보관한다 (게임
+특성상 수천 턴이 지나도 메모리 부담이 무시할 수준).
 
 ## 렌더링
 
-`Assets/Scripts/UI/PriceChartUI.cs`가 `EventHub.OnMarketUpdated`를 구독해 매 턴 다시 그린다. 이력 전체가 아니라
-최근 `visibleCandleCount`개(기본 14개)만 오브젝트 풀링(미리 만들어둔 Image를 재사용)으로 그리므로 이력이 아무리
-쌓여도 성능에 영향이 없다. Y축은 화면에 보이는 캔들들의 Open/Close 최소~최대 값 기준으로 매번 자동 스케일링된다
-(위아래 10% 여백 포함).
+`Assets/Scripts/UI/PriceChartUI.cs`가 `EventHub.OnMarketUpdated`를 구독해 매 턴 다시 그린다. `Redraw()`가
+먼저 일별 `PriceHistory`를 `AggregateWeekly()`로 7일씩 묶어 주봉 리스트로 변환한 뒤, 그 중 최근
+`visibleCandleCount`개(기본 16개, 이제 "일" 대신 "주" 단위)만 오브젝트 풀링(미리 만들어둔 Image를 재사용)으로
+그리므로 이력이 아무리 쌓여도 성능에 영향이 없다. Y축은 화면에 보이는 캔들들의 Open/Close 최소~최대 값 기준으로
+매번 자동 스케일링된다 (위아래 10% 여백 포함).
+
+차트 배경에는 가격대를 나타내는 가로 격자선 `gridLineCount`개(기본 4개, 위 Y축 범위를 5구간으로 등분)와
+왼쪽 가격 라벨("₩N,NNN" 형식)이 캔들보다 먼저 그려져 뒤에 깔린다 (토스뱅크류 앱 스타일 참고, 반올림 없이
+실제 계산값을 그대로 표시한다).
 
 차트 바로 위에는 `Assets/Scripts/UI/CoinPriceHeaderUI.cs`가 같은 방식(`EventHub.OnMarketUpdated` 구독)으로
 코인명과 현재가(`MarketManager.CurrentStat.CurrentPrice`)를 "코인명 ₩현재가" 형식으로 표시한다.
 
-차트 하단에는 각 캔들의 날짜("MM/dd")를 표시하는 X축 라벨이 있고, 캔들에 마우스를 올리면 그 캔들의
-날짜/시가/종가를 차트 좌상단에 툴팁으로 보여준다 (캔들의 `raycastTarget`을 켜서 포인터 이벤트를 받는다).
+차트 하단에는 각 캔들(주봉)의 마지막 날짜("MM/dd")를 표시하는 X축 라벨이 있고, 캔들에 마우스를 올리면 그
+주의 날짜/시가/종가를 차트 좌상단에 툴팁으로 보여준다 (캔들의 `raycastTarget`을 켜서 포인터 이벤트를 받는다).
 
 ---
 
@@ -183,6 +203,7 @@ Open-Close 몸통만 그린다 (목업 디자인에도 심지가 없는 단순 �
 - 현재 가격으로 구매 : Cost = Amount × CurrentPrice (현금 감소, 코인 증가)
 - Support 증가
 - Growth 증가
+- Doubt 증가 (거래 자체가 의심을 산다 — 방향과 무관)
 
 ## Short
 
@@ -190,20 +211,27 @@ Open-Close 몸통만 그린다 (목업 디자인에도 심지가 없는 단순 �
   있으면 이 Revenue에 배율로 붙는다 (3-3장 참고)
 - Support 감소
 - Growth 감소
+- Doubt 증가 (Long과 동일 — 방향과 무관)
 
 거래량이 많을수록 영향력이 증가한다.
 
-## 거래가 Support/Growth에 주는 영향
+## 거래가 Support/Growth/Doubt에 주는 영향
 
-거래는 발생하는 그 순간 Support/Growth에 직접 반영된다. 영향의 크기는 거래량(Amount)에 비례한다.
+거래는 발생하는 그 순간 Support/Growth/Doubt에 직접 반영된다. 영향의 크기는 거래량(Amount)에 비례한다.
 
 Support += ±Amount × ws_trade
 
 Growth += ±Amount × wg_trade
 
+Doubt += |Amount| × wd_trade
+
 - ws_trade = 0.1 (Support 가중치)
 - wg_trade = 0.1 (Growth 가중치)
-- 부호는 Long(+) / Short(-)
+- wd_trade = 0.02 (Doubt 가중치, `TradeCalculator.DoubtWeightPerTradeCoin`) — Long/Short 둘 다 부호 없이 더해진다
+  (감쇠 없이 그대로 누적, `ManipulateSupply`와 동일한 설계). 거래를 자주/크게 할수록 "시장에서 눈에 띈다"는
+  의미로, 후반 Doubt가 자동으로도 오르는 상황(3장 "Doubt 자동 상승")에 거래까지 더해지면 부담이 커지므로
+  Support/Growth 가중치(0.1)보다 훨씬 작게(1/5) 잡았다.
+- Support/Growth 부호는 Long(+) / Short(-)
 
 ## 발행량 조작
 

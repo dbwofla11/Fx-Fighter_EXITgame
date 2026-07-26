@@ -9,23 +9,27 @@ public static class TradeCalculator
     private const float SupportWeightPerCoin = 0.1f;
     private const float GrowthWeightPerCoin = 0.1f;
     private const float DoubtWeightPerSupplyUnit = 0.1f;
+    private const float DoubtWeightPerTradeCoin = 0.02f;
 
     private const float SupportDecayRate = 0.995f;
     private const float GrowthDecayRate = 0.995f;
     private const float SupplyDecayRate = 0.995f;
 
-    // Long : 구매 -> Support/Growth 증가
+    // Long : 구매 -> Support/Growth 증가. 거래 자체가 시장에 눈에 띄는 움직임이라 방향과 무관하게 Doubt도
+    // 수량에 비례해 조금씩 오른다 (감쇠 없이 그대로 누적, ManipulateSupply와 동일한 설계).
     public static void Long(PlayerStat stat, long amount)
     {
         stat.Support += amount * SupportWeightPerCoin;
         stat.Growth += amount * GrowthWeightPerCoin;
+        stat.Doubt += Math.Abs(amount) * DoubtWeightPerTradeCoin;
     }
 
-    // Short : 판매 -> Support/Growth 감소
+    // Short : 판매 -> Support/Growth 감소. Doubt는 Long과 동일하게 수량에 비례해 오른다.
     public static void Short(PlayerStat stat, long amount)
     {
         stat.Support -= amount * SupportWeightPerCoin;
         stat.Growth -= amount * GrowthWeightPerCoin;
+        stat.Doubt += Math.Abs(amount) * DoubtWeightPerTradeCoin;
     }
 
     // 발행량 조작 : 발행량 증가(희석) -> Support/Growth 감소, 발행량 감소(소각) -> Support/Growth 증가.

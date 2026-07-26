@@ -982,6 +982,109 @@ Support/Growth가 수만 단위로 튀었을 상황에서 정확히 100/-100에�
 공식은 `Game_Formula.md`가 이미 정의한 범위(Support/Growth -100~100, Doubt 0~100)를 그대로 따랐다 — 문서
 변경 없음, 코드가 문서를 못 따라가고 있던 걸 맞춘 것.
 
+## 200줄 넘는 스크립트 4개 책임별 정리
+
+`MarketManager.cs`(263줄) · `PriceChartUI.cs`(227줄) · `StatCalculator.cs`(210줄) · `SkillManager.cs`(201줄)가
+200줄을 넘어 책임별로 정리해달라는 요청을 받았다. `CLAUDE.md` 규칙(폴더 구조/기존 클래스 삭제 금지, DI/ECS
+금지, 동작 변경 금지)과 "Manager는 MonoBehaviour 싱글턴 자리를 유지해야 한다"는 제약이 있어서, 무작정 클래스를
+쪼개기보다 파일마다 어떤 정리 방식이 맞는지부터 구분했다.
+
+**MarketManager** 하나만 방식이 애매했다 — 엔딩 판정(체포/거지/영웅/엑시트) 로직이 상태를 바꾸지 않고
+`CurrentStat`/현금/코인만 보고 어떤 엔딩인지 "결정"만 하는 순수 함수라서, `ProbabilityCalculator`/
+`StreamerReactionCalculator`처럼 별도 static Calculator로 뽑을 수도 있고 그냥 클래스 내부 `#region`으로만
+정리할 수도 있었다. 사용자에게 물어봐서 "순수 로직만 `EndingCalculator`로 추출" 쪽으로 정했다 — 신규
+`Systems/EndingCalculator.cs`에 `CheckAutomatic(stat, money, coins)`(체포/거지, 둘 다 성립하면 체포 우선)와
+`CheckExit(stat)`(영웅/엑시트)를 옮기고, `IsGameOver` 설정·`TimeManager.PauseGame()`·
+`EventHub.RaiseGameEnded` 발행처럼 실제 상태를 바꾸는 부분은 그대로 `MarketManager.EndGame()`에 남겼다.
+나머지 책임(턴 진행/시사 이벤트/캔들 기록/스트리머 반응/거래·발행량)은 각각 eventDatabase·
+runtimeEventData·runtimePriceHistory 같은 MarketManager 자신의 상태를 직접 건드리는 오케스트레이션이라
+새 클래스로 뽑을 이유가 없어 `#region`으로만 나눴다.
+
+**SkillManager**·**StatCalculator**·**PriceChartUI**는 이미 각각 하나의 응집된 역할(스킬 관리/스탯 계산/차트
+렌더링)만 하고 있어서 굳이 클래스를 새로 쪼갤 필요가 없었다. `#region`으로 초기화/이벤트 처리/조회/토글
+(SkillManager), 턴 계산/직업 효과/스킬 효과/공용 Effect 적용(StatCalculator), 풀 생성/차트 그리기/호버 툴팁/
+날짜 포맷(PriceChartUI) 영역만 나눴다. `PriceChartUI.Redraw()`는 유일하게 내부적으로 좀 컸던 메서드라 가격
+범위 계산(`ComputePriceRange`)과 캔들 1개 갱신(`UpdateCandle`)을 private 메서드로 뽑아 가독성만 높였다 — 매
+프레임/턴 순회 순서와 계산식은 그대로다.
+
+4개 파일 모두 수정 후 `git diff`로 원본과 대조해 로직(계산식·조건문·이벤트 발행 순서)이 정말 그대로인지
+확인했다. 이 세션에는 Unity MCP 도구(`read_console`, `manage_gameobject` 등)가 전혀 연결되어 있지 않아
+컴파일 에러 확인과 Play 모드 회귀 테스트는 자동으로 돌리지 못했고, 사용자가 Unity 에디터에서 직접
+확인하기로 했다.
+
+## Play 테스트 피드백 3건 반영 (확률 포화 재수정 + 주봉 캔들 + 격자판)
+
+실제로 플레이해본 사용자에게 4가지 피드백을 받았다. 그 중 3가지를 이번에 반영하고, 이벤트 발생 표시는
+"예시 UI를 따로 주겠다"는 답을 받아 이번 스코프에서 제외했다 (메모리에도 있듯 이 프로젝트의 시각 UI는
+보통 예시/디자인을 받아서 진행하는 편이라 추측 구현을 피했다).
+
+**확률 포화 버그 재발** — 예전에 `ws`/`wg`를 1.0→0.5로 낮춰 고쳤던 "상승확률이 바로 100%로 고정되는" 문제가
+"Support 50만 찍어도 다시 발생한다"는 제보를 받았다. 원인을 다시 보니 `TradeCalculator.Long/Short`가 거래
+1건마다 Support와 Growth를 항상 똑같은 양만큼(`SupportWeightPerCoin == GrowthWeightPerCoin == 0.1f`) 같이
+움직이는데, `ProbabilityCalculator`는 이 둘을 독립된 신호처럼 각각 가중합하고 있어서 실질적으로는 "거래
+신호" 하나가 `ws+wg`만큼 두 배로 반영되는 셈이었다 — 그래서 0.5에서도 큰 거래 한 번(또는 몇 번)이면 여전히
+바로 포화됐다. `SupportWeight`/`GrowthWeight`를 0.25로 다시 절반 낮춰서 Support/Growth가 **둘 다** 클램프
+상한(100)까지 차야 포화되도록 완화했다. Play 모드에서 `EventHub.RaiseBuyCoin(300)` → `NextTurn()`을 반복
+호출해 검증했다 — Support/Growth가 63.74/63.76일 때 UpProb=0.8188(`0.5+0.25×0.6374+0.25×0.6376`과 정확히
+일치), 93.27/93.30일 때 0.9664, 100/100(클램프)일 때만 정확히 1.0000이 나와 새 공식대로 동작함을 확인했다.
+
+**주봉(7일) 캔들** — "하루마다 찍히는 캔들이 선처럼 늘어나 보기 안 좋다, 실제 주봉처럼 7일치를 모아야
+한다"는 요청을 받았다. 처음엔 "화면에 그릴 때만 7일씩 묶어서 집계하면 되지 않을까" 정도로 생각했는데,
+사용자가 계획 단계에서 정확한 동작을 짚어줬다 — "같은 캔들 자리에서 값이 바뀌다가(썼다 지웠다) 7일이
+되면 다음 캔들 자리로 넘어가는" 방식이어야 한다고. `PriceChartUI.cs`에 `AggregateWeekly()`를 추가해
+`MarketManager.PriceHistory`(일별)를 앞에서부터 7개씩 고정 구간으로 묶었다 — `Open`은 그룹 첫날 값으로
+고정, `Close`/`Date`는 그룹 마지막 날 값으로, 아직 7일이 안 찬 마지막 그룹은 매 턴 `Close`/`Date`만
+갱신되다가 7일째 확정되고 8일째부터 다음 그룹이 새로 시작된다. `MarketManager`/`RuntimePriceHistory`는
+그대로 1턴=1개 일별 `PricePoint`를 기록하고, 집계는 UI 쪽에서만 하기로 했다 — 다른 기능이 일별 원본을
+참조할 수도 있고, 변경 범위도 최소화하기 위해서다. 덕분에 `ComputePriceRange`/`UpdateCandle`/`HideCandle`
+등 기존 렌더링 코드는 `PricePoint` 리스트를 받는 구조 그대로라 손대지 않고 재사용했다. Play 모드에서
+`PriceHistory`를 직접 찍어 같은 알고리즘으로 수동 재현해봤더니, 44개 일별 데이터가 정확히 7개씩 6그룹
+(각 memberCount=7)과 마지막 진행 중인 2개짜리 그룹(memberCount=2)으로 나뉘는 걸 확인했다.
+
+**격자판** — "토스뱅크 그래프처럼 격자판이 있어야 한다"는 요청에 가로 가격선 + 왼쪽 가격 라벨 스타일을
+제안해 확인받았다(세로선까지 넣는 완전 격자 대신). `BuildGrid()`를 `BuildPool()`보다 먼저 호출해 격자
+오브젝트가 캔들보다 먼저 생성되게 했다 — Unity UI는 나중에 생성된 오브젝트가 위에 그려지므로, 이렇게 해야
+격자가 캔들 뒤에 깔린다. 가격 범위를 5구간으로 나누는 가로선 4개(`gridLineCount`)와 각 선의 실제 가격을
+`₩N,NNN` 포맷으로 보여주는 라벨을 오브젝트 풀링으로 그렸다 — 예쁜 반올림 값(100/500 단위)으로 맞추는
+로직은 이번엔 넣지 않고 실제 계산값을 그대로 표시했다.
+
+세 가지 모두 Unity MCP(`execute_code`, Play 모드)로 직접 검증했다. Play 모드에 들어가 거래를 반복시키면서
+확률 공식이 새 가중치대로 정확히 나오는지 수식으로 대조했고, 스크린샷(`manage_camera` screenshot)으로
+계단식 주봉 캔들과 캔들 뒤에 깔린 격자선+가격 라벨이 실제로 렌더링되는 것도 확인했다 (검증에 쓴 스크린샷
+파일은 작업 후 삭제). 이전 리팩토링 세션 때는 이 세션에 Unity MCP가 연결되어 있지 않아 자동 검증을 못 했는데,
+이번엔 연결되어 있어 실제로 Play 모드까지 돌려볼 수 있었다.
+
+공식은 `Game_Formula.md` 1장(`ws`/`wg` 값과 사유)과 2-2장("캔들 정의"/"데이터"/"렌더링" — 일별 기록·주봉
+집계·격자 설명 추가)에 반영했다.
+
+## 의심도(Doubt)가 후반을 압도하던 문제 완화 + 거래 시 Doubt 증가 추가
+
+위 3건을 반영하고 나서 사용자에게 추가 피드백을 받았다 — "후반에 의심도가 너무 오르면 감당이 안 된다."
+`ProbabilityCalculator`의 `wd`(DoubtWeight)가 1.0이었는데, `MarketManager.ApplyDoubtAutoRise`가 730턴부터
+Doubt를 감쇠 없이 계속 올리는 설계라(4-1장) 후반에는 Doubt=100에 쉽게 도달한다. wd=1.0이면 이때
+`score = 0.5 + 0.25×(Support/100) + 0.25×(Growth/100) - 1.0`이라 Support/Growth가 **최대치(100/100)여도**
+`score=0.0`으로 상승확률이 완전히 0까지 눌려버린다 — Doubt 혼자서 다른 모든 스탯을 무의미하게 만드는
+셈이었다.
+
+얼마나 낮출지 사용자에게 물어봤다 — "0.5로 절반"(Doubt=100이어도 Pup 하한이 0%p까지는 안 가고 완전 상쇄되면
+50%까지 회복) vs "0.25로 ws/wg와 동일하게"(Doubt=100 최악의 경우에도 Support/Growth가 최대면 Pup=0.75까지
+유지). 사용자는 후자를 선택했다. `ProbabilityCalculator.DoubtWeight`를 1.0→0.25로 낮추고 `Game_Formula.md`
+1장에 "Doubt=100이어도 Pup 최대 0.75 유지"라는 의도를 문서화했다.
+
+같은 대화에서 "롱/숏 버튼을 누를 때마다 의심도가 증가하게 하자"는 요청도 받았다. 수량에 비례할지
+(`ManipulateSupply`처럼) 클릭당 고정치일지 물어봤고, 수량 비례를 선택받았다. `TradeCalculator.Long/Short`에
+`Doubt += Math.Abs(amount) × DoubtWeightPerTradeCoin`을 추가했다 — Long/Short 둘 다 방향과 무관하게 Doubt가
+오른다(`ManipulateSupply`와 동일한 "행위 자체가 의심을 산다" 설계, 감쇠 없이 누적). 가중치는 `0.02`로 잡았다
+— Support/Growth 가중치(0.1)의 1/5 수준으로, 이제 막 완화한 Doubt 문제를 거래 때문에 다시 악화시키지
+않으면서도 "자주/크게 거래하면 눈에 띈다"는 느낌은 나도록 하기 위해서다.
+
+Unity MCP `execute_code`로 두 변경 모두 곧바로 확인했다 (Play 모드 진입 없이도 되는 순수 계산 함수라 Edit
+모드에서 바로 호출) — `Support=Growth=100, Doubt=100 → Pup=0.7500`, `Support=Growth=0, Doubt=100 →
+Pup=0.2500`(수식과 정확히 일치), `TradeCalculator.Long(100) → Support/Growth=10, Doubt=2.0`,
+`Short(50) → Support/Growth=-5, Doubt=1.0`(부호 무관하게 Doubt는 항상 증가) 모두 기대값과 일치했다.
+
+공식은 `Game_Formula.md` 1장(`wd` 값과 사유)과 3장("거래가 Support/Growth/Doubt에 주는 영향")에 반영했다.
+
 ---
 
 ## 현재 아키텍처 요약
@@ -996,5 +1099,5 @@ Systems (Calculator)
 
 - **Manager**: TimeManager, MarketManager, SkillManager, JobManager, PlayerManager — 게임 상태를 관리하며 `EventHub`를 구독한다.
 - **RuntimeData**: PlayerStat, RuntimeSkillData, RuntimeJobData, RuntimeEventData, RuntimePriceHistory — 현재 상태와 계산 결과를 저장한다.
-- **Systems**: StatCalculator, ProbabilityCalculator, PriceCalculator, TradeCalculator, EventCalculator — 상태를 변경하지 않고 계산만 수행한다 (단, TradeCalculator/EventCalculator는 `PlayerStat`을 인자로 받아 그 자리에서 값을 직접 갱신한다).
+- **Systems**: StatCalculator, ProbabilityCalculator, PriceCalculator, TradeCalculator, EventCalculator, StreamerReactionCalculator, EndingCalculator — 상태를 변경하지 않고 계산만 수행한다 (단, TradeCalculator/EventCalculator는 `PlayerStat`을 인자로 받아 그 자리에서 값을 직접 갱신한다).
 - **EventHub**: UI ↔ Manager 사이의 이벤트를 중계한다.

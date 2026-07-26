@@ -145,3 +145,35 @@
   Growth를 [-100, 100], Doubt를 [0, 100]으로 강제한다. Play 모드에서 비정상적으로 큰 매수/매도/발행량 조작을
   실행해 클램프가 정확히 걸리는지(Support/Growth=±100, Doubt=100에서 체포 엔딩까지 정상 발동) 확인했다.
   (공식은 `Game_Formula.md` 1장/2장/3장 — Support/Growth (-100~100), Doubt (0~100) 범위 정의 참고)
+- **완료** : 200줄 넘는 스크립트 4개 책임별 정리 (동작 변경 없는 순수 리팩토링). `MarketManager`(263줄)의
+  엔딩 판정(체포/거지/영웅/엑시트) 순수 로직만 신규 `Systems/EndingCalculator.cs`(`CheckAutomatic`/`CheckExit`)로
+  뽑아냈고, `IsGameOver` 설정·`TimeManager.PauseGame()`·`EventHub.RaiseGameEnded` 발행 같은 실제 상태 변경은
+  그대로 `MarketManager.EndGame()`에 남겼다. 나머지 책임(턴 진행/시사 이벤트/캔들 기록/스트리머 반응/거래)은
+  새 클래스로 쪼개지 않고 `#region`으로만 나눴다 — Manager는 MonoBehaviour 싱글턴 자리를 유지해야 해서
+  기존 "Manager/Calculator 분리" 패턴에 맞는 것만 클래스로 뽑고 나머지는 클래스 내부 정리로 그쳤다.
+  `SkillManager`(201줄)·`StatCalculator`(210줄)·`PriceChartUI`(227줄)는 새 파일 없이 `#region`으로만 정리했고,
+  `PriceChartUI.Redraw()`는 가격 범위 계산(`ComputePriceRange`)과 캔들 1개 갱신(`UpdateCandle`)만 내부 private
+  메서드로 추출했다. 4개 파일 모두 git diff로 계산식·조건문·이벤트 발행 순서가 그대로인지 확인했다 (Unity
+  MCP가 이 세션에 연결되어 있지 않아 컴파일/Play 모드 검증은 사용자가 에디터에서 직접 진행하기로 함).
+  (`Logging.md` "200줄 넘는 스크립트 4개 책임별 정리" 참고)
+- **완료** : Play 테스트 피드백 3건 반영 (확률 포화 버그 재수정 + 주봉 캔들 + 격자판). ①
+  `ProbabilityCalculator.SupportWeight`/`GrowthWeight`를 0.5 → 0.25로 다시 절반 낮췄다 — `TradeCalculator.Long/
+  Short`가 거래 1건마다 Support/Growth를 항상 동일한 양만큼 같이 움직이는 탓에 0.5에서도 몇 번만 거래하면
+  상승확률이 바로 100%에 고정되던 문제를 해결, 이제 Support/Growth가 **둘 다** 클램프 상한(100)까지 차야
+  포화된다. ② `PriceChartUI.cs`에 `AggregateWeekly()`를 추가해 매일 찍히던 캔들을 7일씩 모은 주봉으로
+  바꿨다 — `MarketManager`/`RuntimePriceHistory`의 일별 기록 자체는 그대로 두고 차트가 그릴 때만 집계하며,
+  진행 중인 마지막 캔들은 Open이 고정된 채 Close/Date만 매 턴 갱신되다가 7일째 확정되고 다음 캔들로 넘어간다.
+  ③ 토스뱅크 스타일 격자판(가로 가격선 4개 + 왼쪽 가격 라벨, 캔들 뒤에 깔림)을 추가했다. 이벤트 발생 표시는
+  사용자가 예시 UI를 주기로 해서 이번 스코프에서 제외했다. Unity MCP(Play 모드 `execute_code`)로 실제
+  거래→포화 안 됨, 7일 단위 주봉 그룹핑, 격자 렌더링까지 스크린샷으로 확인했다. (`Logging.md` "Play 테스트
+  피드백 3건 반영" 참고, 공식은 `Game_Formula.md` 1장/2-2장)
+- **완료** : 의심도(Doubt)가 후반에 확률을 완전히 압도하던 문제 완화 + 거래 시 Doubt 증가 추가. Doubt는
+  730턴부터 자동으로 계속 오르는데(감쇠 없음) `ProbabilityCalculator.DoubtWeight`(wd)가 1.0이라 Doubt=100이면
+  Support/Growth가 최대치여도 상승확률이 0까지 눌려 후반 게임이 사실상 진행 불가능했다. `ws`/`wg`와 동일하게
+  wd를 0.25로 낮춰서, Doubt가 완전히 차도 Pup이 최대 0.75까지는 유지되도록(Doubt 하나만으로 확률을 완전히
+  압도하지 못하도록) 완화했다. 동시에 `TradeCalculator.Long/Short`가 거래 수량에 비례해 Doubt도 함께 올리도록
+  바꿨다(`DoubtWeightPerTradeCoin`=0.02, `ManipulateSupply`와 동일하게 방향 무관 절대값 비례, 감쇠 없이 누적) —
+  "거래가 잦거나 크면 시장에서 눈에 띈다"는 의미이며, Support/Growth 가중치(0.1)의 1/5로 낮게 잡아 거래
+  자체가 주된 Doubt 원인이 되지 않게 했다. Unity MCP(`execute_code`)로 `Support=Growth=100, Doubt=100 ->
+  Pup=0.75`, `Long(100) -> Doubt+2.0`, `Short(50) -> Doubt+1.0`을 수식대로 정확히 확인했다. (공식은
+  `Game_Formula.md` 1장/3장)
