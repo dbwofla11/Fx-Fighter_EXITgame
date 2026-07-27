@@ -1154,6 +1154,96 @@ Settings.fallbackFontAssets`(프로젝트 전역 폴백 — `SerializedObject`�
 한글이 빠짐없이 나오도록 했다. Play 모드 스크린샷으로 "보유 현금: ₩ 10,000,000" / "보유 코인: 0 개"가
 정상 렌더링되는 걸 확인했다.
 
+## 모달 리뉴얼 — 기능/연결 단계
+
+레이아웃 전용 패스(위 절) 다음으로, 실제 모달 3종(매수/매도/추가발행)에 기능을 붙였다.
+
+### 매수/매도 공용 모달 (`TradeModalUI.cs`)
+
+`TradeMode`(`Long`/`Short`) enum 하나로 매수/매도를 공용 모달 하나에서 처리하기로 했다 — 두 모달이 슬라이더
++ 수량 버튼 + 미리보기 + 확인/취소로 구조가 완전히 동일하고 공식만 다르기 때문. 씬 작업:
+
+- `Main_Canvas` 밑에 `TradeModal`(전체화면 딤 오버레이, 검정 alpha 0.6) → 그 자식 `ModalBox`(640x560 중앙
+  팝업 박스, `SettingsPanel`과 달리 실제 배경 박스가 있는 형태로 만듦)를 새로 만들었다.
+- `TradePanel`에 숨겨져 있던 `BtnPlus1/10/100/MAX`/`TradeAmountText`를 `ModalBox` 밑으로 재부모화(reparent)
+  하고 `SetActive(true)`로 다시 켰다. `TitleText`("매수"/"매도" 동적 표시), `PreviewText`(미리보기),
+  `BtnConfirm`/`BtnCancel`(신규 버튼 2개, 각각 라벨 자식 포함)을 새로 만들었다.
+- 확정 전 미리보기 공식은 `PlayerManager.HandleBuyCoin`/`HandleSellCoin`과 반드시 동일해야 하므로 그대로
+  복붙했다 : Long은 `cost = amount × CurrentPrice`, Short는
+  `revenue = amount × CurrentPrice × (1 + CashBonus/100)`. `BtnConfirm.interactable`도 기존
+  `PlayerUI.RefreshTradeButtons`가 하던 것과 동일한 조건(Long은 잔액 충분, Short는 보유 코인 충분)으로
+  판정한다.
+- **확정 버튼을 눌러야만** `EventHub.RaiseBuyCoin`/`RaiseSellCoin`을 호출하고 모달을 닫는다. 취소/닫기는
+  금액을 0으로 되돌리고 아무 이벤트도 발행하지 않는다.
+- `PlayerUI.cs`가 대폭 축소됐다 — `tradeAmount`/수량 버튼/`RefreshTradeButtons` 로직이 전부 `TradeModalUI`로
+  옮겨갔고, `PlayerUI`는 이제 `moneyText`/`coinText` 폴링과 `BtnLong`/`BtnShort` 클릭 시
+  `TradeModalUI.Open(TradeMode.Long/Short)` 호출만 담당한다.
+
+### 발행량 조작 모달 (`CoinControlModalUI.cs`) — 1차 시도와 사용자 피드백에 따른 재작업
+
+**1차 시도** : `CoinControlPanel`에 이미 있던(레이아웃 패스에서 숨겨만 둔) 범용 UI 키트풍 버튼 6개
+(`BtnPlus/Minus`, `BtnAmount1/10/100/MAX`, `BtnAdjust`)를 그대로 재활용해 `MintControlsGroup`(빈 래퍼)으로
+묶어 열고 닫았고, "코인 발행" 트리거 버튼은 `RightPanel`의 `TimePanel`/`TradePanel` 사이 빈 공간에 배치했다.
+
+**사용자 피드백으로 재작업** : 실제 리뉴얼 목업(기본 화면) 스크린샷을 받고 두 가지가 틀렸다는 걸 확인했다.
+① `RightPanel`의 그 빈 공간은 "코인 발행" 버튼이 아니라 스트리머 패널(캐릭터+말풍선) 자리였다 — 별도
+작업이라 손대지 않고 있던 자리인데 잘못 활용한 것. ② "옛날 UI"(범용 버튼 재활용) 대신 매수/매도 모달과
+동일한 룩(딤 오버레이+중앙 팝업 박스)으로 리뉴얼해달라는 요청을 받았다. 두 가지를 모두 반영해 다시
+만들었다:
+
+- **위치** : "코인 발행" 버튼(`MintBtn`)을 `CoinControlPanel` 안, `TotalSupplyText`/`heldCoinText` 두 줄
+  텍스트 오른쪽(anchoredPosition x=310)으로 옮겼다. `RightPanel`의 빈 공간은 원래 목적(스트리머 패널)을
+  위해 다시 비워뒀다.
+- **모달 자체를 새로 제작** : 기존 `BtnPlus/Minus`/`BtnAmount1/10/100/MAX`/`BtnAdjust`/`BtnClose`/
+  `MintControlsGroup`을 전부 삭제하고, `TradeModal`과 완전히 동일한 구조로 `MintModal`(전체화면 딤
+  오버레이) → `MintModalBox`(640x560 중앙 팝업 박스)를 새로 만들었다. 내부 구성도 매수/매도 모달과
+  대칭: `TitleText`("코인 발행"), `AmountText`(부호 있는 큰 숫자, "+100"/"-100"), 5개 버튼
+  (`MintPlusMinus`="+/-" 방향 토글, `MintAmount1/10/100/Max`), `PreviewText`("조정 후 예상 발행량: X개" —
+  `MarketManager.CurrentStat.Supply + signedAmount`로 계산), `MintBtnConfirm`/`MintBtnCancel`. 색상/폰트
+  크기까지 트레이드 모달 버튼과 맞췄다(확인=파랑 `#5865F2`, 취소=회색).
+- **상시 표시 텍스트도 재검토** : 목업을 보니 `CoinControlPanel`의 두 번째 줄이 조정량 미리보기가 아니라
+  "보유 코인수량 : 2,000,000개"처럼 **플레이어가 보유한 코인 수치**였다. `adjustAmountText`(모달 전용
+  필드였던 것)를 `heldCoinText`로 바꾸고 `Update()`에서 `PlayerManager.currentCoins`를 항상 폴링하도록
+  고쳤다 — 조정량 미리보기는 이제 모달 내부의 `PreviewText`가 전담한다.
+- `MintAmountMax`는 여전히 `PriceCalculator.MaxSupply` 스케일에 맞춰 20000 고정값이다(발행량 조작은
+  비용이 안 드는 액션이라 거래 모달의 "잔액만큼"류 동적 MAX가 성립하지 않는다).
+- **`MintBtnConfirm`을 눌러야만** `EventHub.RaiseManipulateSupply(±amount)`를 호출한다. `MarketManager`
+  쪽의 `추가발행권한` 잠금 체크는 기존 로직 그대로라, 스킬이 잠긴 상태에서 확인을 눌러도 조용히 무시되는
+  것까지 Play 모드로 확인했다(모달 자체는 정상적으로 닫힘 — UI는 결과를 모른 채 이벤트만 쏘고, 실제
+  반영 여부 판단은 여전히 `MarketManager`의 책임).
+
+### 코인 발행 트리거 버튼 (`MintButtonUI.cs`)
+
+`CoinControlPanel` 안, 발행량/보유코인 두 줄 오른쪽에 `MintBtn`(700x120, 파란색 `#5865F2`)을 배치했다.
+클릭 시 `CoinControlModalUI.Open()`을 호출한다.
+
+`SkillManager.IsUnlocked(SkillID.추가발행권한)`가 false면 숨김/비활성화해야 하는데, `Next_Tesk.md`에 이미
+적혀있던 주의사항대로 **`gameObject.SetActive(false)`는 쓰지 않았다** — `MonoBehaviour.Update()`가 멈춰서
+나중에 스킬을 사도 조건이 다시 안 읽혀 영원히 안 나타나기 때문. 대신 `CanvasGroup`을 추가해서
+`Update()`마다 `alpha`/`interactable`/`blocksRaycasts`를 잠금 여부에 맞춰 매 프레임 갱신한다.
+
+### 부수 버그 : 모달이 씬에 "기본 열린 상태"로 저장돼 있던 문제
+
+`TradeModal`과(1차 시도의) `MintControlsGroup`을 만들 때 `activeSelf = true`인 채로 씬에 저장해뒀다 —
+`Start()`가 런타임에만 `SetActive(false)`로 닫아주는 방식만 믿은 것. 기존 `SettingsPanel`은 씬 저장
+상태 자체가 `activeSelf = false`라서 Play를 안 해도 에디터에서 닫힌 채로 보이는데, 이 두 오브젝트는 그
+관례를 따르지 않아 에디터(Play 안 한 상태)에서 계속 열려있는 것처럼 보였다. 사용자가 스크린샷으로
+지적해서 발견했고, `SettingsPanel`과 동일하게 씬 저장 상태를 `activeSelf = false`로 고쳤다 — 두 코드
+모두 `Start()`에서 다시 한번 닫아주는 로직은 그대로 둬서(중복이지만 안전) 런타임 동작은 바뀌지 않는다.
+
+### 검증
+
+Unity MCP Play 모드 `execute_code`로 버튼 `onClick.Invoke()`를 직접 호출해 검증했다 (매수 200개 확정 →
+현금 1,000만 → 990만, 코인 0 → 100 정확히 반영 / 매도 미리보기 공식 확인 / 취소 시 아무 반영 없음 /
+발행량 조작 +100 → 미리보기 -450→-350 정확 / `+/-` 토글로 -100 → 미리보기 -450→-550 정확 / 취소 시
+Supply 불변 확인). 콘솔 에러·경고 없음.
+
+검증 도중 `SkillManager.Instance.GetSkillProfile(SkillID.추가발행권한)`이 `null`을 반환하는 걸 발견했다 —
+`추가발행권한` `SkillSO` 자체는 존재하지만(`.asset` 파일도 있음) `SkillManager.skillDatabase`(Inspector
+직렬화 리스트)에 등록이 안 되어 있어서, 지금 상태로는 이 스킬을 정상 플레이로 절대 구매(해금)할 수 없다.
+스킬 아이콘/구매 버튼 UI 자체가 아직 없는 것과 같은 근본 원인(`Next_Tesk.md` "후보 : UI 연결" 참고)으로
+보이며, 이번 모달 작업 범위 밖이라 손대지 않고 문서에만 남겼다.
+
 ## 현재 아키텍처 요약
 
 ```
