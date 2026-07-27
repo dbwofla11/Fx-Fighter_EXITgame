@@ -177,3 +177,22 @@
   자체가 주된 Doubt 원인이 되지 않게 했다. Unity MCP(`execute_code`)로 `Support=Growth=100, Doubt=100 ->
   Pup=0.75`, `Long(100) -> Doubt+2.0`, `Short(50) -> Doubt+1.0`을 수식대로 정확히 확인했다. (공식은
   `Game_Formula.md` 1장/3장)
+- **완료** : 거래/발행량 조작 모달 리뉴얼 — 기본 화면 배치만 목업에 맞춤 (기능/연결은 `Next_Tesk.md` "최우선
+  후보"에 남겨둠). `TradePanel`의 수량 버튼(`BtnPlus1/10/100/MAX`)과 `TradeAmountText`를 숨기고, `BtnLong`/
+  `BtnShort`를 세로로 쌓은 전체폭 바로 재배치했다. `CoinControlPanel`의 조작 버튼 6개를 숨기고 배경을
+  꺼서 텍스트 2줄(`TotalSupplyText`/`AdjustAmountText`)만 코인 아이콘과 함께 보이도록 바꿨다 (아이콘은
+  원래 1개뿐이라 복제해서 `CoinIcon1`/`CoinIcon2`로 분리, `CoinIcon1`은 "코인거래량" 스프라이트로 교체).
+  `MoneyText`/`CoinText`가 줄바꿈되며 아이콘과 겹쳐 보이던 것도 한 줄로 고쳤다. `PlayerUI.cs` 등 스크립트는
+  건드리지 않고 씬 오브젝트 배치만 바꿨다 (`Logging.md` "모달 리뉴얼 — 레이아웃 전용 패스" 참고).
+- **완료** : 일부 한글 글자가 `LiberationSans SDF`에서 깨지던(□□) 문제 수정. 네오둥근모(`neodgm.ttf`, 유저
+  로컬 폰트 폴더에 설치돼 있던 것)를 `Assets/Fonts/NeoDunggeunmo/`로 복사해 Dynamic 모드 TMP Font Asset
+  (`NeoDunggeunmo SDF.asset`)으로 생성하고, `TMP_Settings.fallbackFontAssets`(프로젝트 전역)와
+  `LiberationSans SDF.asset`의 `fallbackFontAssetTable`에 등록했다. 기존 `LiberationSans SDF - Fallback.asset`
+  (소스 폰트가 `LiberationSans` 그대로라 한글 커버리지가 없었음)은 건드리지 않고 새 폰트를 추가하는 방식을
+  택했다. Play 모드 스크린샷으로 "보유 현금"/"보유 코인" 정상 렌더링 확인. (`Logging.md` "한글 폰트 폴백
+  추가" 참고) 이어서 사용자가 "발행량/보유 코인수량이 아직 영어"라고 지적해서 확인해보니, 폰트 문제와는
+  별개로 `TotalSupplyText`/`AdjustAmountText`("Total Supply : 200"/"Adjust Amount : <0>")와 게이지 라벨 3개
+  (`SupportText`/`IncreaseText`/`DoubtText`, "Coin Support"/"Coin Increase Score"/"Doubt Score")가 애초에
+  텍스트 **내용 자체**가 영어 placeholder였다. "현재 발행량 : 200개"/"보유 코인수량 : 0개"/"코인 지지도"/
+  "코인 상승률"/"의심도"로 고쳤다 (스크립트가 갱신하는 값이 아니라 씬에 고정 텍스트로 박혀있던 것들이라
+  단순 텍스트 교체).

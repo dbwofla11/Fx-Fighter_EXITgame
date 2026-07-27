@@ -1087,6 +1087,73 @@ Pup=0.2500`(수식과 정확히 일치), `TradeCalculator.Long(100) → Support/
 
 ---
 
+## 모달 리뉴얼 — 레이아웃 전용 패스
+
+거래(Long/Short)/발행량 조작을 모달로 바꾸는 작업을 시작하면서, 처음엔 모달 3종(`TradeModal` 등)을 UI
+오브젝트+스크립트까지 한 번에 만들었다. 사용자가 "기능은 뒤로 미루고 목업 스크린샷 배치대로 재배치만
+해달라"고 요청해서, 만들어둔 모달 오브젝트(`TradeModal`과 그 자식 전부, `MintBtn`, `CoinControlPanel`의
+`CloseBtn`)와 새로 만든 스크립트 3개(`TradeModalUI.cs`/`CoinControlModalUI.cs`/`MintButtonUI.cs`)를 전부
+삭제하고, `PlayerUI.cs`도 `git checkout`으로 원상복구했다. 그 뒤로는 **기존 오브젝트의 배치만** 바꿨다:
+
+- `TradePanel` : `BtnPlus1/10/100/MAX`/`TradeAmountText`를 `SetActive(false)`. `BtnLong`/`BtnShort`는
+  세로로 쌓은 전체폭 바(초록/빨강)로 리사이즈했는데, 두 버튼의 장식용 자식(`green1/2/3`, `red1/2/3` —
+  원래 좁은 폭에 맞춰 만들어진 3분할 하이라이트 바)이 원본 크기 그대로 남아있으면 넓어진 버튼 안에서
+  작게 떠 보이는 문제가 있어서, 버튼 폭이 커진 비율(약 2배)만큼 각 조각의 `anchoredPosition.x`/
+  `sizeDelta.x`도 같이 스케일했다. `MoneyText`/`CoinText`는 원래 박스 폭(334)이 좁아서 "보유 현금: ₩
+  10,000,000"이 줄바꿈되며 위/아래 아이콘과 겹쳐 보였는데, 폭을 360으로 넓히고 `enableWordWrapping=false`로
+  꺼서 한 줄에 들어가게 했다.
+- `CoinControlPanel` : 조작 버튼 6개(`BtnPlus/Minus`/`BtnAmount1,10,100,MAX`/`BtnAdjust`)를 숨기고, 패널
+  자신의 `Image` 컴포넌트도 `enabled=false`로 꺼서 배경 없이 텍스트만 뜨게 했다. `TotalSupplyText`/
+  `AdjustAmountText`를 좌측 정렬 두 줄로 재배치했는데, 처음엔 `anchoredPosition.x`를 너무 왼쪽으로 잡아서
+  텍스트 박스 왼쪽 끝이 캔버스 x=0보다 밖으로 나가 첫 글자가 잘리는 버그가 있었다("Total"의 T, "Adjust"의
+  A가 안 보임) — 패널의 절대 캔버스 위치(`anchoredPosition.x`가 패널 로컬 좌표라 캔버스 좌표로 환산해야
+  함)를 고려해서 박스 왼쪽 끝이 화면 안에 들어오도록 다시 계산해 고쳤다. 코인 아이콘은 원래 `Image`
+  자식 1개뿐이었는데 목업엔 줄마다 하나씩 2개가 있어서, `manage_gameobject`의 `duplicate` 액션으로 복제해
+  `CoinIcon1`(위, "발행량" 줄 — 사용자 요청으로 `UI아이콘_코인거래량` 스프라이트로 교체)/`CoinIcon2`(아래,
+  기존 코인 스프라이트 유지)로 이름 붙였다.
+- 검증은 Unity MCP `manage_editor`로 Play 모드에 진입해 `manage_camera` 스크린샷(`include_image=true`)을
+  찍어 목업과 육안으로 비교하는 방식으로 했다. RectTransform 프로퍼티는 Play 모드 중엔 `manage_components.
+  set_property`가 "This cannot be used during play mode" 에러를 내서 항상 Stop 후 수정 → Play 재진입 →
+  스크린샷 순서로 반복했다.
+- 스트리머 패널(캐릭터+말풍선)과 "코인 발행" 트리거 버튼은 목업엔 있지만 씬에 없는 완전히 새 요소라 이번
+  레이아웃 패스에서 의도적으로 제외했다(사용자 확인 받음). 남은 기능/연결 작업은 `Next_Tesk.md` "최우선
+  후보"에 정리해뒀다.
+
+### Unity MCP 팁 : 컴포넌트 참조 프로퍼티(RectTransform/Graphic 등) 설정
+
+`Slider.fillRect`/`handleRect`/`targetGraphic`처럼 타입이 `RectTransform`/`Graphic`인 프로퍼티를
+`manage_components.set_property`로 설정할 때, camelCase 프로퍼티명(`fillRect`)에 GameObject의 instanceID를
+정수로 넘기면 "Failed to convert value" 에러가 났다. 두 가지를 다 바꿔야 통과했다 —
+① 프로퍼티명은 직렬화 필드명(`m_FillRect`)으로, ② value는 **대상 컴포넌트 자신의 instanceID**를
+`{"instanceID": <값>}` 형태로 감싸서 전달 (대상 GameObject의 instanceID가 아니라, 그 오브젝트에 붙은
+`RectTransform`/`Image` 컴포넌트 자체의 instanceID — `mcpforunity://scene/gameobject/{id}/components`로
+조회하면 컴포넌트별 instanceID가 따로 나온다).
+
+## 한글 폰트 폴백 추가
+
+"보유 현금"/"보유 코인"의 "보유"만 깨지는(□□) 문제를 사용자가 스크린샷으로 지적해서 원인을 찾았다.
+`LiberationSans SDF.asset`(프로젝트 기본 폰트)이 `LiberationSans SDF - Fallback.asset`을 폴백으로 물고
+있는데, `execute_code`로 확인해보니 이 폴백 에셋의 `sourceFontFile`이 **`LiberationSans` 그대로**였다 —
+즉 한글 커버리지가 전혀 없는 폴백이었고, 어떤 한글 글자가 보이고 안 보이는지는 사실 메인 폰트
+(`LiberationSans SDF.asset`) 자체의 Dynamic 아틀라스에 그때그때 캐싱된 글리프에 달려있었을 뿐이었다.
+
+사용자에게 컴퓨터에 네오둥근모 폰트가 있는지 물어봤고(`C:\Users\<user>\AppData\Local\Microsoft\Windows\
+Fonts\neodgm.ttf` — 유저별 설치 폰트 폴더, 시스템 전체 폰트 폴더가 아니라 `Get-ChildItem`으로 찾을 때
+후자만 보면 못 찾는다), `Assets/Fonts/NeoDunggeunmo/`로 복사해 임포트했다.
+
+TMP Font Asset 생성은 `execute_code`로 `TMPro.TMP_FontAsset.CreateFontAsset(font, 32, 2,
+UnityEngine.TextCore.LowLevel.GlyphRenderMode.SDFAA, 1024, 1024, TMPro.AtlasPopulationMode.Dynamic, true)`를
+직접 호출해서 만들었다 — `GlyphRenderMode`가 `TMPro` 네임스페이스가 아니라
+`UnityEngine.TextCore.LowLevel` 네임스페이스에 있다는 걸 첫 시도 컴파일 에러로 확인했다. `Dynamic` 아틀라스
+모드를 선택한 이유는, 어떤 한글 글자가 필요할지 미리 다 알 수 없으니 "필요할 때 소스 폰트에서 바로 그려서
+캐싱"하는 방식이 서브셋 걱정 없이 가장 안전하기 때문이다. 생성한 에셋은 기존 `LiberationSans SDF -
+Fallback.asset`을 건드리지 않고(내용을 봐도 실질적인 diff가 없어 다른 세션/팀원의 진행 중인 변경으로
+보이지 않았지만, 이름이 이미 다른 용도로 참조되고 있을 수 있어 안전하게 새로 추가하는 쪽을 택함) `TMP_
+Settings.fallbackFontAssets`(프로젝트 전역 폴백 — `SerializedObject`로 `m_fallbackFontAssets` 배열에 추가)와
+`LiberationSans SDF.asset`의 `fallbackFontAssetTable` 양쪽에 등록해서, 이 폰트를 쓰는 모든 텍스트에서
+한글이 빠짐없이 나오도록 했다. Play 모드 스크린샷으로 "보유 현금: ₩ 10,000,000" / "보유 코인: 0 개"가
+정상 렌더링되는 걸 확인했다.
+
 ## 현재 아키텍처 요약
 
 ```
