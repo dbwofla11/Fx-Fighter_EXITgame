@@ -58,6 +58,16 @@ public static class EventHub
     public static void RaiseMarketUpdated(PlayerStat stat) => OnMarketUpdated?.Invoke(stat);
 
     // ==========================
+    // System
+    // ==========================
+    // 매수/매도 모달 등 UI가 열려있는 동안 게임 진행을 멈춰야 할 때
+    public static event Action OnGamePaused;
+    public static void RaiseGamePaused() => OnGamePaused?.Invoke();
+
+    public static event Action OnGameResumed;
+    public static void RaiseGameResumed() => OnGameResumed?.Invoke();
+
+    // ==========================
     // Ending
     // ==========================
     // 엑시트 시도 요청 (목표 금액 달성 후 활성화되는 버튼 클릭)

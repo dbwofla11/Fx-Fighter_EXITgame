@@ -4,17 +4,6 @@
 
 ---
 
-## 버그 후보 : `추가발행권한` 스킬이 `SkillManager.skillDatabase`에 등록 안 됨
-
-거래/발행량 조작 모달 기능 연결 작업(`Completed_Tasks.md` 참고) 중 Play 모드로 확인하다가 발견했다.
-`SkillManager.Instance.GetSkillProfile(SkillID.추가발행권한)`가 `null`을 반환한다 — `추가발행권한.asset`
-자체는 존재하지만 `Managers` GameObject의 `SkillManager.skillDatabase`(Inspector 직렬화 리스트)에 등록이
-안 되어 있다. 즉 지금 상태로는 스킬 아이콘/구매 버튼 UI가 만들어져도 이 스킬만은 정상 플레이로 구매(해금)할
-방법이 없고, 그 결과 "코인 발행" 버튼도 영원히 잠금 상태로만 보인다. 스킬 UI 연결 작업(아래 항목)과 함께
-`Managers` Inspector에 등록해주면 해결될 것으로 보인다.
-
----
-
 ## 후보 : UI 연결
 
 `EventHub`의 이벤트 대부분은 Manager 쪽 구독 로직만 갖춰져 있고, 이를 발행하는 실제 UI가 아직 없다.
@@ -55,14 +44,25 @@
   이대로 유지할지 확인 필요.
 - 만약 Supply 효과를 추가한다면 구체적 수치도 함께 정해야 한다.
 
+## 후보 : 매수/매도 모달(TradeModal) Figma 목업 후속 작업
+
+Figma "코인발행" 팝업(피그마 파일 `EjUw2LdqxAYhL2180OAXHo`, node `1515:1038`) 대비 아직 구조적으로 없는 항목들.
+통계블록(현재/예상 현금·코인 아이콘 표시)은 이번에 추가함 — 아래는 남은 것.
+
+- **슬라이더**: 드래그로 매수/매도 수량을 조절하는 가로 슬라이더(트랙+손잡이). 아직 `TradeModalUI.cs`에 관련
+  로직 없음.
+  - **슬라이더 맨 우측 숫자(현재 "0개"로 고정된 placeholder)는 "지금 살 수 있는/팔 수 있는 최대 수치"를
+    뜻한다** (사용자 확인, 2026-07-31). Long이면 현재 현금으로 살 수 있는 최대 개수, Short면 보유 코인
+    전량 — `TradeModalUI.SetTradeAmountToMax()`가 이미 계산하는 값과 동일한 로직이므로 그대로 재사용하면 됨.
+- **"+/-" 버튼**: Figma엔 +1/+10/+100/+MAX 외에 "+/-" 버튼이 하나 더 있음(용도 추정: 부호 반전 또는 리셋).
+  현재 스크립트엔 이 버튼도 관련 로직도 없음 — 정확한 동작은 확인 필요.
+- **닫기 X 버튼 + 단일 확인버튼 구조**: Figma는 우상단 X로 닫고 하단엔 "매수하기" 버튼 하나뿐. 지금은
+  `BtnConfirm`+`BtnCancel`이 나란히 있는 구조라서, 구조를 맞추려면 X 버튼 추가 + Cancel 제거(또는 X와 통합)가
+  필요함.
+
 ## 후보 : 캔들 차트 후속 작업
 
 - `PriceChartUI.visibleCandleCount`(기본 16)/`candleWidthRatio`(0.95) 등 밸런스 수치는 실제 플레이 후 추가
   조정 필요할 수 있음
 
-## 버그 후보 : SkillManager NullReferenceException
-
-캔들 차트 작업 중 Play 모드 진입 시 콘솔에서 `SkillManager.cs:43`(`SkillManager.Initialize()`)에서 발생하는
-`NullReferenceException`을 발견했다. 이번 작업과 무관한 기존 코드라 손대지 않았다 — `skillDatabase`가 비어있거나
-참조가 안 걸린 것으로 추정되나 확인 필요.
 

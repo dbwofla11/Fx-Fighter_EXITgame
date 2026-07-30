@@ -33,6 +33,18 @@ public class TimeManager : MonoBehaviour
         SetTimeScale(1f);
     }
 
+    private void OnEnable()
+    {
+        EventHub.OnGamePaused += PauseGame;
+        EventHub.OnGameResumed += ResumeGame;
+    }
+
+    private void OnDisable()
+    {
+        EventHub.OnGamePaused -= PauseGame;
+        EventHub.OnGameResumed -= ResumeGame;
+    }
+
     private void Update()
     {
         if (Time.timeScale <= 0f)

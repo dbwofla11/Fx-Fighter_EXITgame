@@ -1238,6 +1238,34 @@ Unity MCP Play 모드 `execute_code`로 버튼 `onClick.Invoke()`를 직접 호�
 발행량 조작 +100 → 미리보기 -450→-350 정확 / `+/-` 토글로 -100 → 미리보기 -450→-550 정확 / 취소 시
 Supply 불변 확인). 콘솔 에러·경고 없음.
 
+## `SkillManager.skillDatabase` 등록 누락 수정 — 예전 NullReferenceException 버그와 동일 원인이었음
+
+모달 검증 중 `SkillManager.Instance.GetSkillProfile(SkillID.추가발행권한)`이 `null`을 반환하는 걸 보고
+"추가발행권한만 등록이 빠졌나 보다" 하고 `Next_Tesk.md`에 버그 후보로만 남겨뒀었다. 사용자가 "코인 발행
+버튼이 게임 실행하면 안 보인다"고 확인차 물어봐서 다시 들여다봤고, Unity MCP `execute_code`로
+`SkillManager`의 `skillDatabase`(private, reflection으로 조회) 실제 내용을 찍어보니
+**`count=1 -> null`** — 6개 스킬 전부가 아니라 배열 자체가 `null` 항목 하나만 들어있는 사실상 텅 빈
+상태였다. `추가발행권한` 하나만의 문제가 아니었던 것.
+
+이 배열이 비어있으면 `SkillManager.Initialize()`의 `foreach (SkillSO skill in skillDatabase) { ...
+skill.isReusable ... }`이 `null` 원소에서 곧바로 `NullReferenceException`을 던진다 — 이게 바로 훨씬
+이전(캔들 차트 작업 때) 발견해서 "무관한 기존 코드"라 손 안 대고 `Next_Tesk.md`에 남겨뒀던
+"`SkillManager.cs:43` NullReferenceException" 버그 후보와 **동일한 원인**이었다. 두 버그 후보가 사실
+하나였던 셈이다.
+
+**수정** : `manage_components.set_property(target=Managers, component_type="SkillManager",
+property="skillDatabase", value=[6개 .asset 경로 배열])`로 `발행량은폐`/`지갑분산`/`락업`/`독약조항`/
+`추가발행권한`/`우회발행권한` 6개를 전부 채워 넣었다. 배열 프로퍼티 자체에 asset 경로 문자열 배열을
+통째로 넘기는 방식이 그대로 먹혔다(개별 인덱스 patch 없이 한 번에 성공).
+
+**검증** : Play 모드에서 ① `NullReferenceException`이 더 이상 발생하지 않음, ②
+`EventHub.RaiseSkillClicked(SkillID.추가발행권한)` → `RaiseSkillPurchased()`(실제 구매 이벤트 흐름)로
+`SkillManager.IsUnlocked`가 `false → true`로 바뀜(비용 7000 차감 + `CashBonus` 효과로 현금 증가까지 확인),
+③ 그 결과 `MintButtonUI`의 `CanvasGroup`이 실제로 "코인 발행" 버튼을 보이게/눌리게 만듦, ④ 그 버튼을 실제로
+눌러 모달을 열고 +100을 두 번 눌러 확인 → `Supply`가 정확히 0 → 200으로 반영되는 것까지 전부 확인했다.
+스킬 6개가 전부 등록됐으니 다른 스킬(지갑분산/락업/독약조항 등)도 이제 정상적으로 구매 가능해졌을 것으로
+보이지만, 이번엔 이번 작업과 직결된 `추가발행권한` 경로만 집중적으로 검증했다.
+
 검증 도중 `SkillManager.Instance.GetSkillProfile(SkillID.추가발행권한)`이 `null`을 반환하는 걸 발견했다 —
 `추가발행권한` `SkillSO` 자체는 존재하지만(`.asset` 파일도 있음) `SkillManager.skillDatabase`(Inspector
 직렬화 리스트)에 등록이 안 되어 있어서, 지금 상태로는 이 스킬을 정상 플레이로 절대 구매(해금)할 수 없다.

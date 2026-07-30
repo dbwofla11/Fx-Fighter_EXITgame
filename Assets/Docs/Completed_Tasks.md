@@ -235,7 +235,17 @@
   - Unity MCP Play 모드로 매수(수량 200 선택 → 확인 → 현금/코인 반영 확인), 매도(미리보기 공식 확인), 취소
     (아무 반영 없이 닫힘), 발행량 조작(+100/+/- 토글로 부호 전환/미리보기 정확도/취소 시 Supply 불변) 전부
     스크린샷으로 검증 완료.
-  - **범위 밖에서 발견한 기존 문제(손대지 않음)** : `추가발행권한` `SkillSO`가 `SkillManager.skillDatabase`
-    (Inspector 직렬화 리스트)에 애초에 등록돼 있지 않아, 정상 플레이로는 이 스킬을 영구히 구매할 수 없는
-    상태였다. 스킬 UI 연결 자체가 별도 미완료 작업(`Next_Tesk.md` "후보 : UI 연결" 참고)이라 이번 스코프에서는
-    수정하지 않았다.
+  - 범위 밖에서 `SkillManager.skillDatabase` 등록 누락을 발견했다 — 아래 별도 항목으로 바로 이어서 수정함.
+- **완료** : `SkillManager.skillDatabase` 데이터 누락 수정 (`SkillManager NullReferenceException` 버그
+  후보와 동일 원인이었음). 위 모달 작업 검증 중 `SkillManager.Instance.GetSkillProfile(SkillID.추가발행권한)`가
+  `null`을 반환하는 걸 발견하고 원인을 추적하다가, `Managers`의 `SkillManager.skillDatabase`(Inspector
+  직렬화 리스트)가 `추가발행권한` 하나만 빠진 게 아니라 **`null` 항목 1개만 들어있는 사실상 빈 배열**임을
+  확인했다 — 6개 스킬(`발행량은폐`/`지갑분산`/`락업`/`독약조항`/`추가발행권한`/`우회발행권한`) 중 단
+  하나도 등록되어 있지 않았다. 이게 바로 예전에 캔들 차트 작업 중 발견해 미해결로 남겨뒀던
+  "`SkillManager.cs:43`(`Initialize()`) `NullReferenceException`" 버그의 근본 원인이었다 —
+  `foreach (SkillSO skill in skillDatabase)`가 `null` 항목을 순회하며 `skill.isReusable`을 읽으려 할 때
+  터지는 것이었다. Unity MCP `manage_components.set_property`로 6개 `.asset` 경로를 배열에 채워 넣어
+  해결했다. Play 모드에서 (1) `NullReferenceException`이 더 이상 발생하지 않는 것, (2)
+  `EventHub.RaiseSkillClicked(추가발행권한)` → `RaiseSkillPurchased()` 실제 구매 흐름으로
+  `IsUnlocked`가 `false → true`로 바뀌는 것, (3) 그 결과 "코인 발행" 버튼이 `CanvasGroup`으로 실제 나타나는
+  것, (4) 그 버튼으로 모달을 열어 발행량을 실제로 조작(0 → 200)하는 것까지 전부 확인했다.
