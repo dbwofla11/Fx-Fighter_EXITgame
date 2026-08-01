@@ -1,15 +1,16 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-// 코인 가격 헤더 우측의 뉴스(이벤트 로그) 아이콘. 클릭할 때마다 on/off 스프라이트를 토글한다.
-// 이벤트 로그 패널 자체는 아직 씬에 없어서 패널을 열고 닫는 연결은 비워뒀다 (Next_Tesk.md "이벤트 로그 패널" 참고).
+// 코인 가격 헤더 우측의 뉴스(이벤트 로그) 아이콘. 클릭하면 EventLogPanelUI를 토글한다.
+// 패널이 자체 X 닫기 버튼으로도 닫힐 수 있어서, 아이콘 스프라이트는 클릭 시점이 아니라 매 프레임
+// 패널의 실제 활성 상태(IsOpen)를 그대로 반영한다(다른 화면들의 기존 폴링 방식과 동일).
 public class EventLogButton : MonoBehaviour
 {
     [SerializeField] private Sprite onSprite;
     [SerializeField] private Sprite offSprite;
+    [SerializeField] private EventLogPanelUI eventLogPanel;
 
     private Image icon;
-    private bool isOn;
 
     private void Awake()
     {
@@ -22,9 +23,13 @@ public class EventLogButton : MonoBehaviour
         GetComponent<Button>().onClick.AddListener(Toggle);
     }
 
+    private void Update()
+    {
+        icon.sprite = eventLogPanel.IsOpen ? onSprite : offSprite;
+    }
+
     private void Toggle()
     {
-        isOn = !isOn;
-        icon.sprite = isOn ? onSprite : offSprite;
+        eventLogPanel.Toggle();
     }
 }

@@ -249,3 +249,67 @@
   `EventHub.RaiseSkillClicked(추가발행권한)` → `RaiseSkillPurchased()` 실제 구매 흐름으로
   `IsUnlocked`가 `false → true`로 바뀌는 것, (3) 그 결과 "코인 발행" 버튼이 `CanvasGroup`으로 실제 나타나는
   것, (4) 그 버튼으로 모달을 열어 발행량을 실제로 조작(0 → 200)하는 것까지 전부 확인했다.
+- **완료** : 매수/매도 모달(TradeModal) 슬라이더 + "+/-" 증감 토글 버튼. Figma "코인발행" 팝업 대비 남아있던
+  구조 두 개를 마저 붙였다. `TradeModalUI.cs`에 `GetMaxTradeAmount()`를 새로 뽑아 `SetTradeAmountToMax()`와
+  슬라이더 `maxValue`(Long: 현금으로 살 수 있는 최대 개수, Short: 보유 코인 전량)가 같은 로직을 공유하게
+  했고, 버튼↔슬라이더 값을 `SetValueWithoutNotify`로 양방향 동기화했다(이벤트 루프 없음). "+/-" 버튼은
+  용도가 불확실해 구현 전 사용자에게 확인했고 — "증감 모드 토글"로 확정(2026-07-31) — 누르면
+  `isSubtractMode`가 반전되어 이후 +1/+10/+100이 더하기 대신 빼기로 동작한다(0 밑으로는 안 내려감, 버튼
+  배경색으로 현재 모드 표시). 씬 오브젝트는 Unity MCP `execute_code`로 생성했다 — "+/-" 버튼은 기존
+  `BtnPlus1`을 `Instantiate`로 복제해 스타일(회색/radius18/NeoDunggeunmo)을 그대로 물려받았고, 슬라이더는
+  표준 Slider 계층(Background/Handle Slide Area/Handle)을 새로 조립했다(트랙 `#D9D9D9` radius16, 손잡이
+  주황 원, `ImageWithRoundedCorners`로 원형 구현). 이후 슬라이더가 통계블록(현재 코인 아이콘)과 겹친다는
+  피드백을 받아 `ModalBox` 높이를 660→760으로 키우고(pivot 중앙이라 위/아래 50씩 균등 확장), 슬라이더 이하
+  전체(슬라이더/PreviewText/수량버튼/확인·취소)를 65px씩 아래로 재배치해 해결했다. (`Logging.md` "매수/매도
+  모달 슬라이더 + +/- 버튼" 참고)
+- **결정** : TradeModal 닫기 구조는 현행(`BtnConfirm`+`BtnCancel` 나란히) 유지하기로 함(2026-08-01). Figma
+  목업은 우상단 X + 하단 확인버튼 하나뿐인 구조였지만, 사용자가 지금 코드/씬 그대로 가도 된다고 판단해
+  X버튼 추가·Cancel 제거 작업은 하지 않기로 확정. `Next_Tesk.md` 후보 목록에서 제거함.
+- **완료** : 이벤트 로그 패널 본체(2026-08-01). Figma(`EjUw2LdqxAYhL2180OAXHo`, node `1261:195`)를 확인해
+  1512x982 목업 프레임을 1920x1080 캔버스에 축(scaleX=1920/1512, scaleY=1080/982) 매핑했다 — 목업의 하단
+  게이지 행(y:826~982)이 변환식으로 계산한 Unity y:0~171.5에 그대로 떨어져, 기존 `RightPanel`/`ChartPanel`/
+  `CoinControlPanel`이 공유하는 "y=172 아래는 게이지 자리" 경계와 거의 정확히 일치함을 확인했다(이번엔 눈대중
+  배치 없이 수식이 실제 기존 요소 좌표와 맞아떨어짐). `Main_Canvas/EventLogPanel`(1920x908, anchoredPosition
+  (0,86), y:172~1080)에 배경/탭 2개("개요"/"커뮤니티")/X 닫기 버튼/`ContentArea`(회색)/`OverviewBox`(흰색,
+  "이벤트 로그" 카드 리스트용 `ScrollRect`)/카드 템플릿(`EventCardTemplate`, 비활성)까지 전부 **씬 오브젝트로**
+  배치했다 — 루트가 y:172~1080만 차지해서 기존 Support/Growth/Doubt 게이지 3종은 중복 생성 없이 그대로 아래에
+  보인다.
+  - **1차 시도 → 사용자 지적으로 재작업** : 처음엔 `PriceChartUI`의 오브젝트 풀링 패턴을 오해해서 탭/닫기버튼/
+    ContentArea/OverviewBox 같은 고정 요소까지 전부 `EventLogPanelUI.Awake()`에서 코드로 생성했다가, "왜 다
+    코드로 짬?"이라는 지적을 받았다. 이 프로젝트 관례(`TradeModalUI`/`CoinControlModalUI`)는 정적 요소는 씬에
+    직접 배치하고 스크립트는 참조/로직만 담당하는 방식이라, 정적 요소는 전부 씬 오브젝트로 다시 만들고
+    `EventLogPanelUI`는 `public Button/GameObject/RectTransform` 필드로 참조만 갖도록 축소했다. 개수가
+    가변적인 카드만 예외적으로 런타임 생성이 필요해서, 씬에 `EventCardTemplate`(비활성) 하나를 만들어두고
+    `TradeModalUI`가 `BtnPlus1`을 복제해 "+/-" 버튼을 만든 것과 동일하게 `Instantiate`로 복제한다. 신규
+    `Assets/Scripts/UI/EventCardView.cs`(템플릿에 부착, `background`/`titleText`/`dateText`/`effectsText`
+    참조만 보관)를 만들어 `EventLogPanelUI`가 문자열/색만 넘기면 `Populate()`가 꽂아 넣게 했다.
+  - "개요" 탭은 열 때마다 `MarketManager.EventLog`를 순회해 카드를 새로 만든다(긍정=연두 `#B1FFB1`/부정=빨강
+    `#FFBAB1`, 제목/날짜/`effects` 목록 표시, `Nobi.UiRoundedCorners.ImageWithRoundedCorners`로 모서리를
+    둥글게). 효과 표시는 `DoubtDecrease`처럼 "감소형" 타입만 부호를 뒤집어 "스탯이 실제로 변한 방향"(+ = 증가,
+    - = 감소)으로 통일했다. 이벤트 개수가 적어(월 1회 수준) 오브젝트 풀링 없이 열 때마다 카드를 새로 생성/파괴한다.
+  - "커뮤니티" 탭은 데이터/설계가 없어 클릭하면 빈 화면만 보이도록 자리만 잡아뒀다(사용자 확인 후 결정,
+    `Next_Tesk.md` 참고).
+  - **탭 선택 색상** : 처음엔 "개요"=연한 빨강(`#FFDBDB`)/"커뮤니티"=진한 빨강(`#FF8686`)을 고정 색상으로 오해했는데,
+    사용자가 "진한 빨강이 눌린(선택된) 상태, 연한 빨강이 안 눌린 상태"라고 정정해줘서 탭을 누를 때마다
+    선택된 탭은 진하게/나머지는 연하게 서로 바뀌도록 고쳤다(`SetTabSelected()`).
+  - **닫기 버튼** : 처음엔 유니코드 "✕" 텍스트로 만들었다가 폰트에 없는 글리프라 빈 사각형으로 깨져서 "X"로
+    바꿨는데, 이후 사용자가 `Assets/Sprites/UI아이콘/취소버튼.png`(흰색 X 아이콘)를 새로 추가해줘서 텍스트
+    대신 이 스프라이트를 쓰도록 교체했다.
+  - **부수 버그** : 정적 요소를 씬으로 옮기면서 루트(`EventLogPanel`) 자체의 배경 `Image`를 빠뜨려서 우측
+    상단 일부가 `RightPanel`을 그대로 투과해 보이는 문제가 있었다 — 루트에 `Image`(어두운 회색 `#333333`)를
+    추가해 해결했다.
+  - `EventLogButton.cs`는 클릭 시 `EventLogPanelUI.Toggle()`을 호출하고, 아이콘은 패널의 X 닫기 버튼으로도
+    닫힐 수 있어 클릭 시점이 아니라 매 프레임 `IsOpen`을 폴링해 동기화한다.
+  - Unity MCP Play 모드로 카드 렌더링(색상/텍스트), 탭 전환(선택 색상 교대 포함), X 닫기, 아이콘 동기화,
+    기존 게이지 노출까지 스크린샷으로 확인했다.
+- **완료** : 이벤트 로그 패널 후속 수정 2건(2026-08-01). ① 열려있는 동안 게임 시간이 안 멈추던 문제 —
+  `TradeModalUI`와 동일하게 `Open()`/`Close()`에서 `EventHub.RaiseGamePaused()`/`RaiseGameResumed()`를
+  호출하도록 추가했다. ② 탭-콘텐츠 매핑이 반대였던 문제 — Figma를 보니 애초에 프레임이 2개로 나뉘어
+  있었다(`EjUw2LdqxAYhL2180OAXHo` node `1253:2` "뉴스,이벤트 페이지 - 스탯개요" / node `1261:195` "뉴스,이벤트
+  페이지 - 이벤트 패널"). 처음엔 이벤트 로그(1261:195 내용)를 "개요" 탭에 연결했는데, 실제로는 "개요" 탭이
+  `1253:2`(스탯개요+엑시트 버튼, 아직 미구현), "커뮤니티" 탭이 `1261:195`(이벤트 로그)여야 했다. 씬의
+  `OverviewBox`를 `EventPanelBox`로 이름을 바꾸고(내용은 그대로, "이벤트 패널"이라는 실제 정체성에 맞춤),
+  `EventLogPanelUI.ShowOverview()`/`ShowCommunity()`가 반대로 여닫도록 바꿨다 — 이제 "개요" 탭(기본 선택)은
+  빈 화면, "커뮤니티" 탭이 이벤트 로그를 보여준다. `Next_Tesk.md`에 "개요 탭 콘텐츠(스탯개요+엑시트 버튼)"를
+  새 후보로 추가했다(기존에 따로 있던 "엑시트 버튼" 후보와 같은 화면임을 확인해 합침). Unity MCP Play
+  모드로 시간 정지(`Time.timeScale`)와 탭 전환 방향을 스크린샷/값 조회로 재검증했다.

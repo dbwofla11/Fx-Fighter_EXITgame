@@ -2,6 +2,21 @@
 
 완료된 작업 목록은 `Completed_Tasks.md`로 분리했다. 이 문서에는 아직 안 된 것(후보/버그)만 남긴다.
 
+## 다음 세션 작업 후보 (요약)
+
+| # | 작업 | 비고 |
+|---|---|---|
+| 2 | 엑시트 버튼 UI | CanExit(현금≥10억) 활성화 조건 + 목표금액 진행률 표시 |
+| 3 | 엔딩 결과 화면 | 4종(체포/엑시트/영웅/거지) 결과 문구, `Game_Formula.md` 5장 참고 |
+| 4 | 스킬 아이콘/구매 버튼 UI | `RaiseSkillClicked`/`RaiseSkillPurchased` 발행 UI 없음 |
+| 5 | 직업 선택 화면 UI | `RaiseJobSelected` 발행 UI 없음 |
+| 6 | 발행량 스킬 3종 Supply 효과 부여 | 설계 결정 필요 (수치 없이 코드부터 짜기 애매함) |
+| 7 | 밸런스 수치 조정 | 캔들/확률 등, 실제 플레이 후 |
+| 8 | 스트리머 패널 스프라이트 연결 | 블로킹: 스프라이트 에셋 미도착 |
+
+(2번은 "후보 : UI 연결"의 "개요 탭 콘텐츠" 항목과 같은 작업임 — 아래 상세 참고. 각 항목의 자세한 내용은
+아래 섹션 및 `Completed_Tasks.md`/`Logging.md` 참고.)
+
 ---
 
 ## 후보 : UI 연결
@@ -11,16 +26,21 @@
 - 스킬 아이콘/구매 버튼 (`EventHub.RaiseSkillClicked`/`RaiseSkillPurchased`)
 - 직업 선택 화면 (`EventHub.RaiseJobSelected`)
 - 시사 이벤트 수동 트리거가 필요한 경우의 UI (`EventHub.RaiseNewsEvent`) — 자동 발생은 이미 `MarketManager`에 구현됨
-- 이벤트 로그 패널 — 진입 버튼(`EventLogBtn`/`EventLogButton.cs`)은 완료됨(`Completed_Tasks.md` 참고), **패널
-  본체가 아직 없다.** `MarketManager.EventLog`(`IReadOnlyList<EventLogEntry>`)를 순회하며
-  `Profile.message`/`Date`/`Profile.effects`를 표시하면 된다. 목업 확인 결과 "개요"/"커뮤니티" 탭과 X 닫기
-  버튼이 있는 전체화면 모달이고(하단엔 기존 스탯 게이지 3종이 그대로 보임 — `SupportPanel` 등과 같은 레이어에
-  오버레이되는 형태로 추정), 긍정 이벤트는 연두색/부정 이벤트는 빨간색 배경 카드로 구분해서 보여준다. 패널이
-  만들어지면 `EventLogButton.Toggle()`에서 on/off 아이콘 전환과 함께 패널 표시/숨김도 같이 처리하도록 이어서
-  연결하면 된다.
-- 엑시트 버튼 (`EventHub.RaiseExitRequested`) — `MarketManager.CanExit`(현금 >= `TargetAsset`=10억)가 true일 때만
-  누를 수 있도록 활성화 처리. 목표 금액 진행률 표시(스크린샷의 "목표금액/현재금액/목표까지 남은 금액")도 이
-  값들을 그대로 읽으면 된다.
+- ~~이벤트 로그 패널(커뮤니티 탭)~~ — **완료** (`Completed_Tasks.md` 참고). Figma가 프레임 2개로 나뉘어 있다는
+  걸 뒤늦게 확인했다 — node `1253:2`("뉴스,이벤트 페이지 - 스탯개요")는 "개요" 탭, node `1261:195`("뉴스,이벤트
+  페이지 - 이벤트 패널")는 "커뮤니티" 탭 콘텐츠였다. 처음엔 반대로(이벤트 로그를 "개요" 탭에) 연결했다가
+  수정했다. "개요" 탭은 아래 항목이 아직 없어 자리만 잡아두고 비워둠.
+- 개요 탭 콘텐츠(스탯개요 + 엑시트 버튼, Figma node `1253:2`) — 기존에 "엑시트 버튼"으로 따로 있던 후보가
+  이 탭 콘텐츠와 같은 화면이었음을 확인해 합쳤다. `EventLogPanel/EventPanelBox`와 동일한 자리(`ContentArea`
+  안, `overviewTab` 선택 시)에 새로 만들면 됨.
+  - 좌측 : 현재 스탯(코인 지지도/상승도/의심도 현재값), Job+Skill 보너스 상승률(`PlayerStat.
+    JobSkillSupportBonus`/`JobSkillGrowthBonus`, Doubt는 `JobManager.CurrentJob.effects` +
+    `SkillManager.GetActiveSkills()` 합산 — "개요 화면 Job+Skill 보너스 표시" 완료 항목에서 이미 데이터
+    준비됨), 긍정/부정 이벤트 확률, 현금 증가량(CashBonus) 표시.
+  - 우측(흰 박스, `EventPanelBox`와 동일 크기/위치) : 목표금액(`MarketManager.TargetAsset`)/현재금액
+    (`PlayerManager.currentMoney`)/목표까지 남은 금액, 그리고 엑시트 버튼
+    (`EventHub.RaiseExitRequested`) — `MarketManager.CanExit`(현금 >= `TargetAsset`)가 true일 때만 누를 수
+    있도록 활성화 처리.
 - 엔딩 결과 화면 — `EventHub.OnGameEnded(EndingType)`을 구독해 4종 엔딩(체포/엑시트/영웅/거지)에 맞는 결과 문구를
   표시. 각 엔딩의 설명 텍스트는 `Game_Formula.md` 5장에 정리되어 있음.
 
@@ -44,25 +64,10 @@
   이대로 유지할지 확인 필요.
 - 만약 Supply 효과를 추가한다면 구체적 수치도 함께 정해야 한다.
 
-## 후보 : 매수/매도 모달(TradeModal) Figma 목업 후속 작업
+## 후보 : 밸런스 수치 조정 (실제 플레이 후)
 
-Figma "코인발행" 팝업(피그마 파일 `EjUw2LdqxAYhL2180OAXHo`, node `1515:1038`) 대비 아직 구조적으로 없는 항목들.
-통계블록(현재/예상 현금·코인 아이콘 표시)은 이번에 추가함 — 아래는 남은 것.
-
-- **슬라이더**: 드래그로 매수/매도 수량을 조절하는 가로 슬라이더(트랙+손잡이). 아직 `TradeModalUI.cs`에 관련
-  로직 없음.
-  - **슬라이더 맨 우측 숫자(현재 "0개"로 고정된 placeholder)는 "지금 살 수 있는/팔 수 있는 최대 수치"를
-    뜻한다** (사용자 확인, 2026-07-31). Long이면 현재 현금으로 살 수 있는 최대 개수, Short면 보유 코인
-    전량 — `TradeModalUI.SetTradeAmountToMax()`가 이미 계산하는 값과 동일한 로직이므로 그대로 재사용하면 됨.
-- **"+/-" 버튼**: Figma엔 +1/+10/+100/+MAX 외에 "+/-" 버튼이 하나 더 있음(용도 추정: 부호 반전 또는 리셋).
-  현재 스크립트엔 이 버튼도 관련 로직도 없음 — 정확한 동작은 확인 필요.
-- **닫기 X 버튼 + 단일 확인버튼 구조**: Figma는 우상단 X로 닫고 하단엔 "매수하기" 버튼 하나뿐. 지금은
-  `BtnConfirm`+`BtnCancel`이 나란히 있는 구조라서, 구조를 맞추려면 X 버튼 추가 + Cancel 제거(또는 X와 통합)가
-  필요함.
-
-## 후보 : 캔들 차트 후속 작업
-
-- `PriceChartUI.visibleCandleCount`(기본 16)/`candleWidthRatio`(0.95) 등 밸런스 수치는 실제 플레이 후 추가
-  조정 필요할 수 있음
+- `PriceChartUI.visibleCandleCount`(기본 16)/`candleWidthRatio`(0.95) 등 캔들 차트 관련 수치
+- `ProbabilityCalculator.SupportWeight`/`GrowthWeight`/`DoubtWeight`(현재 모두 0.25) 등 상승확률 가중치
+- 그 외 이벤트/스킬 수치 등도 실제 플레이 데이터가 쌓이면 같이 재검토
 
 

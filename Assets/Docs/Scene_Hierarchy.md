@@ -61,7 +61,9 @@ Main_Canvas (1920x1080)
 ├─ CoinPriceHeader   [CoinPriceHeaderUI]          (x:8~508, y:960~1050 — 코인명/현재가 표시)
 │   ├─ CoinIcon (Image)
 │   └─ PriceText (TextMeshProUGUI)
-└─ EventLogBtn       [EventLogButton]             (x:1333~1413, y:970~1050 — 이벤트 로그 진입 버튼)
+├─ EventLogBtn       [EventLogButton]             (x:1333~1413, y:970~1050 — 이벤트 로그 진입 버튼)
+└─ EventLogPanel     [EventLogPanelUI]            (x:0~1920, y:172~1080 — 이벤트 로그 전체화면 패널, 기본 비활성)
+    └─ (탭 2개/닫기 버튼/ContentArea/OverviewBox/카드 템플릿 전부 씬 오브젝트 — 아래 "이벤트 로그 패널" 절 참고)
 ```
 
 인스턴스ID(참고용, 씬 재저장 시 바뀔 수 있음): Main_Canvas=53600, RightPanel=53478, TimePanel=52864,
@@ -81,10 +83,36 @@ DoubtScorePanel=53074, SkillBtn=53578.
   떠 있는 형태 (목업과 동일). 자식으로 `CoinIcon`(Image)과 `PriceText`(TextMeshProUGUI)를 갖는다.
 - **EventLogBtn** (`EventLogButton`) : `Main_Canvas` 직속 자식, anchoredPosition (413, 470), sizeDelta
   (80, 80) → 헤더 줄 우측 끝(절대좌표 x:1333~1413, y:970~1050). 처음엔 48x48로 만들었다가 목업 비율 대비
-  너무 작다는 피드백을 받고 80x80으로 키웠다. 클릭할 때마다 "UI뉴스아이콘_on"/"_off" 스프라이트를 토글한다.
-  이벤트 로그 패널 본체는 아직 없어서 패널을 열고 닫는 연결은 없음.
+  너무 작다는 피드백을 받고 80x80으로 키웠다. 클릭할 때마다 "UI뉴스아이콘_on"/"_off" 스프라이트를 토글하고,
+  `EventLogPanel`을 열고 닫는다.
 
 (스트리머 패널, X축 날짜 라벨, 헤더 우측 아이콘은 아직 씬에 없음 — `Next_Tesk.md` "캔들 차트 후속 작업" 참고)
+
+---
+
+## 이벤트 로그 패널 (구현 완료)
+
+- **EventLogPanel** (`EventLogPanelUI`) : `Main_Canvas` 직속 자식, anchoredPosition (0, 86), sizeDelta
+  (1920, 908) → x: 0~1920, y: 172~1080. 기본 `activeSelf = false`, 배경 `Image`(#333333, 어두운 회색).
+  Figma 프레임(1512x982)을 캔버스(1920x1080)에 축별로 매핑(scaleX≈1.2698, scaleY≈1.0998)해서 좌표를 구했다 —
+  자세한 내용은 `Completed_Tasks.md` 참고. `TradeModalUI`/`CoinControlModalUI`와 동일한 관례로, 아래 정적
+  자식들은 전부 씬에 실제 오브젝트로 배치돼 있고(`EventLogPanelUI`는 `public` 필드로 참조만 가짐) 카드
+  리스트만 예외적으로 런타임에 채워진다. `Open()`/`Close()`가 `TradeModalUI`와 동일하게
+  `EventHub.RaiseGamePaused()`/`RaiseGameResumed()`를 호출해 열려있는 동안 게임 시간을 멈춘다.
+  - `OverviewTab`/`CommunityTab` (Button, radius20) : "개요"/"커뮤니티" 탭. 클릭한 탭은 진한 빨강(`#FF8686`),
+    반대쪽은 연한 빨강(`#FFDBDB`)으로 서로 바뀐다(`SetTabSelected()`). 기본 선택은 "개요"(Figma 기준).
+  - `CloseBtn` (Button) : `Assets/Sprites/UI아이콘/취소버튼.png` 아이콘. 누르면 패널을 닫는다.
+  - `ContentArea`(회색, radius24) → `EventPanelBox`(흰색, radius16, **"커뮤니티" 탭 콘텐츠** — Figma node
+    `1261:195` "이벤트 패널") →
+    - `Title` : "이벤트 로그" 제목 텍스트.
+    - `EventScrollView`(`ScrollRect`) → `Viewport`(`RectMask2D`) → `Content`(`VerticalLayoutGroup` +
+      `ContentSizeFitter`) — 카드가 쌓이는 자리.
+      - `EventCardTemplate` (`EventCardView`, 기본 `activeSelf = false`) : 카드 1장의 템플릿. "커뮤니티" 탭을
+        열 때마다 `MarketManager.EventLog` 개수만큼 이 템플릿을 `Instantiate`로 복제해 채우고, 닫을 때까지
+        유지하다가 다음에 열 때 전부 새로 만든다(개수가 적어 풀링 없음).
+  - **"개요" 탭**(Figma node `1253:2` "스탯개요", 기본 선택 상태)은 아직 콘텐츠가 없어 클릭(또는 패널을 처음
+    열었을 때)하면 `EventPanelBox`가 꺼지고 `ContentArea`의 빈 회색만 보인다 — 스탯개요/엑시트 버튼은
+    `Next_Tesk.md` 후보로 남아있음.
 
 ---
 

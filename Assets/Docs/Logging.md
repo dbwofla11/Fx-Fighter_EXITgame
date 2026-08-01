@@ -1272,6 +1272,44 @@ property="skillDatabase", value=[6개 .asset 경로 배열])`로 `발행량은�
 스킬 아이콘/구매 버튼 UI 자체가 아직 없는 것과 같은 근본 원인(`Next_Tesk.md` "후보 : UI 연결" 참고)으로
 보이며, 이번 모달 작업 범위 밖이라 손대지 않고 문서에만 남겼다.
 
+## 매수/매도 모달 슬라이더 + +/- 버튼
+
+Figma "코인발행" 팝업(`EjUw2LdqxAYhL2180OAXHo`, node `1515:1038`) 대비 구조적으로 남아있던 슬라이더와
+"+/-" 버튼을 붙였다.
+
+**좌표 변환 검증** : `get_metadata`로 받은 자식 노드 x/y는 부모 프레임(1100×600) 기준 로컬 좌표였다. 이미
+배치돼 있던 `BtnPlus1~MAX` 4개의 실제 Unity 좌표로 역산해 공식(중심 좌표 → 프레임 중심(550,300) 기준 정렬 →
+`scaleX`/`scaleY` 곱)을 검증했는데, x축은 정확히 들어맞았지만(Figma x=187 → Unity x=-334, 기존 값과 일치)
+y축은 어긋났다(공식대로면 Unity y=-94.6인데 실제 -151) — 즉 기존 버튼 행은 수식이 아니라 눈대중으로
+배치된 상태였다는 뜻이라, 새로 만드는 "+/-" 버튼의 y는 공식값 대신 같은 줄 형제 버튼의 실제 y(-151)를
+그대로 맞췄다. 슬라이더는 기준점이 없어 공식을 그대로 적용했다(트랙 1143×33 at y=-7, 손잡이 46×46).
+
+**"+/-" 버튼** : Figma엔 +1/+10/+100/+MAX 옆에 "+/-"라는 별도 버튼이 있는데 정확한 동작이 불확실해서
+구현 전 AskUserQuestion으로 확인 — "증감 모드 토글"로 확정(2026-07-31). `TradeModalUI`에 `isSubtractMode`
+bool을 추가해 `AddTradeAmount()`가 이 값을 보고 더할지(`tradeAmount + amount`) 뺄지
+(`Math.Max(0, tradeAmount - amount)`)를 결정하게 했다. 버튼 자체는 새 동작 없이 모드만 토글하고, 배경색을
+회색(증가)/빨간톤(감소)으로 바꿔 현재 모드를 표시한다. 씬 오브젝트는 `GameObject.Instantiate(btnPlus1)`로
+기존 버튼을 복제해 만들었다 — 색상(0.7,0.7,0.74)/`ImageWithRoundedCorners`(radius18)/NeoDunggeunmo 폰트를
+전부 그대로 물려받고 이름/좌표/텍스트만 바꿨다(`Button.onClick`은 새 이벤트로 초기화해 복제된 리스너가
+안 섞이게 함).
+
+**슬라이더** : "슬라이더 맨 우측 숫자는 지금 살 수 있는/팔 수 있는 최대 수치"라는 사용자 확인에 따라,
+기존 `SetTradeAmountToMax()` 안의 계산식을 `GetMaxTradeAmount()`로 분리해 MAX 버튼과 슬라이더
+`maxValue`(Long: 현금으로 살 수 있는 최대 개수, Short: 보유 코인 전량)가 같은 로직을 공유하게 리팩터링했다.
+씬은 Unity MCP `execute_code`로 표준 Slider 계층(Background/Handle Slide Area/Handle)을 직접 조립했다 —
+트랙은 `#D9D9D9` + `ImageWithRoundedCorners`(radius16), 손잡이는 주황(#F7931A) 원(`ImageWithRoundedCorners`
+radius23로 완전한 원 구현). Figma 디자인엔 트랙과 구분되는 진행바(fill) 색이 없어서 `Slider.fillRect`는
+비워뒀다. 버튼→슬라이더는 `RefreshTradeAmountText()`가 `SetValueWithoutNotify()`로 반영하고, 슬라이더→버튼
+방향은 `OnSliderChanged()`가 `skipSlider:true`로 텍스트만 갱신해서 상호 호출 무한루프를 막았다. 시세가
+바뀌면 매수 가능 최대치도 바뀌므로 `RefreshPreviewAndConfirmState()`(매 프레임) 안에서 `slider.maxValue`도
+함께 갱신한다.
+
+**후속 레이아웃 수정** : 붙이고 나서 슬라이더가 통계블록(현재 코인 아이콘, y=10)과 겹친다는 피드백을 받았다.
+`ModalBox`는 pivot(0.5,0.5)라 `sizeDelta.y`를 키우면 위/아래로 균등하게 늘어나는 걸 이용해 660→760으로
+키우고, 슬라이더 이하 전체(슬라이더 y=-7→-72, PreviewText y=-73→-138, 수량버튼 y=-151→-216, 확인/취소
+y=-237→-302)를 65px씩 아래로 재배치해 각 요소 사이 20px 안팎의 여유 간격을 확보했다. 스크립트는 좌표를
+하드코딩하지 않으므로 이 수정은 씬(RectTransform)만 건드리고 코드는 변경하지 않았다.
+
 ## 현재 아키텍처 요약
 
 ```
