@@ -6,7 +6,6 @@
 
 | # | 작업 | 비고 |
 |---|---|---|
-| 2 | 엑시트 버튼 UI | CanExit(현금≥10억) 활성화 조건 + 목표금액 진행률 표시 |
 | 3 | 엔딩 결과 화면 | 4종(체포/엑시트/영웅/거지) 결과 문구, `Game_Formula.md` 5장 참고 |
 | 4 | 스킬 아이콘/구매 버튼 UI | `RaiseSkillClicked`/`RaiseSkillPurchased` 발행 UI 없음 |
 | 5 | 직업 선택 화면 UI | `RaiseJobSelected` 발행 UI 없음 |
@@ -30,17 +29,7 @@
   걸 뒤늦게 확인했다 — node `1253:2`("뉴스,이벤트 페이지 - 스탯개요")는 "개요" 탭, node `1261:195`("뉴스,이벤트
   페이지 - 이벤트 패널")는 "커뮤니티" 탭 콘텐츠였다. 처음엔 반대로(이벤트 로그를 "개요" 탭에) 연결했다가
   수정했다. "개요" 탭은 아래 항목이 아직 없어 자리만 잡아두고 비워둠.
-- 개요 탭 콘텐츠(스탯개요 + 엑시트 버튼, Figma node `1253:2`) — 기존에 "엑시트 버튼"으로 따로 있던 후보가
-  이 탭 콘텐츠와 같은 화면이었음을 확인해 합쳤다. `EventLogPanel/EventPanelBox`와 동일한 자리(`ContentArea`
-  안, `overviewTab` 선택 시)에 새로 만들면 됨.
-  - 좌측 : 현재 스탯(코인 지지도/상승도/의심도 현재값), Job+Skill 보너스 상승률(`PlayerStat.
-    JobSkillSupportBonus`/`JobSkillGrowthBonus`, Doubt는 `JobManager.CurrentJob.effects` +
-    `SkillManager.GetActiveSkills()` 합산 — "개요 화면 Job+Skill 보너스 표시" 완료 항목에서 이미 데이터
-    준비됨), 긍정/부정 이벤트 확률, 현금 증가량(CashBonus) 표시.
-  - 우측(흰 박스, `EventPanelBox`와 동일 크기/위치) : 목표금액(`MarketManager.TargetAsset`)/현재금액
-    (`PlayerManager.currentMoney`)/목표까지 남은 금액, 그리고 엑시트 버튼
-    (`EventHub.RaiseExitRequested`) — `MarketManager.CanExit`(현금 >= `TargetAsset`)가 true일 때만 누를 수
-    있도록 활성화 처리.
+- ~~개요 탭 콘텐츠(스탯개요 + 엑시트 버튼)~~ — **완료** (`Completed_Tasks.md` 참고).
 - 엔딩 결과 화면 — `EventHub.OnGameEnded(EndingType)`을 구독해 4종 엔딩(체포/엑시트/영웅/거지)에 맞는 결과 문구를
   표시. 각 엔딩의 설명 텍스트는 `Game_Formula.md` 5장에 정리되어 있음.
 

@@ -313,3 +313,32 @@
   빈 화면, "커뮤니티" 탭이 이벤트 로그를 보여준다. `Next_Tesk.md`에 "개요 탭 콘텐츠(스탯개요+엑시트 버튼)"를
   새 후보로 추가했다(기존에 따로 있던 "엑시트 버튼" 후보와 같은 화면임을 확인해 합침). Unity MCP Play
   모드로 시간 정지(`Time.timeScale`)와 탭 전환 방향을 스크린샷/값 조회로 재검증했다.
+- **완료** : 개요 탭 콘텐츠(스탯개요 + 엑시트 버튼, 2026-08-01). Figma(`EjUw2LdqxAYhL2180OAXHo`, node
+  `1253:2` "뉴스,이벤트 페이지 - 스탯개요")를 이벤트 로그 패널과 동일한 축 스케일(scaleX=1920/1512≈1.2698,
+  scaleY=1080/982≈1.0998)로 `EventLogPanel/ContentArea` 로컬 좌표에 매핑했다 — `ContentArea`(1722×715)가
+  Figma 그레이 박스(1356×650, node `1253:5`)와 정확히 일치함을 먼저 검증하고(children의 left/top을
+  1356×650 기준 상대좌표로 보고 동일 축 스케일 적용), 우측 흰 박스(목표금액/엑시트, node `1261:276`) 크기를
+  계산하니 813×660으로 나와 커뮤니티 탭의 `EventPanelBox`(813×660)와 **정확히 일치** — 두 프레임이 같은
+  컴포넌트를 좌우 대칭으로 재사용했음을 확인해 매핑 공식의 정확성을 검증했다. 아이콘류(64px 정사각형)는
+  `CloseBtn`(Figma 128px → 실제 80×80) 선례를 따라 비율 왜곡 없이 60×60 정사각형으로, 폰트는 탭 라벨
+  변환 실측치(Figma 24px → Unity fontSize 28)를 기준으로 잡았다.
+  - 신규 `Assets/Scripts/UI/EventOverviewUI.cs` : `ContentArea` 밑에 씬 오브젝트로 배치한 `OverviewContent`
+    (좌측 아이콘 9개 + 텍스트 9줄 + 우측 흰 박스 `OverviewBox`)의 TMP/Button 참조만 갖고 갱신 로직을 담당한다
+    (TradeModalUI/CoinControlModalUI 관례 그대로 — 정적 요소는 씬 오브젝트, 스크립트는 참조/로직만).
+    좌측 : 코인 지지도/상승도/의심도 현재값(`PlayerStat.Support`/`Growth`/`Doubt`, 항상 부호 표시),
+    Job+Skill 보너스(`JobSkillSupportBonus`/`JobSkillGrowthBonus`, Doubt 보너스는 `JobManager.CurrentJob.
+    effects` + `SkillManager.GetActiveSkills()`의 `DoubtDecrease`/`DoubtIncrease`를 직접 합산 — Doubt는
+    감쇠 없는 값이라 별도 누적 필드가 없어서 매번 재계산), 긍정/부정 이벤트 확률, 현금 증가량(`CashBonus`).
+    우측 : 목표금액(`MarketManager.TargetAsset`)/현재금액(`PlayerManager.currentMoney`)/남은 금액을
+    `"₩ " + N0` 형식(기존 TradeModalUI/PlayerUI 관례, Figma 목업의 `$` 표기는 예시 수치였음)으로 표시하고,
+    엑시트 버튼은 `MarketManager.CanExit`일 때만 `interactable = true`, 클릭 시 확인 팝업 없이 바로
+    `EventHub.RaiseExitRequested()`를 호출한다(둘 다 사용자 확인 후 확정, 2026-08-01). Figma 색상(현재값
+    빨강/보너스 초록, 부호와 무관하게 카테고리별 고정색)을 TMP 리치텍스트 `<color>` 태그로 그대로 반영했다.
+  - `EventLogPanelUI.cs` : `overviewContent`/`overviewUI` 필드를 추가하고 `ShowOverview()`가 커뮤니티 탭과
+    대칭으로 `overviewContent.SetActive(true)` + `overviewUI.Refresh()`를 호출하도록 바꿨다(`RefreshLog()`와
+    동일한 패턴 — 패널이 열려있는 동안은 `GamePaused`로 턴이 멈추므로 `OnMarketUpdated` 구독 대신 진입
+    시점 1회 갱신만 함).
+  - 씬 오브젝트(아이콘 9개 `Assets/Sprites/UI아이콘/UI아이콘_지지도.png` 등 기존 스프라이트 재사용, 텍스트
+    9줄, 흰 박스+라벨 3줄+값 3줄+엑시트 버튼)는 Unity MCP `execute_code`로 계산된 좌표 그대로 생성했다.
+    Play 모드에서 목표/현재/남은 금액 표시, `CanExit` 조건에 따른 엑시트 버튼 활성화(현금을 강제로
+    올려 재검증), 탭 전환까지 스크린샷으로 확인했다.
