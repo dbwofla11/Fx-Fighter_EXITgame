@@ -342,3 +342,50 @@
     9줄, 흰 박스+라벨 3줄+값 3줄+엑시트 버튼)는 Unity MCP `execute_code`로 계산된 좌표 그대로 생성했다.
     Play 모드에서 목표/현재/남은 금액 표시, `CanExit` 조건에 따른 엑시트 버튼 활성화(현금을 강제로
     올려 재검증), 탭 전환까지 스크린샷으로 확인했다.
+- **완료** : 엔딩 결과 화면(2026-08-02). `EventHub.OnGameEnded(EndingType)`을 구독해 4종 엔딩(체포/엑시트/
+  영웅/거지)에 맞는 제목+설명 문구를 표시하는 전체화면 오버레이. Figma(`EjUw2LdqxAYhL2180OAXHo`)에서 이
+  화면에 대응하는 프레임을 찾지 못해(다른 두 프로젝트 자료가 섞여 있는 파일이라 `get_metadata`가 관련
+  영역까지 못 읽는 문제도 있었음) 사용자에게 확인한 뒤 최소 구성(제목 텍스트 + 설명 텍스트, 검은 반투명
+  배경)의 임시 UI로 만들었다 — 디자인이 정해지면 교체 필요. 재시작 등 후속 액션도 아직 기획되지 않아
+  결과 문구 표시만 담당한다.
+  - 신규 `Assets/Scripts/UI/EndingResultUI.cs` : `panel`(어두운 오버레이)/`titleText`/`descriptionText`
+    필드만 갖고, `OnEnable`/`OnDisable`로 `EventHub.OnGameEnded`를 구독/해제한다. `MarketManager.EndGame()`이
+    이미 `TimeManager.PauseGame()`을 호출한 뒤 이 이벤트를 발행하므로 별도로 게임을 멈추지 않는다. 거지
+    엔딩은 `Game_Formula.md` 5장에 "결과: 미정(추가 기획 필요)"로만 적혀 있어 임시 문구로 채웠다.
+  - 스크립트 자신(`EndingResultUI` 오브젝트)은 `Main_Canvas` 밑에서 항상 켜진 상태를 유지하고, 실제로
+    보이는 자식 `Panel`(전체화면, 1920×1080, 검정 알파 0.85)만 `SetActive`로 토글한다 — `EventLogPanelUI`
+    처럼 스크립트가 곧 패널인 구조로 만들면 패널이 꺼져 있는 동안 `OnEnable`이 다시 호출되지 않아 구독이
+    끊기기 때문(비활성 오브젝트는 `OnEnable`이 실행되지 않는 Unity의 기본 동작).
+  - `TitleText`/`DescriptionText`는 `NeoDunggeunmo SDF` 폰트로 지정했다(사용자 지시 — 기본 폰트로 두면
+    나중에 다시 바꿔야 함).
+  - Unity MCP Play 모드에서 `execute_code`로 `EventHub.RaiseGameEnded(EndingType.Hero)`를 직접 호출해
+    문구 표시를 검증했다. 처음 스크린샷 미리보기에서는 반투명 오버레이가 화면 일부만 덮은 것처럼 보였는데,
+    실제로는 축소된 미리보기 이미지를 잘못 읽은 것이었고 — 저장된 PNG를 직접 픽셀 단위로 읽어보니
+    (`longBtn≈(0.03,0.03,0.06)`, `topLeft≈(0.06,0.06,0.06)`) 전체 화면이 정확히 덮여 있음을 확인했다.
+    (완전 불투명 마젠타로 바꿔 `GetWorldCorners`가 `(0,0)~(1920,1080)`임도 별도로 재확인함.)
+- **완료** : UI 스크립트 아키텍처 리팩토링 (`Next_Tesk.md` 10번, 지난 세션 진단 → 이번 세션 구현, 2026-08-02).
+  진단됐던 5개 항목을 우선순위 순으로 처리했다. ① `TimeUI`/`PlayerUI`/`CoinControlModalUI`의 `Update()` 폴링을
+  `EventHub` 구독형(`OnDayChanged`/`OnMarketUpdated`)으로 통일 — 매수/매도/발행량 조작이 지금까지
+  `OnMarketUpdated`를 안 쐈다는 걸 발견해, `TradeModalUI`/`CoinControlModalUI`의 확정 버튼에 발행을 추가해서
+  실제로 폴링을 없앨 수 있게 만들었다. ② `CoinControlModalUI.Open()`에 빠져있던
+  `EventHub.RaiseGamePaused()`/`Close()`의 `RaiseGameResumed()`를 추가 — `TradeModalUI`/`EventLogPanelUI`와
+  달리 이 모달만 열려있어도 시간이 안 멈추던 버그로 확인. ③ `SettingsUI`의 안 쓰는
+  `using Unity.VisualScripting;`·실제 코드와 안 맞던 죽은 주석을 정리하고, `Time.timeScale = 1f` 강제 리셋을
+  `EventHub.RaiseGamePaused/RaiseGameResumed`로 교체해 닫을 때 배속(2/4/8x)이 유지되게 고쳤다. ④ 신규
+  `Assets/Scripts/UI/Utils/UIFormat.cs`(통화/퍼센트/부호/날짜 포맷, `EffectType` 증가·감소 방향 판정을 모은
+  static 유틸)를 만들어 `PlayerUI`/`TradeModalUI`/`EventOverviewUI`/`CoinPriceHeaderUI`/`PriceChartUI`/
+  `EventLogPanelUI`에 흩어져 있던 중복 구현을 연결했다(각 파일이 원래 쓰던 출력 형식은 그대로 유지 — 공백
+  있는/없는 `₩` 표기 등 시각적 차이는 안 건드림). `PriceChartUI` 캔들 색 하드코딩은 그대로 뒀다 —
+  `[SerializeField]`라 씬에 이미 구체값이 직렬화돼 있어서 코드 상수화만으론 "버튼 색 바뀌면 어긋나는" 문제
+  자체가 안 없어지고, 실제로 고치려면 버튼 참조를 씬에 새로 연결해야 해서 범위 밖으로 남겨둠. ⑤
+  `MintButtonUI`의 매 프레임 `SkillManager.IsUnlocked()` 폴링을 `EventHub.OnSkillPurchased` 구독으로 교체.
+  작업 도중 실사용 버그 2건도 함께 발견해 고쳤다. `TradeModalUI.panel`이 스크립트 자신의 GameObject를
+  가리키는 구조라, 씬에서 `TradeModal`이 비활성 상태로 시작하면 `Open()`이 `panel.SetActive(true)`로 처음
+  활성화시키는 순간 Unity가 `Start()`를 다음 프레임으로 미루는데, 그 `Start()` 끝의
+  `panel.SetActive(false)`가 방금 연 모달을 그대로 닫아버려서 첫 클릭은 시간정지만 되고 모달이 안 열리는
+  버그가 있었다(두 번째 클릭부터는 `Start()`가 이미 끝나서 정상) — `isOpen` 플래그를 추가해 `Open()`이 먼저
+  실행됐으면 뒤늦은 `Start()`가 다시 닫지 않도록 막았다(씬의 초기 활성/비활성 상태와 무관하게 동작, UI 편집을
+  위해 오브젝트를 꺼둔 채로 작업해도 안전). `TimeUI`의 재생 버튼은 `TimeManager.ResumeGame()`(마지막 배속
+  그대로 복귀)만 호출해서 이미 배속(2/4/8x) 상태에서 누르면 아무 반응이 없었는데, 항상 1배속으로 리셋하도록
+  바꿨다. Unity MCP로 매 단계 컴파일 확인, 씬 데이터 조회(`TradeModal.m_IsActive` 등)로 원인 확정까지 진행했다.
+  자세한 파일 목록/호출 스택은 `Issue_UI_Refactor.md` 참고.

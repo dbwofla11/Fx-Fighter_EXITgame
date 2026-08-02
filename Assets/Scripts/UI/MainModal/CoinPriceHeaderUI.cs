@@ -25,6 +25,6 @@ public class CoinPriceHeaderUI : MonoBehaviour
         if (MarketManager.Instance == null || priceText == null)
             return;
 
-        priceText.text = $"{coinName}  ₩{MarketManager.Instance.CurrentStat.CurrentPrice:N0}";
+        priceText.text = $"{coinName}  {UIFormat.CurrencyTight(MarketManager.Instance.CurrentStat.CurrentPrice)}";
     }
 }

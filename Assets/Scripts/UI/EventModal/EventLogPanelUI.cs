@@ -113,7 +113,7 @@ public class EventLogPanelUI : MonoBehaviour
 
         EventCardView card = Instantiate(cardTemplate, cardListParent);
         card.gameObject.SetActive(true);
-        card.Populate(color, entry.Profile.message, FormatDate(entry.Date), effects);
+        card.Populate(color, entry.Profile.message, UIFormat.DateDot(entry.Date), effects);
     }
 
     private string BuildEffectsText(List<EffectData> effects)
@@ -130,30 +130,25 @@ public class EventLogPanelUI : MonoBehaviour
         return sb.ToString();
     }
 
-    // EffectType은 Job/Skill과 공유하는 부호 있는 값이라, 증가형(Increase)은 값 그대로, 감소형(Decrease)은
-    // 부호를 뒤집어서 "스탯이 실제로 변한 방향"을 표시한다(+ = 증가, - = 감소, 긍정/부정 여부와 무관).
+    // 부호(+ = 증가, - = 감소)는 UIFormat.SignedEffectValue가 판정한다. 여기서는 라벨만 고른다.
     private (string label, float delta) DescribeEffect(EffectData effect)
     {
-        switch (effect.effectType)
+        string label = effect.effectType switch
         {
-            case EffectType.SupportIncrease: return ("코인 지지도", effect.value);
-            case EffectType.GrowthIncrease: return ("코인 상승률", effect.value);
-            case EffectType.DoubtDecrease: return ("의심도", -effect.value);
-            case EffectType.DoubtIncrease: return ("의심도", effect.value);
-            case EffectType.PositiveEventRate: return ("긍정 이벤트 확률", effect.value);
-            case EffectType.NegativeEventRate: return ("부정 이벤트 확률", effect.value);
-            case EffectType.CashBonus: return ("거래 수익", effect.value);
-            case EffectType.VolumeIncrease: return ("코인 거래량", effect.value);
-            case EffectType.VolumeDecrease: return ("코인 거래량", -effect.value);
-            case EffectType.ExitUnlock: return ("엑시트 조건", effect.value);
-            case EffectType.SupplyIncrease: return ("발행량", effect.value);
-            case EffectType.SupplyDecrease: return ("발행량", -effect.value);
-            default: return (effect.effectType.ToString(), effect.value);
-        }
-    }
+            EffectType.SupportIncrease => "코인 지지도",
+            EffectType.GrowthIncrease => "코인 상승률",
+            EffectType.DoubtDecrease or EffectType.DoubtIncrease => "의심도",
+            EffectType.PositiveEventRate => "긍정 이벤트 확률",
+            EffectType.NegativeEventRate => "부정 이벤트 확률",
+            EffectType.CashBonus => "거래 수익",
+            EffectType.VolumeIncrease or EffectType.VolumeDecrease => "코인 거래량",
+            EffectType.ExitUnlock => "엑시트 조건",
+            EffectType.SupplyIncrease or EffectType.SupplyDecrease => "발행량",
+            _ => effect.effectType.ToString(),
+        };
 
-    // DateTime.ToString("yyyy.MM.dd")은 문화권에 따라 구분자가 바뀔 수 있어(PriceChartUI와 동일한 이유) 직접 포맷한다.
-    private static string FormatDate(System.DateTime date) => $"{date.Year}.{date.Month:00}.{date.Day:00}";
+        return (label, UIFormat.SignedEffectValue(effect));
+    }
 
     #endregion
 }

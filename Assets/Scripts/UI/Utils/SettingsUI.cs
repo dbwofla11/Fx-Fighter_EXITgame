@@ -1,4 +1,3 @@
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI; // Button 컴포넌트를 제어하기 위해 필요
 
@@ -27,18 +26,18 @@ public class SettingsUI : MonoBehaviour
     {
         // 설정창 켜기
         settingsPanel.SetActive(true);
-        
-        // 설정창이 열릴 때 게임을 일시정지
-        Time.timeScale = 0f; 
+
+        // TradeModalUI/EventLogPanelUI/CoinControlModalUI와 동일하게 EventHub로 일시정지시킨다.
+        EventHub.RaiseGamePaused();
     }
 
     private void CloseSettings()
     {
         // 설정창 끄기
         settingsPanel.SetActive(false);
-        
-        // 일시정지를 풀려면 주석을 해제하세요. (TimeManager가 있다면 연동 필요)
-         Time.timeScale = 1f; 
+
+        // TimeManager가 기억해둔 배속(1/2/4/8)으로 복귀한다.
+        EventHub.RaiseGameResumed();
     }
 
     private void QuitGame()

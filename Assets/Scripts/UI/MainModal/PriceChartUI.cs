@@ -285,7 +285,7 @@ public class PriceChartUI : MonoBehaviour
             TextMeshProUGUI label = gridPriceLabels[j];
             label.gameObject.SetActive(true);
             label.rectTransform.anchoredPosition = new Vector2(4f, y);
-            label.text = $"₩{price:N0}";
+            label.text = UIFormat.CurrencyTight(price);
         }
     }
 
@@ -322,7 +322,7 @@ public class PriceChartUI : MonoBehaviour
         label.gameObject.SetActive(true);
         label.rectTransform.anchoredPosition = new Vector2(x, 4f);
         label.rectTransform.sizeDelta = new Vector2(slotWidth, dateLabelAreaHeight - 4f);
-        label.text = FormatDate(p.Date);
+        label.text = UIFormat.DateSlash(p.Date);
     }
 
     private void HideCandle(int i)
@@ -351,7 +351,7 @@ public class PriceChartUI : MonoBehaviour
         if (p == null)
             return;
 
-        tooltipText.text = $"{FormatDate(p.Date)}  Open ₩{p.Open:N0} → Close ₩{p.Close:N0}";
+        tooltipText.text = $"{UIFormat.DateSlash(p.Date)}  Open {UIFormat.CurrencyTight(p.Open)} → Close {UIFormat.CurrencyTight(p.Close)}";
         tooltipText.gameObject.SetActive(true);
     }
 
@@ -370,13 +370,6 @@ public class PriceChartUI : MonoBehaviour
 
         public void OnPointerExit(PointerEventData eventData) => owner.HideTooltip();
     }
-
-    #endregion
-
-    #region 날짜 포맷
-
-    // DateTime.ToString("MM/dd")은 시스템 문화권에 따라 "/"가 다른 구분자로 바뀔 수 있어(예: "01-01") 고정 포맷으로 직접 만든다.
-    private static string FormatDate(System.DateTime date) => $"{date.Month:00}/{date.Day:00}";
 
     #endregion
 }

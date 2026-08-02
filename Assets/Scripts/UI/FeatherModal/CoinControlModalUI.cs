@@ -2,10 +2,9 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-// 발행량 조작 모달. TotalSupplyText/HeldCoinText는 기본 화면에서도 항상 보이고(이 스크립트는
-// 항상 활성 상태인 CoinControlPanel에 붙어있어 Update가 계속 돈다), panel(딤 오버레이+팝업 박스)만
-// "코인 발행" 트리거 버튼(MintButtonUI)이 열고 닫는다. 확인 버튼을 눌러야만
-// EventHub.RaiseManipulateSupply가 호출된다.
+// 발행량 조작 모달. TotalSupplyText/HeldCoinText는 기본 화면에서도 항상 보이며 EventHub.OnMarketUpdated로
+// 갱신된다. panel(딤 오버레이+팝업 박스)만 "코인 발행" 트리거 버튼(MintButtonUI)이 열고 닫는다.
+// 확인 버튼을 눌러야만 EventHub.RaiseManipulateSupply가 호출된다.
 public class CoinControlModalUI : MonoBehaviour
 {
     [Header("항상 표시")]
@@ -58,9 +57,6 @@ public class CoinControlModalUI : MonoBehaviour
 
     private void Update()
     {
-        if (PlayerManager.Instance != null)
-            heldCoinText.text = "보유 코인수량 : " + PlayerManager.Instance.currentCoins.ToString("N0") + "개";
-
         if (panel.activeSelf)
             RefreshPreviewText();
     }
@@ -68,10 +64,16 @@ public class CoinControlModalUI : MonoBehaviour
     private void HandleMarketUpdated(PlayerStat stat)
     {
         totalSupplyText.text = "현재 발행량 : " + stat.Supply.ToString("N0") + "개";
+
+        if (PlayerManager.Instance != null)
+            heldCoinText.text = "보유 코인수량 : " + PlayerManager.Instance.currentCoins.ToString("N0") + "개";
     }
 
     public void Open()
     {
+        // TradeModalUI/EventLogPanelUI와 동일하게, 모달이 떠 있는 동안은 게임 시간을 멈춘다.
+        EventHub.RaiseGamePaused();
+
         amount = 0;
         isIncrease = true;
         panel.SetActive(true);
@@ -80,6 +82,8 @@ public class CoinControlModalUI : MonoBehaviour
 
     private void Close()
     {
+        EventHub.RaiseGameResumed();
+
         panel.SetActive(false);
         amount = 0;
         RefreshAmountText();
@@ -127,6 +131,10 @@ public class CoinControlModalUI : MonoBehaviour
 
         long signedAmount = isIncrease ? amount : -amount;
         EventHub.RaiseManipulateSupply(signedAmount);
+
+        if (MarketManager.Instance != null)
+            EventHub.RaiseMarketUpdated(MarketManager.Instance.CurrentStat);
+
         Close();
     }
 }

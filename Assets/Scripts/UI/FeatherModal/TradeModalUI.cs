@@ -42,7 +42,13 @@ public class TradeModalUI : MonoBehaviour
     private TradeMode mode;
     private long tradeAmount = 0;
     private bool isSubtractMode = false;
+    private bool isOpen = false;
 
+    // panel이 이 스크립트 자신의 GameObject라, 씬에서 TradeModal을 비활성 상태로 두고 작업하면
+    // Open()이 panel.SetActive(true)로 처음 활성화시키는 시점에 Unity가 Start()를 다음 프레임으로
+    // 미룬다. 그 뒤늦은 Start()가 무조건 panel.SetActive(false)를 하면 방금 연 모달이 바로 닫혀버려서
+    // 첫 클릭은 시간정지만 되고 모달이 안 열리는 버그가 생긴다. isOpen으로 그 사이에 Open()이 먼저
+    // 호출됐는지 기억해서, 그런 경우엔 Start()가 다시 닫지 않게 막는다.
     private void Start()
     {
         if (btnPlus1 != null) btnPlus1.onClick.AddListener(() => AddTradeAmount(1));
@@ -54,7 +60,8 @@ public class TradeModalUI : MonoBehaviour
         if (btnConfirm != null) btnConfirm.onClick.AddListener(OnConfirmClicked);
         if (btnCancel != null) btnCancel.onClick.AddListener(Close);
 
-        if (panel != null) panel.SetActive(false);
+        if (!isOpen && panel != null)
+            panel.SetActive(false);
     }
 
     private void Update()
@@ -70,6 +77,7 @@ public class TradeModalUI : MonoBehaviour
         // UI 필드 중 하나가 끊겨 있어도 일시정지만은 항상 걸리도록 제일 먼저 호출한다.
         EventHub.RaiseGamePaused();
 
+        isOpen = true;
         mode = tradeMode;
         tradeAmount = 0;
         isSubtractMode = false;
@@ -91,6 +99,7 @@ public class TradeModalUI : MonoBehaviour
         // 일시정지 해제도 다른 필드 상태와 무관하게 항상 먼저 호출한다.
         EventHub.RaiseGameResumed();
 
+        isOpen = false;
         if (panel != null)
             panel.SetActive(false);
         tradeAmount = 0;
@@ -180,7 +189,7 @@ public class TradeModalUI : MonoBehaviour
 
             if (previewText != null)
             {
-                previewText.text = "예상 지출: ₩ " + cost.ToString("N0");
+                previewText.text = "예상 지출: " + UIFormat.Currency(cost);
                 previewText.color = canAfford ? Color.white : Color.red;
             }
             if (btnConfirm != null)
@@ -200,7 +209,7 @@ public class TradeModalUI : MonoBehaviour
 
             if (previewText != null)
             {
-                previewText.text = "예상 수익: ₩ " + revenue.ToString("N0");
+                previewText.text = "예상 수익: " + UIFormat.Currency(revenue);
                 previewText.color = canAfford ? Color.white : Color.red;
             }
             if (btnConfirm != null)
@@ -223,6 +232,11 @@ public class TradeModalUI : MonoBehaviour
             EventHub.RaiseBuyCoin(tradeAmount);
         else
             EventHub.RaiseSellCoin(tradeAmount);
+
+        // 거래 처리(PlayerManager/MarketManager 핸들러)는 위 Raise 호출 시 이미 동기적으로 끝나있으므로,
+        // 여기서 쏘면 PlayerUI/CoinControlModalUI가 최신 잔고로 갱신된다.
+        if (MarketManager.Instance != null)
+            EventHub.RaiseMarketUpdated(MarketManager.Instance.CurrentStat);
 
         Close();
     }

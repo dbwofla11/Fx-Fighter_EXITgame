@@ -49,25 +49,25 @@ public class EventOverviewUI : MonoBehaviour
 
         PlayerStat stat = MarketManager.Instance.CurrentStat;
 
-        if (supportText != null) supportText.text = $"코인 지지도 <color={CurrentValueColor}>{FormatSigned(stat.Support)}</color>";
-        if (growthText != null) growthText.text = $"코인 상승도 <color={CurrentValueColor}>{FormatSigned(stat.Growth)}</color>";
-        if (doubtText != null) doubtText.text = $"의심도 <color={CurrentValueColor}>{FormatSigned(stat.Doubt)}</color>";
+        if (supportText != null) supportText.text = $"코인 지지도 <color={CurrentValueColor}>{UIFormat.Signed(stat.Support)}</color>";
+        if (growthText != null) growthText.text = $"코인 상승도 <color={CurrentValueColor}>{UIFormat.Signed(stat.Growth)}</color>";
+        if (doubtText != null) doubtText.text = $"의심도 <color={CurrentValueColor}>{UIFormat.Signed(stat.Doubt)}</color>";
 
-        if (supportBonusText != null) supportBonusText.text = $"코인 지지도 상승률 <color={BonusValueColor}>{FormatSigned(stat.JobSkillSupportBonus)}</color>";
-        if (growthBonusText != null) growthBonusText.text = $"코인 상승도 상승률 <color={BonusValueColor}>{FormatSigned(stat.JobSkillGrowthBonus)}</color>";
-        if (doubtBonusText != null) doubtBonusText.text = $"의심도 상승률 <color={BonusValueColor}>{FormatSigned(ComputeDoubtBonus())}</color>";
+        if (supportBonusText != null) supportBonusText.text = $"코인 지지도 상승률 <color={BonusValueColor}>{UIFormat.Signed(stat.JobSkillSupportBonus)}</color>";
+        if (growthBonusText != null) growthBonusText.text = $"코인 상승도 상승률 <color={BonusValueColor}>{UIFormat.Signed(stat.JobSkillGrowthBonus)}</color>";
+        if (doubtBonusText != null) doubtBonusText.text = $"의심도 상승률 <color={BonusValueColor}>{UIFormat.Signed(ComputeDoubtBonus())}</color>";
 
-        if (positiveRateText != null) positiveRateText.text = $"긍정 이벤트 확률 {FormatPercent(stat.PositiveEventRate)}";
-        if (negativeRateText != null) negativeRateText.text = $"부정 이벤트 확률 {FormatPercent(stat.NegativeEventRate)}";
-        if (cashBonusText != null) cashBonusText.text = $"현금 증가량 {FormatSignedPercent(stat.CashBonus)}";
+        if (positiveRateText != null) positiveRateText.text = $"긍정 이벤트 확률 {UIFormat.Percent(stat.PositiveEventRate)}";
+        if (negativeRateText != null) negativeRateText.text = $"부정 이벤트 확률 {UIFormat.Percent(stat.NegativeEventRate)}";
+        if (cashBonusText != null) cashBonusText.text = $"현금 증가량 {UIFormat.SignedPercent(stat.CashBonus)}";
 
         long targetAsset = MarketManager.TargetAsset;
         long currentMoney = PlayerManager.Instance.currentMoney;
         long remaining = System.Math.Max(0L, targetAsset - currentMoney);
 
-        if (targetValueText != null) targetValueText.text = "₩ " + targetAsset.ToString("N0");
-        if (currentValueText != null) currentValueText.text = "₩ " + currentMoney.ToString("N0");
-        if (remainingValueText != null) remainingValueText.text = "₩ " + remaining.ToString("N0");
+        if (targetValueText != null) targetValueText.text = UIFormat.Currency(targetAsset);
+        if (currentValueText != null) currentValueText.text = UIFormat.Currency(currentMoney);
+        if (remainingValueText != null) remainingValueText.text = UIFormat.Currency(remaining);
 
         if (exitButton != null) exitButton.interactable = MarketManager.Instance.CanExit;
     }
@@ -96,16 +96,10 @@ public class EventOverviewUI : MonoBehaviour
 
         foreach (EffectData effect in effects)
         {
-            if (effect.effectType == EffectType.DoubtDecrease)
-                sum -= effect.value;
-            else if (effect.effectType == EffectType.DoubtIncrease)
-                sum += effect.value;
+            if (effect.effectType == EffectType.DoubtDecrease || effect.effectType == EffectType.DoubtIncrease)
+                sum += UIFormat.SignedEffectValue(effect);
         }
 
         return sum;
     }
-
-    private static string FormatSigned(float value) => (value >= 0 ? "+" : "") + value.ToString("0.#");
-    private static string FormatPercent(float value) => value.ToString("0.#") + "%";
-    private static string FormatSignedPercent(float value) => (value >= 0 ? "+" : "") + value.ToString("0.#") + "%";
 }

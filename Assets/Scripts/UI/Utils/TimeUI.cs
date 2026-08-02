@@ -17,15 +17,29 @@ public class TimeUI : MonoBehaviour
     private float[] speedCycle = { 1f, 2f, 4f, 8f };
     private int currentSpeedIndex = 0; // 현재 배열의 몇 번째 속도인지 기억하는 변수
 
+    private void OnEnable()
+    {
+        EventHub.OnDayChanged += RefreshDateText;
+        RefreshDateText();
+    }
+
+    private void OnDisable()
+    {
+        EventHub.OnDayChanged -= RefreshDateText;
+    }
+
     private void Start()
     {
         // 멈춤 버튼: 0배속 시키는 PauseGame 불러잇
         pauseButton.onClick.AddListener(() =>
             TimeManager.Instance.PauseGame());
 
-        // 진행 버튼: 원래 배속으로 돌아가게 ResumeGame 호출
-        playButton.onClick.AddListener(() => 
-            TimeManager.Instance.ResumeGame());
+        // 진행 버튼: 정지든 배속(2/4/8x) 상태든 항상 1배속으로 되돌린다.
+        playButton.onClick.AddListener(() =>
+        {
+            currentSpeedIndex = 0;
+            ApplySpeed();
+        });
         // 배속 버튼: 누를 때마다 배열(1,2,4,8)의 다음 속도로 넘어가기
         speedButton.onClick.AddListener(() =>
         {
@@ -51,12 +65,11 @@ public class TimeUI : MonoBehaviour
         speedButtonText.text = "x" + newSpeed;
     }
 
-    private void Update()
+    private void RefreshDateText()
     {
         if (TimeManager.Instance != null && dateText != null)
         {
-            // 화면에 날짜 업데이트
-            dateText.text = TimeManager.Instance.CurrentGameDate.ToString("yyyy-MM-dd");
+            dateText.text = UIFormat.DateDash(TimeManager.Instance.CurrentGameDate);
         }
     }
 }
