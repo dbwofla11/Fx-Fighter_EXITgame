@@ -6,11 +6,10 @@
 
 | # | 작업 | 비고 |
 |---|---|---|
-| 4 | 스킬 아이콘/구매 버튼 UI | `RaiseSkillClicked`/`RaiseSkillPurchased` 발행 UI 없음 |
 | 6 | 발행량 스킬 3종 Supply 효과 부여 | 설계 결정 필요 (수치 없이 코드부터 짜기 애매함) |
 | 7 | 밸런스 수치 조정 | 캔들/확률 등, 실제 플레이 후 |
 | 9 | 엔딩 결과 화면 UI 재작업 | 로직(`EndingResultUI`의 `EventHub.OnGameEnded` 구독/문구 표시)은 유지, Figma에 새 목업 올라오면 비주얼만 교체 |
-| 10 | 이벤트 알림 모달 위치/크기 재확인 | 눈대중 배치라 실제 Play로 확인 필요, `Issues/Issue_EventNotification.md` 참고 |
+| 11 | 스킬 `SkillCategory` 데이터 배분 | 현재 6개 전부 `CoinDesign` — 스킬 패널 탭 3개(시장 조작/여론 조작/방어 및 엑시트)가 비어 있음, `Issues/Issue_SkillPanel.md` 참고. 최근 추가된 여론조작 아이콘(SNS조작/홍보조작/언론조작)용 `SkillID`/`SkillSO`도 아직 없음 |
 
 (각 항목의 자세한 내용은 아래 섹션 및 `Completed_Tasks.md`/`Logging.md` 참고.)
 

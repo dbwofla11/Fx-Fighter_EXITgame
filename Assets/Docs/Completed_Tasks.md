@@ -484,3 +484,11 @@
   수동/무조건 발생 이벤트 전부를 한 곳에서 커버했다. 알림 내용은 기존 이벤트 로그 카드(`EventCardView`)를
   그대로 재사용했고, 두 곳에서 중복돼 있던 색상/효과 문구 포맷 로직은 `EventEffectFormatter`로 뽑아 공용화했다.
   자세한 파일 목록/호출 스택/알려진 이슈는 `Issues/Issue_EventNotification.md` 참고.
+- **완료** : 스킬 아이콘/구매 버튼 UI(2026-08-03). `EventHub.RaiseSkillClicked`/`RaiseSkillPurchased`를 발행하는
+  실제 UI가 없던 걸 신규 `SkillPanelUI`로 채웠다. Figma MCP가 Starter 플랜 월 호출 한도(6회)에 걸려 있어서
+  처음엔 `MintModal`을 복제한 예시 버전으로 시작했는데, 사용자가 실제 "스킬구상도 - 디테일1" 스크린샷을
+  줘서 그 기준으로 다시 잡았다 — 탭 4개(`SkillCategory`와 대응) + 선택된 스킬을 크게 보여주는 미리보기
+  박스 + 아이콘 그리드 + 이름/설명/효과/비용 + 구매 버튼. 재작업 중 사용자가 Play 테스트로 "닫은 뒤 재오픈
+  안 됨"(토글 리스너 중복 등록 버그) 버그를 잡아줘서 같이 고쳤다. `SkillSO` 6개가 전부 `SkillCategory.CoinDesign`
+  이라 나머지 3개 탭은 아직 빈 화면 — 데이터 이슈(`Next_Tesk.md` 참고), UI는 완료. 자세한 내용은
+  `Issues/Issue_SkillPanel.md` 참고.
