@@ -192,11 +192,14 @@ public class MarketManager : MonoBehaviour
 
     private void LogEvent(EventSO fired)
     {
-        runtimeEventData.Log.Add(new EventLogEntry
+        EventLogEntry entry = new EventLogEntry
         {
             Profile = fired,
             Date = TimeManager.Instance.CurrentGameDate
-        });
+        };
+
+        runtimeEventData.Log.Add(entry);
+        EventHub.RaiseEventTriggered(entry);
     }
 
     #endregion

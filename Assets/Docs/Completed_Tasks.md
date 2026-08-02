@@ -466,3 +466,21 @@
     로직 자체(효과 적용, `MarketManager.CurrentStat.Growth` 변화)는 정상 확인했다. `Start()` 호출은
     Unity의 기본 생명주기 보장이라 실제 플레이(포커스 있는 상태)에서는 다음 프레임에 바로 실행된다.
   - 자세한 파일 목록/호출 스택은 `Issues/Issue_CharacterSelect.md` 참고.
+- **완료** : 직업(일반인) `DoubtDecrease` 매 턴 재적용 버그 수정(2026-08-02). 실제 플레이 중 사용자가 발견 —
+  "의심도 감소 -10%"가 최초 1회만 반영돼야 하는데 `StatCalculator.ApplyJob()`이 매 턴 재적용해 턴마다 계속
+  깎였다. Doubt는 Support/Growth와 달리 감쇠 없이 그대로 이어지는(carry-over) 값인데, 원래 CashBonus/Volume
+  (매 턴 새로 계산되는 값들)과 같은 그룹으로 취급했던 게 원인. `ApplyJob()`에서 `DoubtDecrease`/`DoubtIncrease`를
+  Support/Growth와 동일하게 매 턴 재적용 대상에서 빼고, `ApplyJobSelection()`(선택 시점 1회)으로 옮겼다.
+  `PlayerStat.JobSkillDoubtBonus` 필드를 신규 추가해 `JobSkillSupportBonus`/`GrowthBonus`와 동일한 패턴으로
+  추적하고, `EventOverviewUI`의 "의심도 상승률" 표시도 매번 재계산하던 것에서 이 필드를 직접 읽는 걸로 정리.
+  - 부수 발견 : `Doubt`가 0~100으로 클램프돼 있어서 기본값 0에서 "-10%"를 적용해도 즉시 0으로 잘려 체감이
+    안 됐다. `StatCalculator.ClampStat()`의 Doubt 하한을 Support/Growth와 동일한 -100으로 넓혀 해결.
+    `Game_Formula.md` 3장/3-1장도 이 변경에 맞춰 갱신.
+  - 검증 : Unity MCP Play 모드에서 `execute_code`로 일반인 선택 → `MarketManager.NextTurn()` 3턴 반복 →
+    `JobSkillDoubtBonus`가 `-10`으로 고정 유지(수정 전이면 -20/-30/-40으로 계속 감소)되는 걸 확인했다.
+- **완료** : 이벤트 알림 모달(2026-08-02, 사용자가 준 스크린샷 2장 기준). 시사 이벤트가 실제로 발생하면
+  메인 게임 화면 위에 제목/날짜/효과(예: "코인 지지도 +15")를 보여주는 배너를 띄우고, 떠 있는 동안 게임
+  시간을 멈춘다. 신규 `EventHub.OnEventTriggered`를 `MarketManager.LogEvent()`에서 발행하도록 연결해 자동/
+  수동/무조건 발생 이벤트 전부를 한 곳에서 커버했다. 알림 내용은 기존 이벤트 로그 카드(`EventCardView`)를
+  그대로 재사용했고, 두 곳에서 중복돼 있던 색상/효과 문구 포맷 로직은 `EventEffectFormatter`로 뽑아 공용화했다.
+  자세한 파일 목록/호출 스택/알려진 이슈는 `Issues/Issue_EventNotification.md` 참고.

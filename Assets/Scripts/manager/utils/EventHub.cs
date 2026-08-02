@@ -57,6 +57,10 @@ public static class EventHub
     public static event Action<PlayerStat> OnMarketUpdated;
     public static void RaiseMarketUpdated(PlayerStat stat) => OnMarketUpdated?.Invoke(stat);
 
+    // 시사 이벤트가 실제로 발생했을 때(자동/수동/무조건 발생 모두) 메인 화면에 알림을 띄우기 위한 통지
+    public static event Action<EventLogEntry> OnEventTriggered;
+    public static void RaiseEventTriggered(EventLogEntry entry) => OnEventTriggered?.Invoke(entry);
+
     // ==========================
     // System
     // ==========================

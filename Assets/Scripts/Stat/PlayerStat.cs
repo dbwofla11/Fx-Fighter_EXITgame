@@ -34,6 +34,9 @@ public class PlayerStat
     /// <summary>Job 선택 + 재사용형 Skill 구매가 준 Growth 기여분만 별도 누적 (Trade/Event 제외, Growth와 동일하게 감쇠). 개요 화면 표시용.</summary>
     public float JobSkillGrowthBonus;
 
+    /// <summary>Job 선택 + 재사용형 Skill 구매가 준 Doubt 기여분만 별도 누적 (Trade/Event 제외). Doubt와 동일하게 감쇠하지 않고 계속 누적된다. 개요 화면 표시용.</summary>
+    public float JobSkillDoubtBonus;
+
     // ==========================
     // Event
     // ==========================
@@ -81,6 +84,7 @@ public class PlayerStat
 
         JobSkillSupportBonus = 0;
         JobSkillGrowthBonus = 0;
+        JobSkillDoubtBonus = 0;
 
         PositiveEventRate = 0;
         NegativeEventRate = 0;

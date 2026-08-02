@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -55,7 +54,7 @@ public class EventOverviewUI : MonoBehaviour
 
         if (supportBonusText != null) supportBonusText.text = $"코인 지지도 상승률 <color={BonusValueColor}>{UIFormat.Signed(stat.JobSkillSupportBonus)}</color>";
         if (growthBonusText != null) growthBonusText.text = $"코인 상승도 상승률 <color={BonusValueColor}>{UIFormat.Signed(stat.JobSkillGrowthBonus)}</color>";
-        if (doubtBonusText != null) doubtBonusText.text = $"의심도 상승률 <color={BonusValueColor}>{UIFormat.Signed(ComputeDoubtBonus())}</color>";
+        if (doubtBonusText != null) doubtBonusText.text = $"의심도 상승률 <color={BonusValueColor}>{UIFormat.Signed(stat.JobSkillDoubtBonus)}</color>";
 
         if (positiveRateText != null) positiveRateText.text = $"긍정 이벤트 확률 {UIFormat.Percent(stat.PositiveEventRate)}";
         if (negativeRateText != null) negativeRateText.text = $"부정 이벤트 확률 {UIFormat.Percent(stat.NegativeEventRate)}";
@@ -70,36 +69,5 @@ public class EventOverviewUI : MonoBehaviour
         if (remainingValueText != null) remainingValueText.text = UIFormat.Currency(remaining);
 
         if (exitButton != null) exitButton.interactable = MarketManager.Instance.CanExit;
-    }
-
-    // Doubt는 감쇠 없이 누적되는 값이라 PlayerStat에 Job/Skill 기여분만 별도로 추적하지 않는다(Support/Growth와
-    // 다름 — Completed_Tasks.md "개요 화면 Job+Skill 보너스 표시" 참고). 대신 매번 현재 Job/활성 Skill의
-    // DoubtDecrease/DoubtIncrease 효과를 그대로 합산한다 — StatCalculator.ApplyJob/ApplySkills가 매 턴
-    // CurrentStat.Doubt에 재적용하는 것과 동일한 소스, 동일한 부호 규칙(Decrease는 -, Increase는 +)이다.
-    private float ComputeDoubtBonus()
-    {
-        float bonus = 0f;
-
-        JobSO job = JobManager.Instance.CurrentJob;
-        if (job != null)
-            bonus += SumDoubtEffects(job.effects);
-
-        foreach (SkillRuntimeInfo skill in SkillManager.Instance.GetActiveSkills())
-            bonus += SumDoubtEffects(skill.Profile.effects);
-
-        return bonus;
-    }
-
-    private float SumDoubtEffects(List<EffectData> effects)
-    {
-        float sum = 0f;
-
-        foreach (EffectData effect in effects)
-        {
-            if (effect.effectType == EffectType.DoubtDecrease || effect.effectType == EffectType.DoubtIncrease)
-                sum += UIFormat.SignedEffectValue(effect);
-        }
-
-        return sum;
     }
 }

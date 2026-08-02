@@ -10,6 +10,7 @@
 | 6 | 발행량 스킬 3종 Supply 효과 부여 | 설계 결정 필요 (수치 없이 코드부터 짜기 애매함) |
 | 7 | 밸런스 수치 조정 | 캔들/확률 등, 실제 플레이 후 |
 | 9 | 엔딩 결과 화면 UI 재작업 | 로직(`EndingResultUI`의 `EventHub.OnGameEnded` 구독/문구 표시)은 유지, Figma에 새 목업 올라오면 비주얼만 교체 |
+| 10 | 이벤트 알림 모달 위치/크기 재확인 | 눈대중 배치라 실제 Play로 확인 필요, `Issues/Issue_EventNotification.md` 참고 |
 
 (각 항목의 자세한 내용은 아래 섹션 및 `Completed_Tasks.md`/`Logging.md` 참고.)
 

@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -27,9 +25,6 @@ public class EventLogPanelUI : MonoBehaviour
     [Header("Event List")]
     public RectTransform cardListParent;
     public EventCardView cardTemplate;
-
-    private static readonly Color PositiveCardColor = new Color(0.6941f, 1f, 0.6941f); // #B1FFB1
-    private static readonly Color NegativeCardColor = new Color(1f, 0.7294f, 0.6941f); // #FFBAB1
 
     // 탭 선택 상태 표시. Figma상 진한 빨강(#FF8686)=눌린(선택된) 탭, 연한 빨강(#FFDBDB)=안 눌린 탭.
     private static readonly Color SelectedTabColor = new Color(1f, 0.5255f, 0.5255f);
@@ -107,47 +102,12 @@ public class EventLogPanelUI : MonoBehaviour
 
     private void CreateCard(EventLogEntry entry)
     {
-        bool isPositive = entry.Profile.category == EventCategory.Positive;
-        Color color = isPositive ? PositiveCardColor : NegativeCardColor;
-        string effects = entry.Profile.effects != null ? BuildEffectsText(entry.Profile.effects) : "";
+        Color color = EventEffectFormatter.CategoryColor(entry.Profile.category);
+        string effects = entry.Profile.effects != null ? EventEffectFormatter.BuildEffectsText(entry.Profile.effects) : "";
 
         EventCardView card = Instantiate(cardTemplate, cardListParent);
         card.gameObject.SetActive(true);
         card.Populate(color, entry.Profile.message, UIFormat.DateDot(entry.Date), effects);
-    }
-
-    private string BuildEffectsText(List<EffectData> effects)
-    {
-        StringBuilder sb = new StringBuilder();
-
-        for (int i = 0; i < effects.Count; i++)
-        {
-            (string label, float delta) = DescribeEffect(effects[i]);
-            if (i > 0) sb.Append('\n');
-            sb.Append(label).Append(' ').Append(delta >= 0 ? "+" : "").Append(delta.ToString("0.#"));
-        }
-
-        return sb.ToString();
-    }
-
-    // 부호(+ = 증가, - = 감소)는 UIFormat.SignedEffectValue가 판정한다. 여기서는 라벨만 고른다.
-    private (string label, float delta) DescribeEffect(EffectData effect)
-    {
-        string label = effect.effectType switch
-        {
-            EffectType.SupportIncrease => "코인 지지도",
-            EffectType.GrowthIncrease => "코인 상승률",
-            EffectType.DoubtDecrease or EffectType.DoubtIncrease => "의심도",
-            EffectType.PositiveEventRate => "긍정 이벤트 확률",
-            EffectType.NegativeEventRate => "부정 이벤트 확률",
-            EffectType.CashBonus => "거래 수익",
-            EffectType.VolumeIncrease or EffectType.VolumeDecrease => "코인 거래량",
-            EffectType.ExitUnlock => "엑시트 조건",
-            EffectType.SupplyIncrease or EffectType.SupplyDecrease => "발행량",
-            _ => effect.effectType.ToString(),
-        };
-
-        return (label, UIFormat.SignedEffectValue(effect));
     }
 
     #endregion

@@ -29,7 +29,9 @@ Pdown = 1 - Pup
 
 - Support : 코인 지지도 (-100 ~ 100)
 - Growth : 코인 상승률 (-100 ~ 100)
-- Doubt : 의심도 (0 ~ 100, 감쇠 없음)
+- Doubt : 의심도 (-100 ~ 100, 감쇠 없음) — 기획상 체감 범위는 0~100(100이면 체포 엔딩)이지만, 직업의 초기
+  `DoubtDecrease` 효과가 기본값 0에서도 실제로 보이도록 하한을 Support/Growth와 동일한 -100으로 뒀다
+  (`StatCalculator.ClampStat`, 2026-08-02 수정)
 - ws : 지지도 가중치 = 0.25 (`ProbabilityCalculator.SupportWeight`)
 - wg : 상승률 가중치 = 0.25 (`ProbabilityCalculator.GrowthWeight`)
 - wd : 의심도 가중치 = 0.25 (`ProbabilityCalculator.DoubtWeight`)
@@ -274,21 +276,28 @@ Growth(t+1) = Growth(t) × decayRate
   구매가 준 기여분만 Trade/시사 이벤트를 제외하고 별도로 누적하며, `Support`/`Growth`와 동일한 `decayRate`로
   똑같이 감쇠한다. 게임 계산(가격, 확률 등)에는 전혀 관여하지 않고 오직 개요 화면에 "Job+Skill이 지금
   기여하고 있는 몫"을 스탯당 하나의 숫자로 보여주기 위한 값이다.
-- **Doubt(의심도)는 감쇠하지 않는다.** Job/Skill의 `DoubtDecrease` 효과(활성 상태인 동안 매 턴 계속 재적용,
-  CashBonus/Volume과 같은 그룹)와 시사 이벤트(4장)로 값이 바뀌지만, 한 번 바뀐 값은 시간이 지나도 원래대로
-  돌아오지 않고 턴을 넘어 그대로 유지된다. 기획상 Doubt는 시간이 지날수록 자동으로 100을 향해 올라가다가 100이
-  되면 게임오버가 되는 지표이기 때문이다 (자동 상승 로직은 아직 미구현, 4장 "후보" 참고).
+- **Doubt(의심도)는 감쇠하지 않는다.** Job 선택/재사용형 Skill 사용의 `DoubtDecrease`/`DoubtIncrease`(1회성,
+  3-1/3-2장 참고), 토글형 Skill의 `DoubtDecrease`/`DoubtIncrease`(활성 상태인 동안 매 턴 계속 재적용), 시사
+  이벤트(4장)로 값이 바뀌지만, 한 번 바뀐 값은 시간이 지나도 원래대로 돌아오지 않고 턴을 넘어 그대로 유지된다.
+  기획상 Doubt는 시간이 지날수록 자동으로 100을 향해 올라가다가 100이 되면 게임오버가 되는 지표이기 때문이다
+  (자동 상승 로직은 아직 미구현, 4장 "후보" 참고).
+  - (버그 수정, 2026-08-02) 원래 Job의 `DoubtDecrease`도 CashBonus/Volume과 같은 그룹으로 매 턴 재적용됐는데,
+    Doubt는 이 값들과 달리 매 턴 새로 계산되지 않고 그대로 이어지는(carry-over) 값이라 매 턴 반복 적용되면
+    무한정 계속 깎이는 버그가 있었다. Support/Growth와 동일하게 "선택 시점 1회 반영"으로 고쳤다.
 
 ---
 
-# 3-1. 직업(Job)이 Support/Growth에 주는 영향
+# 3-1. 직업(Job)이 Support/Growth/Doubt에 주는 영향
 
-직업의 Support/Growth 효과는 매 턴 계속 재적용되지 않고, **직업을 선택하는 순간 직접 반영된 뒤 거래와 동일하게 감쇠**한다.
-(부정 이벤트/스킬/숏 거래로 Support/Growth가 내려가야 하는데, 직업 효과가 매 턴 무한정 다시 채워지면 실질적으로 내려갈 수 없기 때문)
+직업의 Support/Growth/Doubt 효과는 매 턴 계속 재적용되지 않고, **직업을 선택하는 순간 직접 반영**된다.
+Support/Growth는 그 뒤 거래와 동일하게 감쇠하고, Doubt는 감쇠 없이 그대로 유지된다.
+(부정 이벤트/스킬/숏 거래로 Support/Growth가 내려가야 하는데, 직업 효과가 매 턴 무한정 다시 채워지면 실질적으로
+내려갈 수 없는 것과 같은 이유로, Doubt도 carry-over 값이라 매 턴 재적용하면 무한정 계속 깎이거나 오른다.)
 
-- 직업 선택 시 : `Support += 해당 직업의 SupportIncrease 효과 합`, Growth도 동일 (1회성)
-- 이후 매 턴 : 위 "누적치 감쇠" 공식과 동일하게 감쇠
-- 직업의 Support/Growth **외** 효과(DoubtDecrease, CashBonus, VolumeIncrease/Decrease, ExitUnlock 등)는 기존처럼 직업을 유지하는 동안 매 턴 계속 재적용된다 (감쇠 대상 아님).
+- 직업 선택 시 : `Support += 해당 직업의 SupportIncrease 효과 합`, Growth도 동일, Doubt도
+  `DoubtDecrease`/`DoubtIncrease` 합만큼 동일하게 1회 반영 (전부 1회성)
+- 이후 매 턴 : Support/Growth는 위 "누적치 감쇠" 공식과 동일하게 감쇠, Doubt는 감쇠 없이 그대로 유지
+- 직업의 Support/Growth/Doubt **외** 효과(CashBonus, VolumeIncrease/Decrease, ExitUnlock 등)는 기존처럼 직업을 유지하는 동안 매 턴 계속 재적용된다 (매 턴 새로 계산되는 값이라 감쇠/carry-over 대상이 아님).
 
 ---
 

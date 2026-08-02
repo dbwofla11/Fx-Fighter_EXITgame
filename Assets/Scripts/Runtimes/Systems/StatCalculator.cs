@@ -24,6 +24,7 @@ public static class StatCalculator
         stat.Supply = previous.Supply;
         stat.JobSkillSupportBonus = previous.JobSkillSupportBonus;
         stat.JobSkillGrowthBonus = previous.JobSkillGrowthBonus;
+        stat.JobSkillDoubtBonus = previous.JobSkillDoubtBonus;
         TradeCalculator.Decay(stat);
 
         // Doubt는 감쇠하지 않고 계속 쌓이는 값이다 (시간이 지날수록 자동으로 100을 향해 오르다가 100이 되면
@@ -37,14 +38,17 @@ public static class StatCalculator
     }
 
     /// <summary>
-    /// Support/Growth(-100~100), Doubt(0~100)가 거래·이벤트·스킬 등으로 문서 범위를 벗어나지 않도록 강제한다.
+    /// Support/Growth/Doubt(모두 -100~100)가 거래·이벤트·스킬 등으로 문서 범위를 벗어나지 않도록 강제한다.
     /// 매 턴/시사 이벤트 수동 트리거가 끝나고 EventHub.OnMarketUpdated를 발행하기 직전에 호출한다.
+    /// Doubt 하한을 0이 아니라 -100으로 둔 이유 : 하한이 0이면 "일반인" 직업의 초기 -10% 감소 효과가 기본값
+    /// 0에서 즉시 0으로 다시 잘려 사실상 무효화됐다. Support/Growth와 동일한 하한으로 맞춰 그 효과가 실제로
+    /// 보이게 했다.
     /// </summary>
     public static void ClampStat(PlayerStat stat)
     {
         stat.Support = Mathf.Clamp(stat.Support, -100f, 100f);
         stat.Growth = Mathf.Clamp(stat.Growth, -100f, 100f);
-        stat.Doubt = Mathf.Clamp(stat.Doubt, 0f, 100f);
+        stat.Doubt = Mathf.Clamp(stat.Doubt, -100f, 100f);
     }
 
     #endregion
@@ -52,9 +56,11 @@ public static class StatCalculator
     #region 직업 효과
 
     /// <summary>
-    /// 현재 직업의 Effect를 적용한다. Support/Growth는 선택 시점에 직접 반영되므로 여기서는 제외한다.
-    /// Supply도 감쇠 대상이라 매 턴 재적용하면 Doubt에서 겪었던 것과 동일한 문제(무한정 증가)가 생기므로 제외한다
-    /// (Job은 애초에 Supply를 다루지 않는 설계지만, 방어적으로 막아둔다).
+    /// 현재 직업의 Effect를 적용한다. Support/Growth/Doubt는 선택 시점에 한 번만(ApplyJobSelection) 직접
+    /// 반영되므로 여기서는 제외한다 — Doubt는 감쇠 없이 계속 누적되는 값이라 매 턴 재적용하면 무한정 깎이거나
+    /// 오르는 버그가 생긴다(실제로 겪은 버그, 최초 -10% 같은 1회성 초기 효과가 매 턴 반복 적용됐었음).
+    /// Supply도 매 턴 재적용하면 동일한 문제가 생기므로 제외한다(Job은 애초에 Supply를 다루지 않는 설계지만,
+    /// 방어적으로 막아둔다).
     /// </summary>
     private static void ApplyJob(PlayerStat stat)
     {
@@ -67,6 +73,8 @@ public static class StatCalculator
         {
             if (effect.effectType == EffectType.SupportIncrease
                 || effect.effectType == EffectType.GrowthIncrease
+                || effect.effectType == EffectType.DoubtDecrease
+                || effect.effectType == EffectType.DoubtIncrease
                 || effect.effectType == EffectType.SupplyIncrease
                 || effect.effectType == EffectType.SupplyDecrease)
                 continue;
@@ -76,7 +84,7 @@ public static class StatCalculator
     }
 
     /// <summary>
-    /// 직업을 선택하는 순간, 그 직업의 Support/Growth 효과를 stat에 직접 반영한다.
+    /// 직업을 선택하는 순간, 그 직업의 Support/Growth/Doubt 효과를 stat에 1회만 직접 반영한다.
     /// </summary>
     public static void ApplyJobSelection(PlayerStat stat, JobSO job)
     {
@@ -94,6 +102,16 @@ public static class StatCalculator
             {
                 stat.Growth += effect.value;
                 stat.JobSkillGrowthBonus += effect.value;
+            }
+            else if (effect.effectType == EffectType.DoubtDecrease)
+            {
+                stat.Doubt -= effect.value;
+                stat.JobSkillDoubtBonus -= effect.value;
+            }
+            else if (effect.effectType == EffectType.DoubtIncrease)
+            {
+                stat.Doubt += effect.value;
+                stat.JobSkillDoubtBonus += effect.value;
             }
         }
     }
@@ -147,9 +165,15 @@ public static class StatCalculator
                 stat.JobSkillGrowthBonus += effect.value;
             }
             else if (effect.effectType == EffectType.DoubtDecrease)
+            {
                 stat.Doubt -= effect.value;
+                stat.JobSkillDoubtBonus -= effect.value;
+            }
             else if (effect.effectType == EffectType.DoubtIncrease)
+            {
                 stat.Doubt += effect.value;
+                stat.JobSkillDoubtBonus += effect.value;
+            }
             else if (effect.effectType == EffectType.SupplyIncrease)
                 stat.Supply += effect.value;
             else if (effect.effectType == EffectType.SupplyDecrease)
