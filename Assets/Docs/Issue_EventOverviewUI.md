@@ -61,10 +61,10 @@
 
 ## 관련 파일
 
-- [EventLogPanelUI.cs](../Scripts/UI/EventLogPanelUI.cs) — 패널 전체(오버레이/탭/닫기) 컨트롤러. 씬의 `EventLogPanel` 루트에 부착.
-- [EventOverviewUI.cs](../Scripts/UI/EventOverviewUI.cs) — "개요" 탭 콘텐츠 전용. 씬의 `EventLogPanel/ContentArea/OverviewContent`에 부착.
-- [EventHub.cs](../Scripts/manager/EventHub.cs) — UI→Manager 중계 이벤트 허브.
-- [MarketManager.cs](../Scripts/manager/MarketManager.cs) — `CanExit`/`CurrentStat`/`TargetAsset`, `OnExitRequested` 구독.
+- [EventLogPanelUI.cs](../../Scripts/UI/EventLogPanelUI.cs) — 패널 전체(오버레이/탭/닫기) 컨트롤러. 씬의 `EventLogPanel` 루트에 부착.
+- [EventOverviewUI.cs](../../Scripts/UI/EventOverviewUI.cs) — "개요" 탭 콘텐츠 전용. 씬의 `EventLogPanel/ContentArea/OverviewContent`에 부착.
+- [EventHub.cs](../../Scripts/manager/EventHub.cs) — UI→Manager 중계 이벤트 허브.
+- [MarketManager.cs](../../Scripts/manager/MarketManager.cs) — `CanExit`/`CurrentStat`/`TargetAsset`, `OnExitRequested` 구독.
 
 ## 작동 방식
 

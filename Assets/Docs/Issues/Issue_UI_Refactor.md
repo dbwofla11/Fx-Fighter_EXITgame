@@ -7,24 +7,24 @@
 
 ## 관련 파일
 
-- [UIFormat.cs](../Scripts/UI/Utils/UIFormat.cs) — 신규. 통화/퍼센트/부호/날짜 포맷, `EffectType` 증가·감소
+- [UIFormat.cs](../../Scripts/UI/Utils/UIFormat.cs) — 신규. 통화/퍼센트/부호/날짜 포맷, `EffectType` 증가·감소
   방향 판정을 모은 static 유틸. 네임스페이스 없음(프로젝트 전역 컨벤션).
-- [TimeUI.cs](../Scripts/UI/Utils/TimeUI.cs) — 날짜 텍스트, 일시정지/재생/배속 버튼. `TimeManager`에
+- [TimeUI.cs](../../Scripts/UI/Utils/TimeUI.cs) — 날짜 텍스트, 일시정지/재생/배속 버튼. `TimeManager`에
   직접 액션을 호출(싱글턴 참조는 유지)하지만 화면 갱신은 `EventHub.OnDayChanged` 구독으로 전환.
-- [SettingsUI.cs](../Scripts/UI/Utils/SettingsUI.cs) — 설정 팝업. `Time.timeScale` 직접 조작 대신
+- [SettingsUI.cs](../../Scripts/UI/Utils/SettingsUI.cs) — 설정 팝업. `Time.timeScale` 직접 조작 대신
   `EventHub.RaiseGamePaused/RaiseGameResumed` 사용.
-- [MintButtonUI.cs](../Scripts/UI/Utils/MintButtonUI.cs) — "코인 발행" 트리거 버튼. `EventHub.
+- [MintButtonUI.cs](../../Scripts/UI/Utils/MintButtonUI.cs) — "코인 발행" 트리거 버튼. `EventHub.
   OnSkillPurchased` 구독으로 해금 상태 갱신.
-- [PlayerUI.cs](../Scripts/UI/MainModal/PlayerUI.cs) — 현금/코인 텍스트, 매수/매도 버튼.
-- [CoinPriceHeaderUI.cs](../Scripts/UI/MainModal/CoinPriceHeaderUI.cs) — 차트 상단 코인명+현재가.
-- [PriceChartUI.cs](../Scripts/UI/MainModal/PriceChartUI.cs) — 캔들 차트.
-- [TradeModalUI.cs](../Scripts/UI/FeatherModal/TradeModalUI.cs) — 매수/매도 모달.
-- [CoinControlModalUI.cs](../Scripts/UI/FeatherModal/CoinControlModalUI.cs) — 발행량 조작 모달.
-- [EventOverviewUI.cs](../Scripts/UI/EventModal/EventOverviewUI.cs) — 개요 탭(스탯개요+엑시트).
-- [EventLogPanelUI.cs](../Scripts/UI/EventModal/EventLogPanelUI.cs) — 이벤트 로그 패널(커뮤니티 탭).
-- [EventHub.cs](../Scripts/manager/EventHub.cs) — UI→Manager 요청 이벤트 + Manager→UI 결과 이벤트 허브.
-- [MarketManager.cs](../Scripts/manager/MarketManager.cs) / [PlayerManager.cs](../Scripts/manager/PlayerManager.cs) /
-  [TimeManager.cs](../Scripts/manager/TimeManager.cs) / [SkillManager.cs](../Scripts/manager/SkillManager.cs) — Manager 측.
+- [PlayerUI.cs](../../Scripts/UI/MainModal/PlayerUI.cs) — 현금/코인 텍스트, 매수/매도 버튼.
+- [CoinPriceHeaderUI.cs](../../Scripts/UI/MainModal/CoinPriceHeaderUI.cs) — 차트 상단 코인명+현재가.
+- [PriceChartUI.cs](../../Scripts/UI/MainModal/PriceChartUI.cs) — 캔들 차트.
+- [TradeModalUI.cs](../../Scripts/UI/FeatherModal/TradeModalUI.cs) — 매수/매도 모달.
+- [CoinControlModalUI.cs](../../Scripts/UI/FeatherModal/CoinControlModalUI.cs) — 발행량 조작 모달.
+- [EventOverviewUI.cs](../../Scripts/UI/EventModal/EventOverviewUI.cs) — 개요 탭(스탯개요+엑시트).
+- [EventLogPanelUI.cs](../../Scripts/UI/EventModal/EventLogPanelUI.cs) — 이벤트 로그 패널(커뮤니티 탭).
+- [EventHub.cs](../../Scripts/manager/EventHub.cs) — UI→Manager 요청 이벤트 + Manager→UI 결과 이벤트 허브.
+- [MarketManager.cs](../../Scripts/manager/MarketManager.cs) / [PlayerManager.cs](../../Scripts/manager/PlayerManager.cs) /
+  [TimeManager.cs](../../Scripts/manager/TimeManager.cs) / [SkillManager.cs](../../Scripts/manager/SkillManager.cs) — Manager 측.
 
 ## 작동 방식
 

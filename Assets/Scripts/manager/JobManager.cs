@@ -24,6 +24,16 @@ public class JobManager : MonoBehaviour
         }
     }
 
+    private void Start()
+    {
+        // 캐릭터 선택 씬에서 넘어온 선택 정보가 있으면(정적 필드라 씬 전환 후에도 남아있음) 반영한다.
+        if (JobSelectionHandoff.SelectedJob != null)
+        {
+            SelectJob(JobSelectionHandoff.SelectedJob);
+            JobSelectionHandoff.SelectedJob = null;
+        }
+    }
+
     private void OnEnable()
     {
         EventHub.OnJobSelected += SelectJob;
@@ -35,7 +45,7 @@ public class JobManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 직업 선택
+    /// 직업 선택 -> 여기서 씬 넘어온걸 런타임으로 넘겨줌 
     /// </summary>
     public void SelectJob(JobSO job)
     {

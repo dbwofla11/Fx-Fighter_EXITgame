@@ -388,4 +388,81 @@
   위해 오브젝트를 꺼둔 채로 작업해도 안전). `TimeUI`의 재생 버튼은 `TimeManager.ResumeGame()`(마지막 배속
   그대로 복귀)만 호출해서 이미 배속(2/4/8x) 상태에서 누르면 아무 반응이 없었는데, 항상 1배속으로 리셋하도록
   바꿨다. Unity MCP로 매 단계 컴파일 확인, 씬 데이터 조회(`TradeModal.m_IsActive` 등)로 원인 확정까지 진행했다.
-  자세한 파일 목록/호출 스택은 `Issue_UI_Refactor.md` 참고.
+  자세한 파일 목록/호출 스택은 `Issues/Issue_UI_Refactor.md` 참고.
+- **완료** : 스트리머 패널 표정 스프라이트 연결(2026-08-02, `Next_Tesk.md` 8번). Figma에서 이 화면(RightPanel
+  기본 화면) 프레임을 찾지 못한 건 엔딩 결과 화면 작업 때와 동일한 문제(`get_metadata`가 관련 영역까지 못
+  읽음) — `Logging.md`에 이미 "목업엔 있지만 씬에 없는 새 요소"로 기록돼 있었고 실제로도 이 화면은 Figma
+  프레임이 아니라 사용자가 준 스크린샷 기반이었으므로, Figma 대신 씬의 실제 `RectTransform`(`TimePanel`
+  하단 y≈320.5 ~ `TradePanel` 상단 y≈-104.6, `RightPanel` 로컬 좌표)을 직접 조회해 빈 공간 크기(약
+  425×490)를 계산하고 그 안에 정사각형(스프라이트 원본이 512×512) 400×400으로 배치했다.
+  - 신규 `Assets/Scripts/UI/MainModal/StreamerPanelUI.cs` : `StatGaugeUI`/`CoinPriceHeaderUI`와 동일하게
+    `EventHub.OnMarketUpdated` 구독형. `PlayerStat.StreamerReaction`(5단계) 값에 따라 `Image.sprite`를
+    `Assets/Sprites/스트리머상태`의 5개 스프라이트 중 하나로 바꾼다. 새 `EventHub` 이벤트는 필요 없었음
+    (기존 `OnMarketUpdated`가 매 턴/이벤트 트리거 시 이미 갱신된 `StreamerReaction`을 들고 전파).
+  - 씬에 `RightPanel` 자식으로 `StreamerPanel`(Image + `StreamerPanelUI`) 오브젝트를 새로 만들고 5개
+    스프라이트 필드를 전부 연결, 기본 표시는 "보통"(Neutral) 스프라이트로 설정.
+  - 검증은 Unity MCP Play 모드에서 `execute_code`로 `MarketManager.CurrentStat.CurrentPrice`를 강제로
+    ±200~500 바꾼 뒤 (private) `UpdateStreamerReaction`을 리플렉션으로 호출 → `EventHub.RaiseMarketUpdated`
+    발행까지 재현해 Surge/Crash 스프라이트가 올바르게 교체되는 걸 스크린샷으로 확인했다.
+  - 이번 범위에서 제외한 것 : 말풍선/멘트 텍스트, 립싱크나 캐릭터 모션 등 영상 기반 연출. 사용자가 참고
+    영상을 준 다음 별도 세션에서 진행하기로 함(`Logging.md` "스트리머 반응(가격 변화 연동) 로직 설계" 절
+    참고). `StreamerReactionCalculator`의 임계값(±10/±50)은 여전히 실플레이 후 조정 필요 항목으로 남아있음
+    (`Next_Tesk.md` 7번 밸런스 후보에 포함).
+- **완료** : 캐릭터 선택 씬 분리(2026-08-02, `Next_Tesk.md` 5번). Figma node `1202:186`("초반 캐릭터 선택")을
+  확인해, 게임을 `CharacterSelectScene`(직업 선택, 새로 만듦) → `SampleScene`(기존 메인 게임) 2개 씬으로
+  나누고 `Build Settings`에 이 순서로 등록했다(사용자가 씬 전환은 Build Settings 등록이 필요하다는 점과,
+  씬 전환을 전담하는 매니저를 따로 두라고 명시적으로 요청함).
+  - 신규 `Assets/Scripts/manager/GameSceneManager.cs` : 씬 이름 문자열을 여기 한 곳에만 두고
+    `LoadCharacterSelect()`/`LoadMainGame()`만 노출하는 static 클래스. `EventHub`가 static인 것과 같은
+    이유로 MonoBehaviour 싱글턴 대신 static을 택함 — 씬 전환 자체는 상태가 없는 동작이라 굳이
+    `DontDestroyOnLoad` 오브젝트로 만들 필요가 없었음.
+  - 신규 `Assets/Scripts/manager/JobSelectionHandoff.cs` : `public static JobSO SelectedJob` 필드 하나뿐인
+    static 클래스. 씬이 바뀌어도(도메인 리로드 전까지) 정적 필드 값은 유지되므로, 이 필드에 선택된
+    `JobSO`를 담아뒀다가 메인 씬에서 읽는 방식으로 두 씬 사이에 정보를 넘긴다. **왜 `Managers`
+    오브젝트를 통째로 옮기지 않았는지** : `Managers`엔 `SettingsUI`도 같이 붙어있는데, 이건
+    `SampleScene`의 `SettingsPanel`/`SettingsBtn` 같은 씬 전용 오브젝트를 직접 참조하고
+    `Start()`에서 그 참조로 바로 `SetActive(false)`를 호출한다 — `Managers`를 캐릭터 선택 씬으로
+    옮기면 그 씬엔 `SettingsPanel`이 없어서 `Start()`가 즉시 NullReferenceException을 낸다. 정적 필드
+    핸드오프는 이 문제를 피하면서 필요한 정보(선택한 직업 하나)만 정확히 넘기는 더 작은 변경이었다.
+  - `Assets/Scripts/manager/JobManager.cs`에 `Start()`를 추가 : `JobSelectionHandoff.SelectedJob`이
+    있으면 `SelectJob()`으로 반영하고 필드를 비운다. `MarketManager.Instance`를 참조하는
+    `SelectJob()` 특성상 `Awake()`가 아니라(다른 매니저의 `Awake` 순서 보장이 없음) 모든 `Awake`가
+    끝난 뒤 실행되는 `Start()`에 뒀다.
+  - 신규 씬 `Assets/Scenes/CharacterSelectScene.unity` : `2d_basic` 템플릿으로 만들고 `Main_Canvas`
+    (1920×1080, ScaleWithScreenSize match=0.5, `SampleScene`과 동일 설정)/`EventSystem`을 직접 구성.
+    Figma 프레임(1512×982)을 캔버스 중앙에 배치하고, `get_design_context`로 뽑은 좌표를 그대로
+    (Figma px ≈ Unity unit, top-left pivot 기준 anchoredPosition=(x,-y)) 옮겨 직업 슬롯 6개(아이콘+라벨,
+    `Nobi.UiRoundedCorners.ImageWithRoundedCorners`로 둥근 모서리) + 빈 슬롯 2개(향후 직업용 자리,
+    회색 비활성) + 우측 상세 패널(이름/설명/초기자금/특성 2줄) + "다음으로" 버튼을 배치했다.
+  - 신규 `Assets/Scripts/UI/CharacterSelectUI.cs` : 슬롯 클릭 시 하이라이트 갱신 + 상세 패널 갱신(선택된
+    `JobSO`의 `effects`를 `UIFormat.SignedEffectValue`/`SignedPercent`로 포맷), "다음으로" 클릭 시
+    `JobSelectionHandoff.SelectedJob` 설정 후 `GameSceneManager.LoadMainGame()` 호출.
+  - **색상 표기 관련 메모** : 프로젝트가 Linear 컬러 스페이스라, Figma 헥스코드를 `255분의 N`으로만 바꿔
+    `Image.color`에 그대로 넣으면(예: `#333333` → 0.2,0.2,0.2) 화면에 감마 보정이 다시 적용돼 실제로는
+    더 밝게 렌더링된다(스크린샷 확인: 어두운 배경이 중간 회색으로 보임). 한 번 sRGB→Linear 변환값으로
+    바꿔서 넣어봤는데(사용자 확인 요청으로), **사용자가 "그냥 색깔 코드 그대로 가져와서 반영"을 요청해
+    최종적으로는 변환 없이 원본 sRGB 비율(예: 0.2 그대로) 그대로 두기로 함** — 화면상 밝기가 Figma
+    목업과 정확히 일치하진 않지만, 이번 세션은 그 상태로 확정. `CharacterSelectUI.selectedColor`/
+    `unselectedColor` 기본값도 동일하게 원본 sRGB 값(1, 0.631, 0.404)/(1, 0.796, 0.616)으로 되돌림.
+  - **버튼/패널 그림자(2026-08-02, 같은 세션 후속 요청)** : Figma 목업의 버튼/`DetailPanel`엔
+    `border-bottom` 10px짜리 진한 색 테두리가 있는데, 이건 실제로는 그림자가 아니라 "눌리지 않은
+    버튼"처럼 보이게 하는 입체 효과다(선택된 `일반인` 슬롯만 이 테두리가 없어서 눌린 것처럼 납작해
+    보임). 도형을 겹쳐서 재현했다 — 각 버튼/패널 뒤에 같은 크기 + 높이만 10 더 큰(top-left pivot이라
+    아래로만 늘어남) 진한 색 `Shadow_*` 오브젝트를 만들고, 앞쪽 원래 도형이 위쪽만 덮어서 아래쪽 10만큼
+    띠처럼 보이게 했다. `Shadow_*`는 `SetSiblingIndex`로 대응하는 앞면 오브젝트 바로 앞 순서로
+    옮겨서 렌더링 순서를 맞췄다(대상: 직업 슬롯 6개 - 색 `#ff8235`, `DetailPanel` - 색 `#c95f02`,
+    `NextButton` - 색 `#ff8235`. 빈 슬롯 2개는 Figma에 이 테두리가 없어서 그대로 둠). `CharacterSelectUI.
+    cs`에 `slotShadows` 필드를 추가해 `SelectJob()`에서 선택된 슬롯만 그림자를 꺼서(`SetActive(false)`)
+    Figma의 "선택=눌림" 표현을 그대로 재현했다.
+  - **텍스트 버그 발견 및 수정** : 더미 직업 5종의 `description`에 "(Figma 목업엔 이름만 있고 효과/수치
+    미정 — 더미)" 같은 내부 메모를 그대로 넣어뒀었는데, 상세 패널에서 그 문장이 길어서 아래 "초기 자금"
+    줄과 겹치는 걸 Play 모드 스크린샷으로 발견했다 — 플레이어에게 보이는 텍스트에 개발 메모를 넣은 것
+    자체가 잘못이라, 전부 짧은 설명 문구로만 정리하고 더미 여부는 `Next_Tesk.md`에만 남겼다.
+  - 검증 : Unity MCP Play 모드에서 `execute_code`로 슬롯 버튼 클릭 → 상세 패널 갱신, "다음으로" 클릭 →
+    `SceneManager.GetActiveScene().name`이 실제로 `SampleScene`으로 바뀜을 확인했다. 다만 이 세션의
+    자동화 환경에서는 Editor 창이 포커스를 안 받아 Play 모드 프레임이 거의 진행되지 않는 문제가 있어서
+    (`Time.frameCount`가 여러 툴 호출 뒤에도 그대로) `JobManager.Start()`의 자동 픽업이 실제로 실행되는
+    순간까지는 프레임 펌프 한계로 못 봤다 — 대신 `JobManager.Instance.SelectJob(job)`을 직접 호출해서
+    로직 자체(효과 적용, `MarketManager.CurrentStat.Growth` 변화)는 정상 확인했다. `Start()` 호출은
+    Unity의 기본 생명주기 보장이라 실제 플레이(포커스 있는 상태)에서는 다음 프레임에 바로 실행된다.
+  - 자세한 파일 목록/호출 스택은 `Issues/Issue_CharacterSelect.md` 참고.

@@ -1,6 +1,9 @@
 # 씬 오브젝트 구조
 
-`SampleScene` 기준, Unity MCP로 직접 조회해 정리한 문서. 좌표는 `Main_Canvas`(1920x1080, Scale With Screen Size,
+게임은 `Build Settings` 기준 `CharacterSelectScene`(직업 선택, index 0) → `SampleScene`(메인 게임, index 1)
+순서로 진행된다. 씬 전환은 `GameSceneManager`(static), 선택한 직업 정보는 `JobSelectionHandoff`(static
+필드)로 넘긴다 — 자세한 내용은 `Completed_Tasks.md` "캐릭터 선택 씬 분리" 항목 참고. 이 문서는 그중
+`SampleScene` 기준, Unity MCP로 직접 조회해 정리한 문서다. 좌표는 `Main_Canvas`(1920x1080, Scale With Screen Size,
 match=0.5) 기준 절대 좌표(캔버스 좌하단이 0,0)로 표기하고, 괄호 안에 각 오브젝트의 `anchoredPosition`(캔버스
 중심 960,540 기준 상대값)을 병기한다.
 
@@ -31,6 +34,7 @@ Main_Canvas (1920x1080)
 │   │   ├─ PauseBtn
 │   │   ├─ PlayBtn
 │   │   └─ SpeedBtn
+│   ├─ StreamerPanel [StreamerPanelUI] (400x400, TimePanel/TradePanel 사이 빈 공간 — 스트리머 표정 스프라이트, 연결 완료)
 │   ├─ TradePanel [PlayerUI]   (자산/코인 표시 + Long/Short 거래 연결 완료, 우측 중단)
 │   │   ├─ MoneyText / CoinText
 │   │   ├─ Money_Image / Coin_Image
