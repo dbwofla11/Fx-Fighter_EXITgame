@@ -23,6 +23,13 @@ public class SkillPanelUI : MonoBehaviour
         public Button button;
     }
 
+    [System.Serializable]
+    public class GroupLabelSlot
+    {
+        public SkillCategory category;
+        public TextMeshProUGUI label; // 아이콘 그리드 내 서브카테고리(예: "공급 구조") 소제목. 탭 전환 시 아이콘과 같이 보이기/숨기기 처리.
+    }
+
     [Header("Toggle")]
     public Button closeBtn; // SkillBtn 쪽 토글은 SkillPanelButton이 담당(아이콘 on/off 스프라이트 갱신 포함)
 
@@ -31,6 +38,7 @@ public class SkillPanelUI : MonoBehaviour
 
     [Header("Icons")]
     public IconSlot[] icons;
+    public GroupLabelSlot[] groupLabels;
     public Image previewIcon; // 선택된 스킬을 크게 보여주는 미리보기 박스(PreviewFrame)
 
     [Header("Detail")]
@@ -119,6 +127,9 @@ public class SkillPanelUI : MonoBehaviour
             SkillSO profile = SkillManager.Instance.GetSkillProfile(slot.id);
             slot.button.gameObject.SetActive(profile != null && profile.category == category);
         }
+
+        foreach (GroupLabelSlot group in groupLabels)
+            group.label.gameObject.SetActive(group.category == category);
     }
 
     private void RefreshDetail()
@@ -144,7 +155,8 @@ public class SkillPanelUI : MonoBehaviour
         bool locked = !profile.isReusable && SkillManager.Instance.IsUnlocked(selected.Value);
 
         nameText.text = selected.Value.ToString();
-        descriptionText.text = (locked ? "구매 완료" : "비용 : " + UIFormat.Currency(cost)) + "\n" +
+        descriptionText.text = (profile.isReusable ? "[재사용형]" : "[1회성]") + "\n" +
+            (locked ? "구매 완료" : "비용 : " + UIFormat.Currency(cost)) + "\n" +
             "구매 횟수 : " + purchaseCount + "회" + "\n\n" +
             EventEffectFormatter.BuildEffectsText(profile.effects) + "\n\n\n" +
             profile.description;

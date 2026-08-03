@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d45eeb6ee422cc5448aa93c0fea25ca7, type: 3}
+  m_Name: "\uC218\uC0C1\uACBD\uB825\uD64D\uBCF4"
+  m_EditorClassIdentifier: Assembly-CSharp::SkillSO
+  id: 33
+  description: "\uD504\uB85C\uC81D\uD2B8\uC758 \uC218\uC0C1 \uC2E4\uC801\uACFC \uC131\uACFC\uB97C
+    \uC801\uADF9\uC801\uC73C\uB85C \uD64D\uBCF4\uD55C\uB2E4. \uAC1D\uAD00\uC801\uC778
+    \uC131\uACFC\uAC00 \uC54C\uB824\uC9C0\uBA70 \uBE0C\uB79C\uB4DC \uC2E0\uB8B0\uB3C4\uAC00
+    \uD06C\uAC8C \uB192\uC544\uC9C4\uB2E4."
+  icon: {fileID: 21300000, guid: 82fff15d4969c67489897b855440e0af, type: 3}
+  category: 2
+  baseCost: 4000
+  costMultiplier: 1.15
+  defaultUnlocked: 0
+  isReusable: 0
+  effects:
+  - effectType: 0
+    value: 10

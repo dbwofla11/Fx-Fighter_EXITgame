@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d45eeb6ee422cc5448aa93c0fea25ca7, type: 3}
+  m_Name: "\uC2E4\uC2DC\uAC04\uC5EC\uB860\uAD00\uB9AC"
+  m_EditorClassIdentifier: Assembly-CSharp::SkillSO
+  id: 24
+  description: "\uC5EC\uB860\uC744 \uC2E4\uC2DC\uAC04\uC73C\uB85C \uBAA8\uB2C8\uD130\uB9C1\uD558\uBA70
+    \uBD80\uC815\uC801\uC778 \uC774\uC288\uC5D0 \uC989\uAC01 \uB300\uC751\uD55C\uB2E4.
+    \uB17C\uB780\uC774 \uCEE4\uC9C0\uB294 \uAC83\uC744 \uB9C9\uC544 \uC758\uC2EC\uB3C4
+    \uC0C1\uC2B9\uC744 \uD6A8\uACFC\uC801\uC73C\uB85C \uC5B5\uC81C\uD55C\uB2E4."
+  icon: {fileID: 21300000, guid: b5db4b637acbb664ba6401dec42220f1, type: 3}
+  category: 2
+  baseCost: 9000
+  costMultiplier: 1.15
+  defaultUnlocked: 0
+  isReusable: 0
+  effects:
+  - effectType: 2
+    value: 20

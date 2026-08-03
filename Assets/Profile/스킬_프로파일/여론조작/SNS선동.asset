@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d45eeb6ee422cc5448aa93c0fea25ca7, type: 3}
+  m_Name: "SNS\uC120\uB3D9"
+  m_EditorClassIdentifier: Assembly-CSharp::SkillSO
+  id: 20
+  description: "\uC790\uADF9\uC801\uC778 \uAC8C\uC2DC\uBB3C\uACFC \uD654\uC81C\uC131
+    \uCF58\uD150\uCE20\uB97C \uB300\uB7C9\uC73C\uB85C \uD37C\uB728\uB9B0\uB2E4. \uD504\uB85C\uC81D\uD2B8\uC5D0
+    \uB300\uD55C \uAD00\uC2EC\uC774 \uAE09\uACA9\uD788 \uB298\uC5B4\uB098\uBA70 \uC2E0\uADDC
+    \uD22C\uC790\uC790\uAC00 \uC720\uC785\uB41C\uB2E4."
+  icon: {fileID: 21300000, guid: b29208bbc81e7344dbe967e08e4104c7, type: 3}
+  category: 2
+  baseCost: 3000
+  costMultiplier: 1.15
+  defaultUnlocked: 0
+  isReusable: 0
+  effects: []
