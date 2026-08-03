@@ -69,30 +69,17 @@ public class SkillManager : MonoBehaviour
 
     #region 이벤트 처리 (클릭 / 구매)
 
-    // 스킬 아이콘 클릭 요청 수신 : 재사용형은 선택 상태만 저장, 토글형은 활성화/비활성화한다.
+    // 스킬 아이콘 클릭 요청 수신 : 재사용형/1회성 모두 선택 상태만 저장한다. 구매(잠금 해제)는 구매 버튼(HandlePurchase) 전용.
     private void HandleSkillClicked(SkillID id)
     {
-        SkillRuntimeInfo skill = GetSkill(id);
-
-        if (skill == null)
+        if (GetSkill(id) == null)
             return;
 
-        if (skill.Profile.isReusable)
-        {
-            runtimeSkillData.SelectedSkillId = id;
-            return;
-        }
-
-        if (!skill.IsUnlocked)
-            return;
-
-        if (skill.IsEnabled)
-            DisableSkill(id);
-        else
-            EnableSkill(id);
+        runtimeSkillData.SelectedSkillId = id;
     }
 
-    // 스킬 구매 버튼 클릭 요청 수신 (재사용형 스킬 전용) : 선택된 스킬을 구매+적용한다. 잠기지 않는다.
+    // 스킬 구매 버튼 클릭 요청 수신 : 선택된 스킬을 구매+적용한다.
+    // 재사용형은 잠기지 않고 계속 재구매 가능. 1회성은 최초 구매로 영구 해금되고 이후 재구매가 막힌다.
     private void HandlePurchase()
     {
         if (runtimeSkillData.SelectedSkillId == null)
@@ -100,7 +87,10 @@ public class SkillManager : MonoBehaviour
 
         SkillRuntimeInfo skill = GetSkill(runtimeSkillData.SelectedSkillId.Value);
 
-        if (skill == null || !skill.Profile.isReusable)
+        if (skill == null)
+            return;
+
+        if (!skill.Profile.isReusable && skill.IsUnlocked)
             return;
 
         long cost = CalculateCost(skill);
@@ -109,9 +99,12 @@ public class SkillManager : MonoBehaviour
             return;
 
         StatCalculator.ApplySkillUse(MarketManager.Instance.CurrentStat, skill.Profile);
+        StatCalculator.ClampStat(MarketManager.Instance.CurrentStat);
         GrantCashBonus(skill.Profile);
         skill.IsUnlocked = true;
         skill.PurchaseCount++;
+
+        EventHub.RaiseMarketUpdated(MarketManager.Instance.CurrentStat);
     }
 
     // 재사용형 스킬의 CashBonus 효과는 Support/Growth와 동일하게 "구매 시점 1회성"으로 처리한다.
@@ -154,6 +147,13 @@ public class SkillManager : MonoBehaviour
         return skill == null ? 0 : CalculateCost(skill);
     }
 
+    // 스킬 정보 패널용 : 해당 스킬을 몇 번 구매했는지 조회한다.
+    public int GetPurchaseCount(SkillID id)
+    {
+        SkillRuntimeInfo skill = GetSkill(id);
+        return skill == null ? 0 : skill.PurchaseCount;
+    }
+
     // 활성화 된거 IsEnabled = true인것만 가지고 오는거
     // 이거 대충 계산기에서 가지고 가서 사용할거임
     public IReadOnlyList<SkillRuntimeInfo> GetActiveSkills()
@@ -192,7 +192,8 @@ public class SkillManager : MonoBehaviour
 
     #region 활성화 토글
 
-    // UI에서 불러다 쓰기
+    // 현재 6개 스킬이 전부 1회성(구매=영구 해금)이라 HandleSkillClicked에서 호출되지 않음 — 매 턴 재적용되는
+    // 지속효과형 스킬이 추가되면 그 스킬의 아이콘 클릭 핸들러에서 사용.
     public void EnableSkill(SkillID id)
     {
         SkillRuntimeInfo skill = GetSkill(id);

@@ -38,10 +38,16 @@ public class SkillPanelUI : MonoBehaviour
     public TextMeshProUGUI descriptionText;
     public Button purchaseBtn;
 
+    [Header("Currency")]
+    public TextMeshProUGUI moneyText;
+    public TextMeshProUGUI coinText;
+
     // EventLogPanelUI의 탭 색상 관례와 동일 : 진한 빨강(#FF8686)=선택된 탭, 연한 빨강(#FFDBDB)=안 눌린 탭.
     private static readonly Color SelectedTabColor = new Color(1f, 0.5255f, 0.5255f);
     private static readonly Color UnselectedTabColor = new Color(1f, 0.8588f, 0.8588f);
     private static readonly Color SelectedIconColor = new Color(1f, 0.68f, 0.68f);
+    // 1회성 스킬은 구매(사용) 전엔 흰색, 구매 후엔 회색으로 표시해 이미 썼다는 걸 구분.
+    private static readonly Color UsedOneTimeIconColor = new Color(0.75f, 0.75f, 0.75f);
 
     public bool IsOpen => gameObject.activeSelf;
 
@@ -117,6 +123,8 @@ public class SkillPanelUI : MonoBehaviour
 
     private void RefreshDetail()
     {
+        RefreshCurrency();
+
         SkillID? selected = SkillManager.Instance.SelectedSkillId;
 
         RefreshSelectionHighlight(selected);
@@ -131,19 +139,44 @@ public class SkillPanelUI : MonoBehaviour
 
         SkillSO profile = SkillManager.Instance.GetSkillProfile(selected.Value);
         long cost = SkillManager.Instance.GetCurrentCost(selected.Value);
+        int purchaseCount = SkillManager.Instance.GetPurchaseCount(selected.Value);
+        // 1회성 스킬은 구매 후 다시 살 수 없다 (재사용형은 계속 재구매 가능).
+        bool locked = !profile.isReusable && SkillManager.Instance.IsUnlocked(selected.Value);
 
         nameText.text = selected.Value.ToString();
-        descriptionText.text = profile.description + "\n\n" +
-            EventEffectFormatter.BuildEffectsText(profile.effects) + "\n\n" +
-            "비용 : " + UIFormat.Currency(cost);
+        descriptionText.text = (locked ? "구매 완료" : "비용 : " + UIFormat.Currency(cost)) + "\n" +
+            "구매 횟수 : " + purchaseCount + "회" + "\n\n" +
+            EventEffectFormatter.BuildEffectsText(profile.effects) + "\n\n\n" +
+            profile.description;
         purchaseBtn.gameObject.SetActive(true);
+        purchaseBtn.interactable = !locked;
+    }
+
+    // 우측 상단 보유 현금/코인 실시간 표시.
+    private void RefreshCurrency()
+    {
+        if (moneyText != null)
+            moneyText.text = UIFormat.Currency(PlayerManager.Instance.currentMoney);
+        if (coinText != null)
+            coinText.text = "보유 코인수량 : " + PlayerManager.Instance.currentCoins.ToString("N0") + "개";
     }
 
     // 선택된 아이콘은 그리드에서 살짝 하이라이트 + 미리보기 박스에 크게 표시한다.
+    // 1회성 스킬은 이미 구매(사용)했으면 회색으로, 아직 안 샀으면 흰색으로 표시한다.
     private void RefreshSelectionHighlight(SkillID? selected)
     {
         foreach (IconSlot slot in icons)
-            slot.button.image.color = slot.id == selected ? SelectedIconColor : Color.white;
+        {
+            if (slot.id == selected)
+            {
+                slot.button.image.color = SelectedIconColor;
+                continue;
+            }
+
+            SkillSO profile = SkillManager.Instance.GetSkillProfile(slot.id);
+            bool used = profile != null && !profile.isReusable && SkillManager.Instance.IsUnlocked(slot.id);
+            slot.button.image.color = used ? UsedOneTimeIconColor : Color.white;
+        }
 
         if (previewIcon != null)
             previewIcon.sprite = selected.HasValue ? SkillManager.Instance.GetSkillProfile(selected.Value).icon : null;

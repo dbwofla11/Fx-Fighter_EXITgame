@@ -13,11 +13,11 @@ public static class EventHub
     // ==========================
     // Skill
     // ==========================
-    // 스킬 아이콘 클릭 요청 : 토글형은 활성화/비활성화. 재사용형은 선택 상태(SelectedSkillId)만 저장한다 (구매는 OnSkillPurchased 버튼 전용)
+    // 스킬 아이콘 클릭 요청 : 선택 상태(SelectedSkillId)만 저장한다 (구매는 OnSkillPurchased 버튼 전용)
     public static event Action<SkillID> OnSkillClicked;
     public static void RaiseSkillClicked(SkillID id) => OnSkillClicked?.Invoke(id);
 
-    // 스킬 구매 버튼 클릭 요청 (재사용형 스킬 전용) : 아이콘 클릭으로 선택해둔 스킬을 구매+적용한다. 잠기지 않는다.
+    // 스킬 구매 버튼 클릭 요청 : 아이콘 클릭으로 선택해둔 스킬을 구매+적용한다. 재사용형은 잠기지 않고, 1회성은 최초 구매로 영구 해금된다.
     public static event Action OnSkillPurchased;
     public static void RaiseSkillPurchased() => OnSkillPurchased?.Invoke();
 

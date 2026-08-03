@@ -139,13 +139,20 @@ public static class StatCalculator
                 if (effect.effectType == EffectType.SupplyIncrease || effect.effectType == EffectType.SupplyDecrease)
                     continue;
 
+                // 스킬로 인한 감소는 Job과 달리 0 밑으로 내려가지 않는다 (ApplyEffect는 Event에서도 재사용되므로 여기서만 분기).
+                if (effect.effectType == EffectType.DoubtDecrease)
+                {
+                    stat.Doubt = Mathf.Max(0f, stat.Doubt - effect.value);
+                    continue;
+                }
+
                 ApplyEffect(stat, effect);
             }
         }
     }
 
     /// <summary>
-    /// 재사용형 스킬을 사용하는 순간, 그 스킬의 Support/Growth/Doubt/Supply 효과를 stat에 직접 반영한다.
+    /// 스킬을 구매(재사용형은 매 구매, 1회성은 최초 구매)하는 순간, 그 스킬의 Support/Growth/Doubt/Supply 효과를 stat에 직접 반영한다.
     /// </summary>
     public static void ApplySkillUse(PlayerStat stat, SkillSO skill)
     {
@@ -166,7 +173,8 @@ public static class StatCalculator
             }
             else if (effect.effectType == EffectType.DoubtDecrease)
             {
-                stat.Doubt -= effect.value;
+                // 스킬로 인한 감소는 Job과 달리 0 밑으로 내려가지 않는다.
+                stat.Doubt = Mathf.Max(0f, stat.Doubt - effect.value);
                 stat.JobSkillDoubtBonus -= effect.value;
             }
             else if (effect.effectType == EffectType.DoubtIncrease)
