@@ -117,6 +117,7 @@ public class SkillManager : MonoBehaviour
 
         skill.PurchaseCount++;
 
+        EventHub.RaiseSkillPurchaseSucceeded(skill.Profile.id);
         EventHub.RaiseMarketUpdated(MarketManager.Instance.CurrentStat);
     }
 

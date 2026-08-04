@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -39,6 +40,27 @@ public class PriceChartUI : MonoBehaviour
     [SerializeField] private Color gridPriceLabelColor = new Color(0.55f, 0.55f, 0.55f);
     [SerializeField] private float gridPriceLabelWidth = 90f;
 
+    // ponytail: 변동성→크기 정규화 기준(15% 등락 = 최대 크기). 밸런스용 임시 수치, 플레이 후 조정 필요.
+    private const float VolatilityForMaxBurst = 0.15f;
+
+    private const float CandleShakeDuration = 0.3f;
+    private const float CandleShakeMagnitude = 4f;
+
+    // ponytail: 붕괴 연출 튜닝값. 밸런스 아니라 느낌 조정용이라 플레이 후 자유롭게 바꿔도 됨.
+    // 처음엔 20f/0.12초로 잡았더니 수치상으로는 위로 움직이는 게 맞는데(로그로 확인함) 뒤이어 오는
+    // 250f/0.35초짜리 낙하에 묻혀서 실제로는 거의 안 보였다 — 높이를 3배로 키우고, 정점에서 살짝
+    // 멈췄다 떨어지게(HopHold) 해서 "튀어오름"이 눈에 띄게 만들었다.
+    private const float CandleCollapseHopHeight = 45f;
+    private const float CandleCollapseHopDuration = 0.15f;
+    private const float CandleCollapseHopHoldDuration = 0.06f; // 정점에서 살짝 멈추는 텀
+    private const float CandleCollapseFallDuration = 0.35f;
+    private const float CandleCollapseStaggerStep = 0.03f; // 캔들 인덱스당 낙하 시작을 이만큼씩 늦춘다
+    private const float CandleCollapseDriftRange = 60f; // 낙하 중 좌우로 흩어지는 범위(±)
+    private const float ArrestFallDistance = 250f;
+
+    private int lastCandleIndex = -1;
+    private Coroutine candleShakeRoutine;
+
     private RectTransform chartArea;
     private readonly List<RectTransform> candlePool = new();
     private readonly List<Image> candleImages = new();
@@ -63,15 +85,82 @@ public class PriceChartUI : MonoBehaviour
     private void OnEnable()
     {
         EventHub.OnMarketUpdated += HandleMarketUpdated;
+        EventHub.OnGameEnded += HandleGameEnded;
         Redraw();
     }
 
     private void OnDisable()
     {
         EventHub.OnMarketUpdated -= HandleMarketUpdated;
+        EventHub.OnGameEnded -= HandleGameEnded;
     }
 
-    private void HandleMarketUpdated(PlayerStat stat) => Redraw();
+    // 체포 엔딩 확정 : 차트 전체가 아니라 캔들 하나하나가 따로 떨어진다 — 인덱스만큼 시작을 늦춰서
+    // 왼쪽(오래된 캔들)부터 순서대로 무너지는 것처럼 보이게 한다.
+    private void HandleGameEnded(EndingType ending)
+    {
+        if (ending != EndingType.Arrest)
+            return;
+
+        for (int i = 0; i < candlePool.Count; i++)
+        {
+            if (!candlePool[i].gameObject.activeSelf)
+                continue;
+
+            StartCoroutine(CandleCollapseRoutine(candlePool[i], candleImages[i], dateLabels[i], i * CandleCollapseStaggerStep));
+        }
+    }
+
+    // 캔들이 위로 살짝 튀어올랐다가(hop, ease-out) 중력 가속하듯 아래로 떨어지며(fall, ease-in) 사라진다.
+    private IEnumerator CandleCollapseRoutine(RectTransform rect, Image image, TextMeshProUGUI label, float delay)
+    {
+        if (delay > 0f)
+            yield return new WaitForSecondsRealtime(delay);
+
+        Vector2 basePos = rect.anchoredPosition;
+        Color baseImageColor = image.color;
+        Color baseLabelColor = label.color;
+        // 캔들마다 낙하 중 좌우로 흩어질 방향/폭을 미리 뽑아둔다(hop 중엔 그대로 위로만, fall 중에만 적용).
+        float driftX = Random.Range(-CandleCollapseDriftRange, CandleCollapseDriftRange);
+
+        float t = 0f;
+        while (t < CandleCollapseHopDuration)
+        {
+            t += Time.unscaledDeltaTime;
+            float ease = 1f - Mathf.Pow(1f - Mathf.Clamp01(t / CandleCollapseHopDuration), 2f);
+            rect.anchoredPosition = basePos + Vector2.up * CandleCollapseHopHeight * ease;
+            yield return null;
+        }
+
+        Vector2 hopPeakPos = basePos + Vector2.up * CandleCollapseHopHeight;
+        rect.anchoredPosition = hopPeakPos;
+        yield return new WaitForSecondsRealtime(CandleCollapseHopHoldDuration);
+
+        t = 0f;
+        while (t < CandleCollapseFallDuration)
+        {
+            t += Time.unscaledDeltaTime;
+            float progress = Mathf.Clamp01(t / CandleCollapseFallDuration);
+            float ease = progress * progress;
+            Vector2 fallOffset = Vector2.down * (CandleCollapseHopHeight + ArrestFallDistance) * ease + Vector2.right * driftX * ease;
+            rect.anchoredPosition = hopPeakPos + fallOffset;
+
+            image.color = new Color(baseImageColor.r, baseImageColor.g, baseImageColor.b, baseImageColor.a * (1f - progress));
+            label.color = new Color(baseLabelColor.r, baseLabelColor.g, baseLabelColor.b, baseLabelColor.a * (1f - progress));
+
+            yield return null;
+        }
+    }
+
+    private void HandleMarketUpdated(PlayerStat stat)
+    {
+        Redraw();
+
+        // 급등(Surge)/급락(Crash) — 스트리머 반응 중 가장 극단적인 두 단계일 때만 종가에 파티클을 띄운다.
+        // Redraw()가 끝나 마지막 캔들 위치가 확정된 뒤에 터뜨려야 종가 위치에 정확히 찍힌다.
+        if (stat.StreamerReaction == StreamerReactionState.Surge || stat.StreamerReaction == StreamerReactionState.Crash)
+            SpawnLastCandleBurst(); // 화면 흔들림은 UIBurstParticle.Spawn 안에서 파티클 크기에 비례해 같이 처리된다.
+    }
 
     #endregion
 
@@ -220,6 +309,9 @@ public class PriceChartUI : MonoBehaviour
 
             PricePoint p = history[startIndex + i];
             UpdateCandle(i, p, slotWidth, candleWidth, candleAreaHeight, min, range);
+
+            if (i == count - 1)
+                lastCandleIndex = i;
         }
     }
 
@@ -338,6 +430,54 @@ public class PriceChartUI : MonoBehaviour
             rect.gameObject.SetActive(false);
         foreach (TextMeshProUGUI label in dateLabels)
             label.gameObject.SetActive(false);
+    }
+
+    // 가장 최근(진행 중인) 캔들의 종가 위치에, 변동폭이 클수록 크게 파티클을 터뜨린다.
+    private void SpawnLastCandleBurst()
+    {
+        if (lastCandleIndex < 0 || !candlePool[lastCandleIndex].gameObject.activeSelf)
+            return;
+
+        PricePoint p = boundPoints[lastCandleIndex];
+        if (p == null)
+            return;
+
+        RectTransform rect = candlePool[lastCandleIndex];
+
+        // 캔들 자신을 부모로 삼아 그 중심(anchor 0.5,0.5) 기준 오프셋으로 배치한다 — chartArea를 부모로
+        // 쓰면서 캔들의 (0,0)anchor 기준 anchoredPosition을 그대로 넘기면 anchor 공간이 달라 엉뚱한
+        // 위치에 생기는 버그가 있었다(UIBurstParticle의 버스트 루트는 항상 0.5,0.5 anchor로 생성됨).
+        Vector2 closeOffset = new Vector2(0f, p.Close >= p.Open ? rect.sizeDelta.y / 2f : -rect.sizeDelta.y / 2f);
+
+        float volatility = p.Open > 0f ? Mathf.Abs(p.Close - p.Open) / p.Open : 0f;
+        float intensity = Mathf.Clamp01(volatility / VolatilityForMaxBurst);
+        Color color = p.Close >= p.Open ? upColor : downColor;
+
+        UIBurstParticle.Spawn(rect, closeOffset, color, intensity);
+        ShakeCandle(rect);
+    }
+
+    private void ShakeCandle(RectTransform rect)
+    {
+        if (candleShakeRoutine != null)
+            StopCoroutine(candleShakeRoutine);
+        candleShakeRoutine = StartCoroutine(CandleShakeRoutine(rect));
+    }
+
+    // 다음 Redraw()가 이 캔들의 anchoredPosition을 새로 계산해 덮어쓰므로 별도 복원이 필요 없다
+    // (StatGaugeUI 흔들림과 동일한 전제).
+    private IEnumerator CandleShakeRoutine(RectTransform rect)
+    {
+        Vector2 basePos = rect.anchoredPosition;
+        float t = 0f;
+        while (t < CandleShakeDuration)
+        {
+            t += Time.unscaledDeltaTime;
+            float damper = 1f - t / CandleShakeDuration;
+            rect.anchoredPosition = basePos + Random.insideUnitCircle * CandleShakeMagnitude * damper;
+            yield return null;
+        }
+        rect.anchoredPosition = basePos;
     }
 
     #endregion

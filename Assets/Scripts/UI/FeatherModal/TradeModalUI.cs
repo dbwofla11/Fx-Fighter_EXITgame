@@ -38,6 +38,9 @@ public class TradeModalUI : MonoBehaviour
 
     private static readonly Color SubtractModeColor = new Color(0.85f, 0.35f, 0.3f);
     private static readonly Color AddModeColor = new Color(0.7f, 0.7f, 0.74f);
+    // PriceChartUI의 upColor/downColor(BtnLong/BtnShort)와 동일 팔레트.
+    private static readonly Color LongBurstColor = new Color(0.2941176f, 0.4117647f, 0.1843137f);
+    private static readonly Color ShortBurstColor = new Color(0.6745098f, 0.1960784f, 0.1960784f);
 
     private TradeMode mode;
     private long tradeAmount = 0;
@@ -227,6 +230,16 @@ public class TradeModalUI : MonoBehaviour
     {
         if (tradeAmount <= 0)
             return;
+
+        // Close()가 tradeAmount를 0으로 리셋하기 전에, 확정 규모 대비 비율로 파티클 크기를 먼저 계산한다.
+        float intensity = Mathf.Clamp01((float)tradeAmount / Mathf.Max(1, GetMaxTradeAmount()));
+        Color burstColor = mode == TradeMode.Long ? LongBurstColor : ShortBurstColor;
+        RectTransform burst = UIBurstParticle.Spawn((RectTransform)btnConfirm.transform, Vector2.zero, burstColor, intensity);
+        // Close()가 곧바로 panel(=이 오브젝트 자신)을 비활성화하는데, 버스트가 그 자식으로 남아있으면
+        // 애니메이션이 끝나기 전에 얼어붙어 다음에 열 때 안 사라진 조각(빨간/초록 점)이 남는다 —
+        // 화면 최상위(root)로 옮겨서 모달이 닫혀도 끝까지 재생되고 스스로 정리되게 한다.
+        if (burst != null)
+            burst.SetParent(btnConfirm.transform.root, true);
 
         if (mode == TradeMode.Long)
             EventHub.RaiseBuyCoin(tradeAmount);

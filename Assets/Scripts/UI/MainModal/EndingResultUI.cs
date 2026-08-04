@@ -1,3 +1,4 @@
+using System.Collections;
 using TMPro;
 using UnityEngine;
 
@@ -37,6 +38,19 @@ public class EndingResultUI : MonoBehaviour
 
         if (titleText != null) titleText.text = title;
         if (descriptionText != null) descriptionText.text = description;
+
+        // 체포 엔딩은 StatGaugeUI 3개 패널이 무너지는 연출(ArrestCollapseDuration)이 먼저 보이도록
+        // 결과 패널 표시를 그만큼 늦춘다. TimeManager.PauseGame()으로 Time.timeScale이 이미 0이라
+        // WaitForSecondsRealtime을 쓴다.
+        if (ending == EndingType.Arrest)
+            StartCoroutine(ShowPanelAfterDelay(StatGaugeUI.ArrestCollapseDuration));
+        else if (panel != null)
+            panel.SetActive(true);
+    }
+
+    private IEnumerator ShowPanelAfterDelay(float delay)
+    {
+        yield return new WaitForSecondsRealtime(delay);
         if (panel != null) panel.SetActive(true);
     }
 

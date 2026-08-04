@@ -28,6 +28,10 @@ public class PlayerUI : MonoBehaviour
     {
         btnLong.onClick.AddListener(() => tradeModal.Open(TradeMode.Long));
         btnShort.onClick.AddListener(() => tradeModal.Open(TradeMode.Short));
+
+        // 롱/숏 버튼에 마우스를 올리면 공중에 뜬 것처럼 살짝 흔들리는 idle 연출.
+        btnLong.gameObject.AddComponent<HoverIdleBob>();
+        btnShort.gameObject.AddComponent<HoverIdleBob>();
     }
 
     private void HandleMarketUpdated(PlayerStat stat) => RefreshTexts();

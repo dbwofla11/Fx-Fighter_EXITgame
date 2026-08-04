@@ -21,6 +21,11 @@ public static class EventHub
     public static event Action OnSkillPurchased;
     public static void RaiseSkillPurchased() => OnSkillPurchased?.Invoke();
 
+    // 스킬 구매가 실제로 성공(비용 지불+효과 적용 완료)했을 때만 발행 : VFX/SFX 트리거용.
+    // OnSkillPurchased는 돈이 부족하거나 이미 잠긴 1회성 스킬이어도 그냥 호출되므로 구매 성공 신호로 못 쓴다.
+    public static event Action<SkillID> OnSkillPurchaseSucceeded;
+    public static void RaiseSkillPurchaseSucceeded(SkillID id) => OnSkillPurchaseSucceeded?.Invoke(id);
+
     // ==========================
     // Job
     // ==========================
