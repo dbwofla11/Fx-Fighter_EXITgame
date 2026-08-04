@@ -30,10 +30,13 @@ public class MarketManager : MonoBehaviour
     public IReadOnlyList<PricePoint> PriceHistory => runtimePriceHistory.Points;
 
     // 엑시트/영웅 엔딩 조건인 목표 자산. 코인 보유량과 무관하게 현금만 본다.
-    public const long TargetAsset = 1_000_000_000L;
+    public const long TargetAsset = 500_000_000L;
 
     // 게임 시작 시점의 코인 가격. CurrentPrice는 매 턴 이월되는 값이라 여기서 한 번만 설정하면 된다.
-    private const float InitialPrice = 1000f;
+    private const float InitialPrice = 10f;
+
+    // 게임 시작 시점의 발행량. Supply도 CurrentPrice와 동일하게 턴을 넘어 이월되는 값이라 여기서 한 번만 설정한다.
+    private const float InitialSupply = 2000f;
 
     // Doubt 자동 상승 : 게임 시간 2년(730턴)째 1회 +20, 그 이후로는 매 턴 +0.5씩 계속 증가한다.
     private const int DoubtAutoRiseStartTurn = 730;
@@ -59,11 +62,25 @@ public class MarketManager : MonoBehaviour
 
             CurrentStat = new PlayerStat();
             CurrentStat.CurrentPrice = InitialPrice;
+            CurrentStat.Supply = InitialSupply;
         }
         else
         {
             Destroy(gameObject);
         }
+    }
+
+    // 보유 코인(PlayerManager.currentCoins)도 이미 발행된 코인이므로 발행량에 포함시킨다.
+    // PlayerManager.Instance는 Awake 시점엔 초기화 순서가 보장되지 않아 Start에서 더한다(Start는 씬의
+    // 모든 Awake가 끝난 뒤 호출되므로 여기선 항상 값이 준비돼 있다).
+    private void Start()
+    {
+        // 중복 인스턴스(Awake에서 Destroy 예약된 쪽)는 Destroy가 이번 프레임 끝에 처리되기 전까지 Start가
+        // 먼저 도는데, 그쪽은 CurrentStat이 아예 초기화 안 됐으므로 여기서 걸러야 널 참조가 안 난다.
+        if (Instance != this)
+            return;
+
+        CurrentStat.Supply += PlayerManager.Instance.currentCoins;
     }
 
     private void OnEnable()
@@ -274,21 +291,26 @@ public class MarketManager : MonoBehaviour
     private void HandleBuyCoin(long amount)
     {
         TradeCalculator.Long(CurrentStat, amount);
+        StatCalculator.ClampStat(CurrentStat);
     }
 
     // 코인 매도 요청 수신 -> Support/Growth에 직접 반영
     private void HandleSellCoin(long amount)
     {
         TradeCalculator.Short(CurrentStat, amount);
+        StatCalculator.ClampStat(CurrentStat);
     }
 
     // 발행량 조작 요청 수신 : 추가발행권한 스킬을 구매하기 전에는 무시한다.
+    // 발행(증가)/소각(감소)한 만큼 플레이어 보유 코인도 함께 늘거나 준다 — 발행 주체가 곧 플레이어이므로.
     private void HandleManipulateSupply(long amount)
     {
         if (!SkillManager.Instance.IsUnlocked(SkillID.추가발행권한))
             return;
 
         TradeCalculator.ManipulateSupply(CurrentStat, amount);
+        PlayerManager.Instance.AddCoin(amount);
+        StatCalculator.ClampStat(CurrentStat);
     }
 
     #endregion

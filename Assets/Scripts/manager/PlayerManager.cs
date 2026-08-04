@@ -5,8 +5,8 @@ public class PlayerManager : MonoBehaviour
     public static PlayerManager Instance { get; private set; }
 
     [Header("Player Stats")]
-    public long currentMoney = 10000000; // 시작 자금 (예: 1천만 원)
-    public long currentCoins = 0;        // 현재 보유 코인 수량
+    public long currentMoney = 10000; // 시작 자금
+    public long currentCoins = 10000; // 현재 보유 코인 수량
 
     // 지지도, 의심도 등은 나중에 여기에 추가
 
@@ -70,9 +70,10 @@ public class PlayerManager : MonoBehaviour
         return true;
     }
 
-    // 코인을 사거나 팔 때 호출할 함수
+    // 코인을 사거나 팔 때 호출할 함수. 발행량 조작(소각)은 UI에서 보유량 초과 여부를 막지 않으므로
+    // 여기서 0 밑으로 내려가지 않도록 막는다 (매도는 TradeModalUI가 이미 보유량 이하로 제한한다).
     public void AddCoin(long amount)
     {
-        currentCoins += amount;
+        currentCoins = System.Math.Max(0L, currentCoins + amount);
     }
 }

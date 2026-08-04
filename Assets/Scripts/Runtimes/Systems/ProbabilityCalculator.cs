@@ -13,7 +13,7 @@ public static class ProbabilityCalculator
     // 차도 Support/Growth가 좋으면 Pup이 최대 0.75까지는 유지되도록(= 완전히 압도하지 않도록) 완화했다.
     private const float SupportWeight = 0.25f;
     private const float GrowthWeight = 0.25f;
-    private const float DoubtWeight = 0.25f;
+    private const float DoubtWeight = 0.025f;
 
     public static void Calculate(PlayerStat stat)
     {

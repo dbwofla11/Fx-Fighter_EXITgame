@@ -23,7 +23,7 @@ public class CoinControlModalUI : MonoBehaviour
     public Button btnConfirm;
     public Button btnCancel;
 
-    private const long MaxAdjustAmount = 20000;
+    private const long MaxAdjustAmount = 2000;
 
     private long amount = 0;
     private bool isIncrease = true;

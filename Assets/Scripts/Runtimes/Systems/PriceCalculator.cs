@@ -2,7 +2,7 @@ using UnityEngine;
 
 public static class PriceCalculator
 {
-    private const float MaxSupply = 20000f;
+    private const float MaxSupply = 100000f;
 
     /// <summary>가격이 내려갈 수 있는 최소값. 0 이하로 내려가면 거래(수량×가격) 계산이 깨지고
     /// 이벤트의 priceRatio(가격에 곱하는 충격)도 0에 곱해 무력화되므로 하한선을 둔다.</summary>

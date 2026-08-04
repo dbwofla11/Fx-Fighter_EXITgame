@@ -22,4 +22,6 @@ MonoBehaviour:
   costMultiplier: 1.15
   defaultUnlocked: 0
   isReusable: 0
-  effects: []
+  effects:
+  - effectType: 2
+    value: 25

@@ -18,7 +18,8 @@ public static class StatCalculator
         stat.CurrentPrice = previous.CurrentPrice;
 
         // Support/Growth/Supply는 거래·직업 선택·시사 이벤트로 그 순간 직접 반영되는 값이라, 매 턴 새로 계산하지 않고
-        // 이전 값을 그대로 이어받아 감쇠시킨다 (CurrentPrice와 동일한 이월 패턴).
+        // 이전 값을 그대로 이어받는다 (CurrentPrice와 동일한 이월 패턴). Support/Growth는 매 턴 감쇠하고,
+        // Supply는 반대로 매 턴 자동으로 늘어난다(인플레이션, `TradeCalculator.GrowSupply`).
         stat.Support = previous.Support;
         stat.Growth = previous.Growth;
         stat.Supply = previous.Supply;
@@ -26,6 +27,7 @@ public static class StatCalculator
         stat.JobSkillGrowthBonus = previous.JobSkillGrowthBonus;
         stat.JobSkillDoubtBonus = previous.JobSkillDoubtBonus;
         TradeCalculator.Decay(stat);
+        TradeCalculator.GrowSupply(stat);
 
         // Doubt는 감쇠하지 않고 계속 쌓이는 값이다 (시간이 지날수록 자동으로 100을 향해 오르다가 100이 되면
         // 게임오버가 되는 기획). 매 턴 새로 계산하지 않고 이전 값을 그대로 이어받는다.
@@ -33,12 +35,15 @@ public static class StatCalculator
 
         ApplyJob(stat);
         ApplySkills(stat);
+        ApplyUnlockedPermanentSkillCashBonus(stat);
 
         return stat;
     }
 
     /// <summary>
-    /// Support/Growth/Doubt(모두 -100~100)가 거래·이벤트·스킬 등으로 문서 범위를 벗어나지 않도록 강제한다.
+    /// Support/Growth/Doubt(모두 -100~100)가 거래·이벤트·스킬 등으로 문서 범위를 벗어나지 않도록 강제하고,
+    /// Supply가 보유 코인수량 밑으로 내려가지 않도록 막는다(발행량 조작/이벤트/스킬로 소각하다가 마이너스가
+    /// 되는 버그가 있었다 — 플레이어가 들고 있는 코인보다 발행량이 적을 수는 없다는 게 최소 전제).
     /// 매 턴/시사 이벤트 수동 트리거가 끝나고 EventHub.OnMarketUpdated를 발행하기 직전에 호출한다.
     /// Doubt 하한을 0이 아니라 -100으로 둔 이유 : 하한이 0이면 "일반인" 직업의 초기 -10% 감소 효과가 기본값
     /// 0에서 즉시 0으로 다시 잘려 사실상 무효화됐다. Support/Growth와 동일한 하한으로 맞춰 그 효과가 실제로
@@ -49,6 +54,7 @@ public static class StatCalculator
         stat.Support = Mathf.Clamp(stat.Support, -100f, 100f);
         stat.Growth = Mathf.Clamp(stat.Growth, -100f, 100f);
         stat.Doubt = Mathf.Clamp(stat.Doubt, -100f, 100f);
+        stat.Supply = Mathf.Max(stat.Supply, PlayerManager.Instance.currentCoins);
     }
 
     #endregion
@@ -61,8 +67,10 @@ public static class StatCalculator
     /// 오르는 버그가 생긴다(실제로 겪은 버그, 최초 -10% 같은 1회성 초기 효과가 매 턴 반복 적용됐었음).
     /// Supply도 매 턴 재적용하면 동일한 문제가 생기므로 제외한다(Job은 애초에 Supply를 다루지 않는 설계지만,
     /// 방어적으로 막아둔다).
+    /// `JobManager.SelectJob`이 `ApplyJobSelection` 직후 한 번 더 호출한다 — CashBonus 등은 이 함수에서만
+    /// 채워지는데, 여기서 직접 안 부르면 선택 후 첫 턴이 지나기 전까지 0으로 비어있는 상태가 된다.
     /// </summary>
-    private static void ApplyJob(PlayerStat stat)
+    public static void ApplyJob(PlayerStat stat)
     {
         JobSO job = JobManager.Instance.CurrentJob;
 
@@ -148,6 +156,30 @@ public static class StatCalculator
 
                 ApplyEffect(stat, effect);
             }
+        }
+    }
+
+    /// <summary>
+    /// 재사용 불가(영구형) 스킬의 CashBonus 효과를 매 턴 다시 채운다. `추가발행권한`처럼 CashBonus를 가진
+    /// 재사용 불가 스킬은 "구매하면 영구 해금"이라 `SkillManager.IsUnlocked`가 곧 활성 상태다 — 토글(`IsEnabled`)
+    /// 시스템은 아직 아무 스킬도 쓰지 않는 죽은 기능이라(`SkillManager.GetActiveSkills` 참고) 여기 의존하지 않는다.
+    /// 현재 CashBonus를 가진 재사용 불가 스킬이 `추가발행권한` 하나뿐이라 최소 범위로 이것만 확인한다 — 토글형
+    /// 스킬이 여러 개로 늘어나면 일반화된 활성화 시스템으로 다시 정리해야 한다.
+    /// </summary>
+    public static void ApplyUnlockedPermanentSkillCashBonus(PlayerStat stat)
+    {
+        if (SkillManager.Instance == null || !SkillManager.Instance.IsUnlocked(SkillID.추가발행권한))
+            return;
+
+        SkillSO skill = SkillManager.Instance.GetSkillProfile(SkillID.추가발행권한);
+
+        if (skill == null)
+            return;
+
+        foreach (EffectData effect in skill.effects)
+        {
+            if (effect.effectType == EffectType.CashBonus)
+                stat.CashBonus += effect.value;
         }
     }
 

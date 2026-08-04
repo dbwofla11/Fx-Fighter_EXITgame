@@ -34,7 +34,8 @@ Pdown = 1 - Pup
   (`StatCalculator.ClampStat`, 2026-08-02 수정)
 - ws : 지지도 가중치 = 0.25 (`ProbabilityCalculator.SupportWeight`)
 - wg : 상승률 가중치 = 0.25 (`ProbabilityCalculator.GrowthWeight`)
-- wd : 의심도 가중치 = 0.25 (`ProbabilityCalculator.DoubtWeight`)
+- wd : 의심도 가중치 = 0.025 (`ProbabilityCalculator.DoubtWeight`, 2026-08-04에 0.25 → 0.025로 1/10 낮춤 — Doubt가
+  100까지 차도 가격 상승확률을 거의 못 누르도록 완화)
 
 `ws`/`wg`가 원래 1.0이었을 때는 Support+Growth 합이 50만 넘어도(둘 다 -100~100 범위인데 절반도 안 채운
 수준) score가 1.0을 넘어 `Clamp01`에 걸려 확률이 그대로 100%에 고정돼버리는 문제가 있었다. 게다가
@@ -49,6 +50,8 @@ Support/Growth를 항상 동일한 양만큼 같이 움직이는 탓에(3장 `ws
 `score = 0.5+0.25+0.25-1.0 = 0.0`으로 상승확률이 완전히 0까지 눌려 후반 게임이 사실상 진행 불가능하다는
 피드백을 받았다. `ws`/`wg`와 동일하게 0.25로 낮춰서, Doubt가 100까지 차도 Support/Growth가 최대치면
 `Pup`이 최대 0.75까지는 유지되도록(= Doubt 하나만으로 확률을 완전히 압도하지 못하도록) 완화했다.
+(2026-08-04 추가 조정) 이후 요청으로 `wd`를 0.25 → 0.025로 한 번 더 1/10 낮췄다 — 이제 Doubt=100이어도
+Support/Growth가 최대치면 `Pup`이 최대 0.975까지 유지된다(= Doubt가 상승확률에 주는 영향이 훨씬 작아짐).
 
 Support/Growth는 `CurrentPrice`처럼 턴을 넘어 유지되는 값이다. Job 선택, 거래(Long/Short), 스킬 사용이
 발생하는 순간 그 값에 직접 반영되고, 매 턴 서서히 0으로 감쇠한다 (자세한 내용은 3장 "누적치 감쇠" 참고).
@@ -82,12 +85,16 @@ Price(t)
 
 (`isUp`이면 +, 아니면 -)
 
-- **초기 가격(`MarketManager.InitialPrice`) = 1000**. 게임 시작 시 `CurrentPrice`가 이 값으로 설정된다
-  (이전에는 초기화 코드가 없어 C# 기본값인 0으로 시작했었다 — 아래 "가격 하한선" 참고).
+- **초기 가격(`MarketManager.InitialPrice`) = 10** (2026-08-04, 1000 → 10로 조정). 게임 시작 시 `CurrentPrice`가
+  이 값으로 설정된다 (이전에는 초기화 코드가 없어 C# 기본값인 0으로 시작했었다 — 아래 "가격 하한선" 참고).
 - **가격 하한선(`PriceCalculator.MinPrice`) = 1**. `CurrentPrice`는 절대 이 값 밑으로 내려가지 않는다
   (`PriceCalculator.ClampPrice`가 정규 가격 변화·이벤트 가격 충격 양쪽 모두에 적용된 뒤 강제한다). 0 이하로
   내려가면 거래 계산(수량×가격)이 깨지고 이벤트의 `priceRatio`(가격에 곱하는 충격)도 0에 곱해져 무력화되므로
   반드시 필요한 하한선이다.
+- **표시 형식** (2026-08-04) : `CurrentPrice`는 원래도 `float`였고 타입 변경은 없었다. `UIFormat.CurrencyTight`
+  (`CoinPriceHeaderUI`/`PriceChartUI`가 가격 표시에 쓰는 포맷)만 `"N0"` → `"N3"`로 바꿔 소수점 3자리까지
+  보여주도록 했다 — 초기 가격이 1000→10으로 작아지면서 정수 표시만으로는 변동폭이 잘 안 보이기 때문. 현금
+  표시(`UIFormat.Currency`, `PlayerManager.currentMoney`)는 그대로 정수(`long`)/`"N0"` 유지.
 
 Scarcity는 발행량(Supply)을 기반으로 계산되는 희소성 지표이다.
 
@@ -95,18 +102,34 @@ Scarcity는 발행량(Supply)을 기반으로 계산되는 희소성 지표이�
 
 Scarcity = 100 × (1 - Supply / MaxSupply)
 
-- MaxSupply = 20000 (`PriceCalculator.MaxSupply`)
+- MaxSupply = 100000 (`PriceCalculator.MaxSupply`, 2026-08-04에 20000 → 100000으로 조정)
 - Supply가 0에 가까울수록 Scarcity는 100(최대 희소성)에 가까워지고, Supply가 MaxSupply에 가까워질수록 0에 가까워진다.
-- `PlayerStat.Supply`의 기본값은 0이며, 아래 소스로 변화한다. Job은 Supply에 영향을 주지 않는다.
+- `PlayerStat.Supply`의 초기값은 `InitialSupply(2000) + PlayerManager.currentCoins(10000) = 12000`이다
+  (2026-08-04). 보유 코인도 이미 발행된 코인이라는 지적을 받아, 순수 초기 발행분(`MarketManager.InitialSupply`
+  = 2000, `Awake()`에서 `CurrentPrice`처럼 설정)에 시작 시점 보유 코인만큼을 `Start()`에서 더한다 —
+  `PlayerManager.Instance`가 `Awake()` 시점엔 초기화 순서가 보장되지 않아, 씬의 모든 `Awake`가 끝난 뒤 호출되는
+  `Start()`에서 더했다. 이후 아래 소스로 변화한다. Job은 Supply에 영향을 주지 않는다.
   - 시사 이벤트(4장)의 `EventSO.supplyDelta`
   - 플레이어의 "발행량 조작" 액션 (3장 "발행량 조작") — `추가발행권한` 스킬을 구매해야 사용할 수 있다
   - 재사용형 스킬 구매 시 `EffectType.SupplyIncrease`/`SupplyDecrease` 효과 (`StatCalculator.ApplySkillUse`)
-- Supply는 `Support`/`Growth`와 동일하게 `CurrentPrice`처럼 턴을 넘어 유지되는 값이며, 위 소스가 반영되는 순간 직접
-  반영된 뒤 매 턴 `TradeCalculator.Decay`로 0을 향해 감쇠한다 (decayRate = 0.995, 3장 "누적치 감쇠" 참고).
-- **`MaxSupply = 20000`이 실제 기준값이다.** UI 목업이 "현재 발행량 : 20,000,000개"처럼 더 큰 자릿수를 보여주는
+- (설계 수정, 2026-08-04) Supply는 Support/Growth와 반대로 **매 턴 자동으로 늘어난다** (`TradeCalculator.
+  GrowSupply`, `SupplyGrowthPerTurn = 50`, 채굴/인플레이션 개념). 처음엔 Support/Growth와 동일하게 0을 향해
+  감쇠하도록 짰었는데("발행량이 시간이 지나면 줄어든다"), 실제로는 "턴이 지날수록 늘어나야 한다"는 정정을
+  받아 감쇠 대신 매 턴 고정량 증가로 바꿨다 — `TradeCalculator.SupplyDecayRate`는 삭제, `GrowSupply(stat)`가
+  `StatCalculator.Calculate()`에서 `Decay(stat)` 바로 다음에 호출된다. `SupplyGrowthPerTurn`은 밸런스용 임시
+  수치라 플레이해보고 조정이 필요하다.
+- **`MaxSupply = 100000`이 실제 기준값이다.** UI 목업이 "현재 발행량 : 20,000,000개"처럼 더 큰 자릿수를 보여주는
   경우가 있는데, 이는 `TargetAsset`(5장 참고) 때와 동일하게 예시/목업 수치일 뿐 실제 값이 아니다. 이벤트
   `supplyDelta`, 발행량 조작 버튼의 `amount`, 스킬의 `SupplyIncrease`/`SupplyDecrease` 등 Supply를 바꾸는 모든
-  수치는 이 20000 스케일을 기준으로 정한다.
+  수치는 이 100000 스케일을 기준으로 정한다.
+- **Supply는 보유 코인(`PlayerManager.currentCoins`) 밑으로 못 내려간다** (버그 수정, 2026-08-04).
+  `StatCalculator.ClampStat`이 Support/Growth/Doubt 클램프와 함께 `Supply = Max(Supply, currentCoins)`를
+  강제한다 — 발행량 조작(소각)/이벤트/스킬로 Supply가 깎이다가 마이너스가 되던 버그가 있었다("내가 들고 있는
+  코인보다 전체 발행량이 적을 수는 없다"는 게 최소 전제). 같은 이유로 `PlayerManager.AddCoin`도 `currentCoins`가
+  0 밑으로 내려가지 않게 막는다(소각 반복 시 보유 코인이 함께 마이너스로 내려가던 연쇄 버그) — 매도는
+  `TradeModalUI`가 이미 보유량 이하로 제한하므로 실질적으로는 발행량 조작(소각)에만 영향을 준다.
+  결과적으로 발행량 조작(민팅) 한 번으로 Supply와 `currentCoins`가 같은 방향으로 같이 바뀌므로(3장 참고)
+  두 값은 더 이상 완전히 무관하지 않다.
 
 ---
 
@@ -200,6 +223,13 @@ PriceChangeThisTurn = CurrentPrice(이번 턴 계산 후) - CurrentPrice(이번 
 
 플레이어는 현재 가격으로 즉시 거래한다.
 
+(버그 수정, 2026-08-04) Long/Short/발행량 조작 확정 직후에도 `StatCalculator.ClampStat`을 호출해 Support/Growth
+(-100~100)/Doubt(-100~100) 범위를 즉시 강제한다. 원래 `ClampStat`은 `MarketManager.NextTurn()`/
+`HandleNewsEvent()` 두 곳에만 있었는데(1장 "상한선 초과 버그 수정" 참고), `TradeModalUI`/`CoinControlModalUI`의
+확정 버튼이 `EventHub.RaiseMarketUpdated`를 직접 쏘는 세 번째 경로라는 걸 그때 놓쳤다. 그 결과 거래를 반복하면
+값이 범위를 넘어 계속 오르는데 게이지 막대는 `Clamp01`로 이미 꽉 찬 채라 안 움직여서, "거래해도 스탯이 더 이상
+반영 안 된다"처럼 보였다.
+
 ## Long
 
 - 현재 가격으로 구매 : Cost = Amount × CurrentPrice (현금 감소, 코인 증가)
@@ -229,10 +259,10 @@ Doubt += |Amount| × wd_trade
 
 - ws_trade = 0.1 (Support 가중치)
 - wg_trade = 0.1 (Growth 가중치)
-- wd_trade = 0.02 (Doubt 가중치, `TradeCalculator.DoubtWeightPerTradeCoin`) — Long/Short 둘 다 부호 없이 더해진다
-  (감쇠 없이 그대로 누적, `ManipulateSupply`와 동일한 설계). 거래를 자주/크게 할수록 "시장에서 눈에 띈다"는
-  의미로, 후반 Doubt가 자동으로도 오르는 상황(3장 "Doubt 자동 상승")에 거래까지 더해지면 부담이 커지므로
-  Support/Growth 가중치(0.1)보다 훨씬 작게(1/5) 잡았다.
+- wd_trade = 0.002 (Doubt 가중치, `TradeCalculator.DoubtWeightPerTradeCoin`, 2026-08-04에 0.02 → 0.002로 1/10
+  낮춤) — Long/Short 둘 다 부호 없이 더해진다 (감쇠 없이 그대로 누적, `ManipulateSupply`와 동일한 설계). 거래를
+  자주/크게 할수록 "시장에서 눈에 띈다"는 의미로, 후반 Doubt가 자동으로도 오르는 상황(3장 "Doubt 자동 상승")에
+  거래까지 더해지면 부담이 커지므로 Support/Growth 가중치(0.1)보다 훨씬 작게(1/50) 잡았다.
 - Support/Growth 부호는 Long(+) / Short(-)
 
 ## 발행량 조작
@@ -243,8 +273,13 @@ Long/Short와 마찬가지로 플레이어가 수량을 직접 입력해 즉시 
 - `추가발행권한` 스킬을 구매하기 전에는 사용할 수 없다 (`SkillManager.IsUnlocked(SkillID.추가발행권한)`가 false면
   `MarketManager.HandleManipulateSupply`가 아무 일도 하지 않는다).
 - amount가 양수면 발행량 증가(희석), 음수면 발행량 감소(소각)를 의미한다.
+- (버그 수정, 2026-08-04) 발행/소각한 만큼 `PlayerManager.currentCoins`(보유 코인)도 함께 변한다 — 발행 주체가
+  곧 플레이어 자신이므로, 시장 전체 발행량(Supply)뿐 아니라 그 코인을 실제로 갖게 되는(또는 소각으로 잃는)
+  것까지 한 세트다. 이전에는 `Supply`만 바뀌고 보유 코인수량은 그대로였다.
 
 Supply += amount
+
+PlayerManager.currentCoins += amount
 
 Support -= amount × ws_trade
 
@@ -271,7 +306,7 @@ Growth(t+1) = Growth(t) × decayRate
 - decayRate = 0.995 (매 턴 0.5%씩 감소, 절반이 되는 데 약 138턴)
 - 매 턴(`StatCalculator.Calculate()`, `MarketManager.NextTurn()`에서 호출) 적용된다.
 - 직업(Job)의 Support/Growth 효과도 동일하게 취급한다 — 3-1장 참고.
-- Supply(2장)도 동일한 감쇠 대상이다.
+- Supply(2장)는 반대로 매 턴 자동으로 늘어난다(감쇠 대상이 아니다, `SupplyGrowthPerTurn = 50`, 2026-08-04 정정).
 - **UI 표시 전용 그림자 값** : `PlayerStat.JobSkillSupportBonus`/`JobSkillGrowthBonus`는 Job 선택·재사용형 Skill
   구매가 준 기여분만 Trade/시사 이벤트를 제외하고 별도로 누적하며, `Support`/`Growth`와 동일한 `decayRate`로
   똑같이 감쇠한다. 게임 계산(가격, 확률 등)에는 전혀 관여하지 않고 오직 개요 화면에 "Job+Skill이 지금
@@ -298,6 +333,12 @@ Support/Growth는 그 뒤 거래와 동일하게 감쇠하고, Doubt는 감쇠 �
   `DoubtDecrease`/`DoubtIncrease` 합만큼 동일하게 1회 반영 (전부 1회성)
 - 이후 매 턴 : Support/Growth는 위 "누적치 감쇠" 공식과 동일하게 감쇠, Doubt는 감쇠 없이 그대로 유지
 - 직업의 Support/Growth/Doubt **외** 효과(CashBonus, VolumeIncrease/Decrease, ExitUnlock 등)는 기존처럼 직업을 유지하는 동안 매 턴 계속 재적용된다 (매 턴 새로 계산되는 값이라 감쇠/carry-over 대상이 아님).
+- (버그 수정, 2026-08-04) 위 "매 턴 재적용" 효과들은 `StatCalculator.ApplyJob`이 채우는데, 원래 이 함수가
+  `MarketManager.NextTurn()`을 통해서만 호출돼서 **직업을 고른 시점부터 그 날의 첫 턴이 지나기 전까지는
+  CashBonus 등이 전부 0으로 비어있었다**. 매수/매도 모달이 열려있는 동안은 시간이 멈추므로(3장 참고), 직업
+  선택 직후 바로 거래하면 CashBonus 보너스가 안 붙는 문제로 나타났다. `JobManager.SelectJob`이
+  `ApplyJobSelection` 직후 `StatCalculator.ApplyJob`도 한 번 더 호출하도록 고쳐서, 선택 즉시 이 그룹도
+  채워지게 했다 (그 뒤 매 턴 `NextTurn()`에서 동일한 값으로 다시 계산되므로 중복 반영 문제는 없다).
 
 ---
 
@@ -351,14 +392,36 @@ Support/Growth처럼 값을 쌓아뒀다가 서서히 줄이는 방식이 불가
 즉시 `currentMoney × (해당 스킬의 CashBonus 효과값 / 100)`만큼 현금을 바로 지급한다
 (`SkillManager.GrantCashBonus`). Job/토글형 스킬의 CashBonus(거래 수익 배율)와는 완전히 별개의 경로다.
 
+## 재사용 불가(영구형) 스킬의 CashBonus
+
+(버그 수정, 2026-08-04) `추가발행권한`(재사용 불가, `isReusable == false`)에 CashBonus+15 효과가 있는데,
+`GrantCashBonus`가 `isReusable` 여부를 안 가리고 모든 구매에 적용되고 있어서 이 스킬도 재사용형과 똑같이
+"구매 즉시 현금 한 방"으로 처리되고 있었다 — "현금증가량"(`PlayerStat.CashBonus`, 개요 탭 표시값)은 전혀
+오르지 않아, 이후 Short 거래에서 보너스가 안 붙는 버그였다.
+
+재사용 불가 스킬의 CashBonus는 위 "Job/토글형 스킬의 CashBonus"와 같은 그룹(활성 상태인 동안 매 턴 다시 채워짐)
+이어야 하는 게 맞는 설계다. 다만 토글(`SkillManager.IsEnabled`/`EnableSkill`/`DisableSkill`) 시스템 자체가
+아직 어느 스킬도 쓰지 않는 미완성 상태고(`StatCalculator.ApplySkills`가 `IsEnabled` 대상 스킬만 보는데, 이 함수는
+`ApplyJob`과 달리 Support/Growth/DoubtIncrease/DoubtDecrease를 매 턴 재적용 대상에서 빼지 않아서 그대로 켜면
+구매 시 이미 1회 반영된 효과가 매 턴 또 쌓이는 훨씬 심각한 회귀가 생긴다 — 이번 수정 범위에서는 손대지 않음),
+최소 범위로 `추가발행권한` 하나만 다음처럼 처리한다.
+
+- `GrantCashBonus`(즉시 현금 지급)는 `isReusable == true`인 스킬에만 적용한다.
+- 재사용 불가 스킬은 구매 즉시 `StatCalculator.ApplyUnlockedPermanentSkillCashBonus`로 CashBonus 효과값을
+  `PlayerStat.CashBonus`에 바로 더하고, 이후 매 턴(`StatCalculator.Calculate()`)에도 같은 함수를 다시 호출해
+  값을 유지한다. `SkillManager.IsUnlocked(SkillID.추가발행권한)`(비가역적 영구 해금 플래그)로만 판단하므로
+  `IsEnabled` 토글 시스템에는 의존하지 않는다.
+- CashBonus를 가진 재사용 불가 스킬이 늘어나면(현재는 `추가발행권한` 하나) 이 하드코딩된 단일 스킬 체크를
+  일반화된 활성화 시스템으로 다시 정리해야 한다 (`Next_Tesk.md` 후보로 남김).
+
 ---
 
 # 4. 시사 이벤트
 
 시사 이벤트는 발생하는 즉시, 뽑힌 `EventSO`가 정의한 만큼 Support/Growth/Doubt/Supply/가격에 직접 반영된다
 (`EventCalculator.Calculate(PlayerStat stat, IReadOnlyList<EventSO> eventDatabase)`).
-Support/Growth/Supply는 Trade/Job과 동일하게 반영 후 매 턴 감쇠하지만, Doubt는 감쇠하지 않고 그대로 유지된다
-(3장 참고).
+Support/Growth는 Trade/Job과 동일하게 반영 후 매 턴 감쇠하고, Supply는 반영 후에도 매 턴 자동 증가가 계속
+적용된다. Doubt는 감쇠하지 않고 그대로 유지된다 (3장 참고).
 
 ## 발생 시점
 
@@ -408,7 +471,7 @@ Pup_event = Clamp(0.5 + PositiveEventRate / 100 - NegativeEventRate / 100, 0, 1)
 
 - Support/Growth/Doubt : `chosen.effects`를 하나씩 `StatCalculator.ApplyEffect(stat, effect)`로 적용 (Job/Skill과
   동일한 함수 재사용). Support/Growth는 이후 매 턴 감쇠(3장), Doubt는 감쇠하지 않고 그대로 누적(3장)
-- Supply : `stat.Supply += chosen.supplyDelta` (이후 매 턴 감쇠, 2장 참고)
+- Supply : `stat.Supply += chosen.supplyDelta` (이후 매 턴 자동 증가가 계속 적용됨, 2장 참고)
 - 가격 : `stat.CurrentPrice += stat.CurrentPrice × chosen.priceRatio` — 그 턴의 `PriceCalculator` 정규 가격
   변화(2장 공식)와는 별개로 이벤트가 즉시 일으키는 1회성 충격이며, 감쇠하지 않는다.
 
@@ -460,7 +523,8 @@ Doubt는 시간이 지나면 저절로 오르는 지표다. 게임 시간으로 
 
 ## 공통 사항
 
-- **목표 자산(TargetAsset) = 1,000,000,000** (`MarketManager.TargetAsset`). 시작 자금(10,000,000)의 100배.
+- **목표 자산(TargetAsset) = 500,000,000** (`MarketManager.TargetAsset`, 2026-08-04에 1,000,000,000 → 절반으로
+  조정). 시작 자금(10,000, 같은 날 10,000,000 → 조정)의 50,000배.
 - "엑시트" 버튼(2/3번)은 **현금이 목표 자산 이상일 때만** 누를 수 있다 (`MarketManager.CanExit`). 코인 보유량은
   조건에 포함되지 않는다 — 코인을 안 팔고 그대로 들고 있어도 현금만 충분하면 버튼이 활성화된다.
 - `PlayerStat.ExitUnlocked`(스킬의 `EffectType.ExitUnlock`으로 해금되는 기존 플래그)는 **이 엑시트 버튼과 무관**하다.

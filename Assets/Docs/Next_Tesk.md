@@ -10,6 +10,7 @@
 | 7 | 밸런스 수치 조정 | 캔들/확률 등, 실제 플레이 후 |
 | 9 | 엔딩 결과 화면 UI 재작업 | 로직(`EndingResultUI`의 `EventHub.OnGameEnded` 구독/문구 표시)은 유지, Figma에 새 목업 올라오면 비주얼만 교체 |
 | 11 | 스킬 `SkillCategory` 데이터 배분 | 현재 6개 전부 `CoinDesign` — 스킬 패널 탭 3개(시장 조작/여론 조작/방어 및 엑시트)가 비어 있음, `Issues/Issue_SkillPanel.md` 참고. 최근 추가된 여론조작 아이콘(SNS조작/홍보조작/언론조작)용 `SkillID`/`SkillSO`도 아직 없음 |
+| 12 | 토글형(재사용 불가) 스킬 활성화 시스템 일반화 | `SkillManager.IsEnabled`/`EnableSkill`/`DisableSkill`이 어느 스킬에도 안 쓰이는 죽은 기능. `추가발행권한`의 CashBonus만 `StatCalculator.ApplyUnlockedPermanentSkillCashBonus`로 최소 범위 땜빵함(`Game_Formula.md` 3-3장 참고) — CashBonus 있는 재사용 불가 스킬이 늘어나거나 다른 효과 타입도 "활성 상태 유지 중 매 턴 재적용"이 필요해지면, `StatCalculator.ApplySkills`가 `ApplyJob`처럼 Support/Growth/DoubtIncrease/DoubtDecrease를 재적용 대상에서 빼도록 먼저 고친 뒤 `IsEnabled`를 실제로 켜는 UI/로직을 연결해야 한다 |
 
 (각 항목의 자세한 내용은 아래 섹션 및 `Completed_Tasks.md`/`Logging.md` 참고.)
 

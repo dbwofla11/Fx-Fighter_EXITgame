@@ -100,8 +100,21 @@ public class SkillManager : MonoBehaviour
 
         StatCalculator.ApplySkillUse(MarketManager.Instance.CurrentStat, skill.Profile);
         StatCalculator.ClampStat(MarketManager.Instance.CurrentStat);
-        GrantCashBonus(skill.Profile);
-        skill.IsUnlocked = true;
+
+        // 재사용형은 즉시 현금 지급(GrantCashBonus), 재사용 불가(영구형)는 "현금증가량"(PlayerStat.CashBonus) %
+        // 버프로 반영한다 — 후자를 여기서 즉시 한 번 채워두지 않으면 이번 턴이 끝나기 전까지 0으로 비어있다
+        // (IsUnlocked를 먼저 세운 뒤 호출해야 ApplyUnlockedPermanentSkillCashBonus의 해금 체크를 통과한다).
+        if (skill.Profile.isReusable)
+        {
+            GrantCashBonus(skill.Profile);
+            skill.IsUnlocked = true;
+        }
+        else
+        {
+            skill.IsUnlocked = true;
+            StatCalculator.ApplyUnlockedPermanentSkillCashBonus(MarketManager.Instance.CurrentStat);
+        }
+
         skill.PurchaseCount++;
 
         EventHub.RaiseMarketUpdated(MarketManager.Instance.CurrentStat);

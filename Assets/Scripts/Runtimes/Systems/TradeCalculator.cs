@@ -9,11 +9,14 @@ public static class TradeCalculator
     private const float SupportWeightPerCoin = 0.1f;
     private const float GrowthWeightPerCoin = 0.1f;
     private const float DoubtWeightPerSupplyUnit = 0.1f;
-    private const float DoubtWeightPerTradeCoin = 0.02f;
+    private const float DoubtWeightPerTradeCoin = 0.002f;
 
     private const float SupportDecayRate = 0.995f;
     private const float GrowthDecayRate = 0.995f;
-    private const float SupplyDecayRate = 0.995f;
+
+    // 발행량은 Support/Growth와 반대로 시간이 지날수록(매 턴) 자동으로 늘어난다 — 채굴/인플레이션 개념.
+    // ponytail: 밸런스용 임시 수치, 실제 플레이해보고 조정 필요.
+    private const float SupplyGrowthPerTurn = 50f;
 
     // Long : 구매 -> Support/Growth 증가. 거래 자체가 시장에 눈에 띄는 움직임이라 방향과 무관하게 Doubt도
     // 수량에 비례해 조금씩 오른다 (감쇠 없이 그대로 누적, ManipulateSupply와 동일한 설계).
@@ -42,7 +45,7 @@ public static class TradeCalculator
         stat.Doubt += Math.Abs(amount) * DoubtWeightPerSupplyUnit;
     }
 
-    // 시간이 지나면 Support/Growth/Supply가 0으로 서서히 수렴한다. Doubt는 감쇠 대상이 아니다 (Game_Formula.md 3장 참고).
+    // 시간이 지나면 Support/Growth가 0으로 서서히 수렴한다. Doubt는 감쇠 대상이 아니다 (Game_Formula.md 3장 참고).
     // JobSkillSupportBonus/GrowthBonus(UI 표시용, Job+Skill 기여분만 별도 추적)도 Support/Growth와 동일하게 감쇠시킨다.
     public static void Decay(PlayerStat stat)
     {
@@ -50,5 +53,11 @@ public static class TradeCalculator
         stat.Growth *= GrowthDecayRate;
         stat.JobSkillSupportBonus *= SupportDecayRate;
         stat.JobSkillGrowthBonus *= GrowthDecayRate;
+    }
+
+    // 매 턴 자동으로 발행량이 늘어난다 (인플레이션). 발행량 조작/이벤트/스킬로 늘고 주는 것과는 별개로 항상 적용.
+    public static void GrowSupply(PlayerStat stat)
+    {
+        stat.Supply += SupplyGrowthPerTurn;
     }
 }

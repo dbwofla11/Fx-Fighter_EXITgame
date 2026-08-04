@@ -24,4 +24,6 @@ MonoBehaviour:
   isReusable: 0
   effects:
   - effectType: 0
-    value: 10
+    value: 15
+  - effectType: 1
+    value: 5

@@ -23,5 +23,7 @@ MonoBehaviour:
   defaultUnlocked: 0
   isReusable: 0
   effects:
+  - effectType: 0
+    value: -10
   - effectType: 2
-    value: 10
+    value: 15
