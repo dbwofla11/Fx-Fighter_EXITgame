@@ -40,6 +40,7 @@ public static class EventEffectFormatter
             EffectType.VolumeIncrease or EffectType.VolumeDecrease => "코인 거래량",
             EffectType.ExitUnlock => "엑시트 조건",
             EffectType.SupplyIncrease or EffectType.SupplyDecrease => "발행량",
+            EffectType.SupplyGrowthSuppress => "발행량 증가 억제",
             _ => effect.effectType.ToString(),
         };
 

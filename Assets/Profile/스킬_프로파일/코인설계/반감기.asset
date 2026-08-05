@@ -21,9 +21,9 @@ MonoBehaviour:
   baseCost: 200000
   costMultiplier: 1.15
   defaultUnlocked: 0
-  isReusable: 0
+  isReusable: 1
   effects:
   - effectType: 11
-    value: 30
+    value: 3000
   - effectType: 1
     value: 10
