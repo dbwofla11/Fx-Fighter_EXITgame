@@ -95,11 +95,11 @@ public class PriceChartUI : MonoBehaviour
         EventHub.OnGameEnded -= HandleGameEnded;
     }
 
-    // 체포 엔딩 확정 : 차트 전체가 아니라 캔들 하나하나가 따로 떨어진다 — 인덱스만큼 시작을 늦춰서
+    // 체포/거지 엔딩 확정 : 차트 전체가 아니라 캔들 하나하나가 따로 떨어진다 — 인덱스만큼 시작을 늦춰서
     // 왼쪽(오래된 캔들)부터 순서대로 무너지는 것처럼 보이게 한다.
     private void HandleGameEnded(EndingType ending)
     {
-        if (ending != EndingType.Arrest)
+        if (ending != EndingType.Arrest && ending != EndingType.Broke)
             return;
 
         for (int i = 0; i < candlePool.Count; i++)

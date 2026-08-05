@@ -10,4 +10,5 @@ public static class GameSceneManager
 
     public static void LoadCharacterSelect() => SceneManager.LoadScene(CharacterSelectScene);
     public static void LoadMainGame() => SceneManager.LoadScene(MainScene);
+    public static void LoadTitle() => SceneManager.LoadScene(TitleScene);
 }

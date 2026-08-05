@@ -113,7 +113,7 @@ public class StatGaugeUI : MonoBehaviour
 
     private void HandleGameEnded(EndingType ending)
     {
-        if (ending != EndingType.Arrest)
+        if (ending != EndingType.Arrest && ending != EndingType.Broke)
             return;
 
         if (shakeRoutine != null)
@@ -121,7 +121,7 @@ public class StatGaugeUI : MonoBehaviour
         StartCoroutine(CollapseRoutine());
     }
 
-    // 체포 확정 : 흔들리던 패널이 아래로 무너지듯 떨어지며 페이드아웃된다.
+    // 체포/거지 확정 : 흔들리던 패널이 아래로 무너지듯 떨어지며 페이드아웃된다.
     private IEnumerator CollapseRoutine()
     {
         CanvasGroup group = GetComponent<CanvasGroup>();

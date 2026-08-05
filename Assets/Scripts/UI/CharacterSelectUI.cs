@@ -94,6 +94,17 @@ public class CharacterSelectUI : MonoBehaviour
 
     private void ConfirmSelection()
     {
+        // Managers는 SampleScene에만 있어서 최초 실행(1회차)엔 아직 안 만들어져 있다 — 그땐 각 Manager의
+        // Awake가 알아서 초기값을 세팅하므로 리셋이 필요 없다. "게임종료"로 타이틀에 돌아왔다가 다시
+        // 시작하는 2회차부터는 DontDestroyOnLoad로 남아있는 이전 판 데이터를 여기서 명시적으로 지워야 한다.
+        if (PlayerManager.Instance != null)
+        {
+            PlayerManager.Instance.ResetState();
+            MarketManager.Instance.ResetState();
+            TimeManager.Instance.ResetState();
+            SkillManager.Instance.ResetState();
+        }
+
         JobSelectionHandoff.SelectedJob = jobs[selectedIndex];
         GameSceneManager.LoadMainGame();
     }

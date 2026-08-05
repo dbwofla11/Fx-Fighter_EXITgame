@@ -76,4 +76,11 @@ public class PlayerManager : MonoBehaviour
     {
         currentCoins = System.Math.Max(0L, currentCoins + amount);
     }
+
+    // 새 게임 시작 시 CharacterSelectUI가 호출한다 (DontDestroyOnLoad라 두 번째 플레이부터는 Awake가 다시 안 불림).
+    public void ResetState()
+    {
+        currentMoney = 10000;
+        currentCoins = 10000;
+    }
 }

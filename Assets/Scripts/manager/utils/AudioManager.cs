@@ -15,9 +15,12 @@ public class AudioManager : MonoBehaviour
     public float crossFadeDuration = 1.0f; // 크로스페이드에 걸리는 시간 (1초)
 
 // 유니티 인스펙터에서 슬라이더로 볼륨 조절 가능 (0.0 ~ 1.0)
-    [Range(0f, 1f)] public float bgmVolume = 0.3f; 
+    [Range(0f, 1f)] public float bgmVolume = 0.3f;
     [Range(0f, 1f)] public float sfxVolume = 0.5f;
     private bool isPlayingSourceA = true; // 현재 A 재생기를 쓰고 있는지 여부
+
+    private const string BgmVolumeKey = "BgmVolume";
+    private const string SfxVolumeKey = "SfxVolume";
 
     private void Awake()
     {
@@ -25,11 +28,30 @@ public class AudioManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject); // 씬이 넘어가도 배경음악이 끊기지 않게 유지
+
+            // 저장된 볼륨 설정 복원 (없으면 인스펙터 기본값 유지)
+            bgmVolume = PlayerPrefs.GetFloat(BgmVolumeKey, bgmVolume);
+            sfxVolume = PlayerPrefs.GetFloat(SfxVolumeKey, sfxVolume);
         }
         else
         {
             Destroy(gameObject);
         }
+    }
+
+    // 설정 UI 슬라이더에서 호출: 현재 재생 중인 BGM 볼륨도 즉시 반영
+    public void SetBgmVolume(float volume)
+    {
+        bgmVolume = Mathf.Clamp01(volume);
+        AudioSource activeSource = isPlayingSourceA ? bgmSourceA : bgmSourceB;
+        if (activeSource != null) activeSource.volume = bgmVolume;
+        PlayerPrefs.SetFloat(BgmVolumeKey, bgmVolume);
+    }
+
+    public void SetSfxVolume(float volume)
+    {
+        sfxVolume = Mathf.Clamp01(volume);
+        PlayerPrefs.SetFloat(SfxVolumeKey, sfxVolume);
     }
 
 // BGM 재생 (크로스페이드 적용)
@@ -73,6 +95,16 @@ public class AudioManager : MonoBehaviour
         activeSource.Stop();
         nextSource.volume = targetVolume;
     }
+    // 브금을 완전히 멈춘다 (타이틀로 돌아갈 때 메인 게임 브금이 계속 들리는 문제 방지용)
+    public void StopBGM()
+    {
+        StopAllCoroutines(); // 진행 중이던 크로스페이드가 있으면 취소
+        bgmSourceA.Stop();
+        bgmSourceB.Stop();
+        bgmSourceA.volume = 0f;
+        bgmSourceB.volume = 0f;
+    }
+
     // SFX (효과음) 재생
     public void PlaySFX(AudioClip clip)
     {

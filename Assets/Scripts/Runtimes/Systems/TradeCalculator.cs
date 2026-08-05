@@ -13,7 +13,8 @@ public static class TradeCalculator
     // 너무 크게 흔들린다는 피드백으로 5분의 1로 낮춤(2026-08-05). ManipulateSupply는 그대로 0.1 유지.
     private const float TradeSupportWeightPerCoin = 0.005f;
     private const float TradeGrowthWeightPerCoin = 0.005f;
-    private const float DoubtWeightPerSupplyUnit = 0.1f;
+    // 발행량 조작 시 의심도가 너무 빨리 오른다는 피드백으로 10분의 1로 낮춤(2026-08-05).
+    private const float DoubtWeightPerSupplyUnit = 0.01f;
     private const float DoubtWeightPerTradeCoin = 0.002f;
 
     private const float SupportDecayRate = 0.995f;
@@ -46,11 +47,11 @@ public static class TradeCalculator
         return Math.Abs(amount) * DoubtWeightPerTradeCoin;
     }
 
-    // 이번 거래로 Doubt가 100(체포 엔딩 기준)을 넘지 않는 한도 내에서 최대로 거래 가능한 수량.
+    // 이번 거래로 Doubt가 99(체포 엔딩 기준 100 바로 아래)를 넘지 않는 한도 내에서 최대로 거래 가능한 수량.
     // 거래 모달의 슬라이더/+MAX 버튼이 잔고 기준 최대치와 이 값 중 더 작은 쪽을 쓴다.
     public static long MaxTradeAmountByDoubt(float currentDoubt)
     {
-        float headroom = 100f - currentDoubt;
+        float headroom = 99f - currentDoubt;
         return headroom <= 0f ? 0L : (long)(headroom / DoubtWeightPerTradeCoin);
     }
 

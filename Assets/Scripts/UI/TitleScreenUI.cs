@@ -5,16 +5,29 @@ using UnityEngine.UI;
 public class TitleScreenUI : MonoBehaviour
 {
     [SerializeField] private Button startButton;
+    [SerializeField] private Button quitAppButton; // "완전 게임종료" — 앱 자체를 끈다 (SettingsUI의 "게임종료"는 여기로 돌아올 뿐, 앱 종료는 여기서만)
 
     private void Start()
     {
-        if (startButton == null)
-            return;
+        if (startButton != null)
+        {
+            startButton.onClick.AddListener(() => GameSceneManager.LoadCharacterSelect());
 
-        startButton.onClick.AddListener(() => GameSceneManager.LoadCharacterSelect());
+            // "게임 시작"만 매수·매도 버튼과 같은 둥둥 뜨는 idle 애니메이션을 쓴다 (HoverIdleBob 재사용,
+            // 호버 대상이 아니라 alwaysActive로 항상 재생되게 한다). 타이틀/부제목은 고정.
+            startButton.gameObject.AddComponent<HoverIdleBob>().SetAlwaysActive(true);
+        }
 
-        // "게임 시작"만 매수·매도 버튼과 같은 둥둥 뜨는 idle 애니메이션을 쓴다 (HoverIdleBob 재사용,
-        // 호버 대상이 아니라 alwaysActive로 항상 재생되게 한다). 타이틀/부제목은 고정.
-        startButton.gameObject.AddComponent<HoverIdleBob>().SetAlwaysActive(true);
+        if (quitAppButton != null)
+            quitAppButton.onClick.AddListener(QuitApplication);
+    }
+
+    private void QuitApplication()
+    {
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
     }
 }
