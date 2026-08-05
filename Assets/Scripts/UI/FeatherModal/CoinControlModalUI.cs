@@ -36,7 +36,7 @@ public class CoinControlModalUI : MonoBehaviour
     private static readonly Color AddModeColor = new Color(0.7f, 0.7f, 0.74f);
 
     // Max 상한은 잔고가 아닌 정책값. 슬라이더 오른쪽 끝과 +MAX 버튼이 이 값을 공유한다.
-    private const long MaxAdjustAmount = 2000;
+    private const long MaxAdjustAmount = 100000;
 
     private long amount = 0;
 

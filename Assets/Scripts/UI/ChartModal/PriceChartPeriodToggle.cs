@@ -12,12 +12,16 @@ public class PriceChartPeriodToggle
     private const float RightPadding = 12f;
     private const float TopPadding = 8f;
 
+    private const float VolumeTurnsLabelWidth = 150f;
+    private const float VolumeTurnsLabelGap = 10f;
+
     private readonly PriceChartViewport viewport;
     private readonly Color activeColor;
     private readonly Color inactiveColor;
 
     private readonly TextMeshProUGUI monthLabel;
     private readonly TextMeshProUGUI weekLabel;
+    private readonly TextMeshProUGUI volumeTurnsLabel;
 
     public event Action Changed;
 
@@ -31,11 +35,44 @@ public class PriceChartPeriodToggle
         // 오른쪽부터: 주봉, 그 왼쪽에 월봉 — "월봉","주봉" 순서로 왼→오 읽히게 배치.
         float weekX = -RightPadding;
         float monthX = weekX - ButtonWidth - ButtonGap;
+        // 거래량 버프 남은 턴 표시는 월봉 버튼 바로 왼쪽에 둔다 (StatCalculator.VolumeBuffDurationTurns 참고).
+        float volumeTurnsX = monthX - ButtonWidth - VolumeTurnsLabelGap;
 
         monthLabel = CreateButton(chartArea, "월봉", fontSize, monthX, () => SetPeriod(PriceChartViewport.MonthDays));
         weekLabel = CreateButton(chartArea, "주봉", fontSize, weekX, () => SetPeriod(PriceChartViewport.WeekDays));
+        volumeTurnsLabel = CreateLabel(chartArea, fontSize, volumeTurnsX, VolumeTurnsLabelWidth);
 
         Refresh();
+    }
+
+    private TextMeshProUGUI CreateLabel(RectTransform chartArea, int fontSize, float x, float width)
+    {
+        GameObject go = new GameObject("VolumeTurnsLabel", typeof(RectTransform), typeof(TextMeshProUGUI));
+        go.transform.SetParent(chartArea, false);
+
+        RectTransform rect = (RectTransform)go.transform;
+        rect.anchorMin = new Vector2(1f, 1f);
+        rect.anchorMax = new Vector2(1f, 1f);
+        rect.pivot = new Vector2(1f, 1f);
+        rect.anchoredPosition = new Vector2(x, -TopPadding);
+        rect.sizeDelta = new Vector2(width, fontSize + 8f);
+
+        TextMeshProUGUI text = go.GetComponent<TextMeshProUGUI>();
+        text.fontSize = fontSize;
+        text.alignment = TextAlignmentOptions.Right;
+        text.raycastTarget = false;
+        text.color = activeColor;
+        go.SetActive(false); // 버프가 없을 때는 숨긴다 — "0턴"으로 보이면 오히려 오해를 준다.
+
+        return text;
+    }
+
+    // 거래량 버프(VolumeBuffTurnsRemaining) 남은 턴을 표시한다. 0이면(버프 없음) 라벨 자체를 숨긴다.
+    public void UpdateVolumeTurns(int turnsRemaining)
+    {
+        volumeTurnsLabel.gameObject.SetActive(turnsRemaining > 0);
+        if (turnsRemaining > 0)
+            volumeTurnsLabel.text = "거래량 " + turnsRemaining + "턴 남음";
     }
 
     private TextMeshProUGUI CreateButton(RectTransform chartArea, string label, int fontSize, float x, UnityEngine.Events.UnityAction onClick)

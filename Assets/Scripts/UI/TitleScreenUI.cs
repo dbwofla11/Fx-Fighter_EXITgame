@@ -6,9 +6,13 @@ public class TitleScreenUI : MonoBehaviour
 {
     [SerializeField] private Button startButton;
     [SerializeField] private Button quitAppButton; // "완전 게임종료" — 앱 자체를 끈다 (SettingsUI의 "게임종료"는 여기로 돌아올 뿐, 앱 종료는 여기서만)
+    [SerializeField] private AudioClip titleBgmClip; // GameStarter.mainBgmClip과 동일한 패턴 (AudioManager.PlayBGM)
 
     private void Start()
     {
+        if (AudioManager.Instance != null && titleBgmClip != null)
+            AudioManager.Instance.PlayBGM(titleBgmClip);
+
         if (startButton != null)
         {
             startButton.onClick.AddListener(() => GameSceneManager.LoadCharacterSelect());

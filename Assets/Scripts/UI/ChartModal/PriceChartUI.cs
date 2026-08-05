@@ -141,6 +141,7 @@ public class PriceChartUI : MonoBehaviour, IScrollHandler, IBeginDragHandler, ID
             return;
 
         periodToggle.Refresh(); // Ctrl+휠로 기간이 바뀌었을 수도 있으니 버튼 표시도 매번 동기화한다.
+        periodToggle.UpdateVolumeTurns(MarketManager.Instance.CurrentStat.VolumeBuffTurnsRemaining);
 
         IReadOnlyList<PricePoint> daily = MarketManager.Instance.PriceHistory;
         List<PricePoint> history = AggregateHistory(daily, viewport.PeriodDays);
