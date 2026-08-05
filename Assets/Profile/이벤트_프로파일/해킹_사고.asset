@@ -17,10 +17,10 @@ MonoBehaviour:
   weight: 0.5
   effects:
   - effectType: 0
-    value: -25
+    value: -12.5
   - effectType: 1
-    value: -20
+    value: -10
   - effectType: 9
-    value: 15
-  supplyDelta: 400
-  priceRatio: -0.11
+    value: 7.5
+  supplyDelta: 200
+  priceRatio: -0.055

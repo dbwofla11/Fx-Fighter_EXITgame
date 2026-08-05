@@ -17,11 +17,11 @@ MonoBehaviour:
   weight: 0.5
   effects:
   - effectType: 0
-    value: -12.5
+    value: -6.25
   - effectType: 1
-    value: -10
+    value: -5
   - effectType: 9
-    value: 7.5
-  supplyDelta: 200
-  priceRatio: -0.055
+    value: 3.75
+  supplyDelta: 100
+  priceRatio: -0.0275
   guaranteedTurn: 0
