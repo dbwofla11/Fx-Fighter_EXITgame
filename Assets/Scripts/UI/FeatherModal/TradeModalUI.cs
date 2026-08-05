@@ -78,8 +78,7 @@ public class TradeModalUI : MonoBehaviour
 
     public void Open(TradeMode tradeMode)
     {
-        // UI 필드 중 하나가 끊겨 있어도 일시정지만은 항상 걸리도록 제일 먼저 호출한다.
-        EventHub.RaiseGamePaused();
+        ModalPause.Open(panel);
 
         isOpen = true;
         mode = tradeMode;
@@ -90,9 +89,6 @@ public class TradeModalUI : MonoBehaviour
         if (titleText != null)
             titleText.text = mode == TradeMode.Long ? "코인을 얼마나 매수할까요?" : "코인을 얼마나 매도할까요?";
 
-        if (panel != null)
-            panel.SetActive(true);
-
         RefreshSliderRange();
         RefreshTradeAmountText();
         RefreshPreviewAndConfirmState();
@@ -100,12 +96,9 @@ public class TradeModalUI : MonoBehaviour
 
     private void Close()
     {
-        // 일시정지 해제도 다른 필드 상태와 무관하게 항상 먼저 호출한다.
-        EventHub.RaiseGameResumed();
+        ModalPause.Close(panel);
 
         isOpen = false;
-        if (panel != null)
-            panel.SetActive(false);
         tradeAmount = 0;
     }
 

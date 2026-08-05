@@ -47,7 +47,6 @@ public static class StatCalculator
 
         ApplyJob(stat);
         ApplySkills(stat);
-        ApplyUnlockedPermanentSkillCashBonus(stat);
 
         return stat;
     }
@@ -112,27 +111,36 @@ public static class StatCalculator
             return;
 
         foreach (EffectData effect in job.effects)
+            ApplyOneShotBonusEffect(stat, effect, clampDoubtFloor: false);
+    }
+
+    /// <summary>
+    /// 직업 선택(`ApplyJobSelection`)/스킬 사용(`ApplySkillUse`) 시점에 1회만 반영되는 Support/Growth/Doubt
+    /// 효과의 공통 로직 — 개요 화면 표시용 그림자 필드(`JobSkillXBonus`)까지 같이 갱신한다. Doubt 감소만
+    /// 스킬 쪽이 Job과 달리 0 밑으로 안 내려가는 차이가 있어(설계상 의도) `clampDoubtFloor`로 분기한다.
+    /// Support/Growth/Doubt 외 타입(Supply/Volume 등)은 호출자가 각자 처리하므로 여기서 다루지 않는다.
+    /// </summary>
+    private static void ApplyOneShotBonusEffect(PlayerStat stat, EffectData effect, bool clampDoubtFloor)
+    {
+        if (effect.effectType == EffectType.SupportIncrease)
         {
-            if (effect.effectType == EffectType.SupportIncrease)
-            {
-                stat.Support += effect.value;
-                stat.JobSkillSupportBonus += effect.value;
-            }
-            else if (effect.effectType == EffectType.GrowthIncrease)
-            {
-                stat.Growth += effect.value;
-                stat.JobSkillGrowthBonus += effect.value;
-            }
-            else if (effect.effectType == EffectType.DoubtDecrease)
-            {
-                stat.Doubt -= effect.value;
-                stat.JobSkillDoubtBonus -= effect.value;
-            }
-            else if (effect.effectType == EffectType.DoubtIncrease)
-            {
-                stat.Doubt += effect.value;
-                stat.JobSkillDoubtBonus += effect.value;
-            }
+            stat.Support += effect.value;
+            stat.JobSkillSupportBonus += effect.value;
+        }
+        else if (effect.effectType == EffectType.GrowthIncrease)
+        {
+            stat.Growth += effect.value;
+            stat.JobSkillGrowthBonus += effect.value;
+        }
+        else if (effect.effectType == EffectType.DoubtDecrease)
+        {
+            stat.Doubt = clampDoubtFloor ? Mathf.Max(0f, stat.Doubt - effect.value) : stat.Doubt - effect.value;
+            stat.JobSkillDoubtBonus -= effect.value;
+        }
+        else if (effect.effectType == EffectType.DoubtIncrease)
+        {
+            stat.Doubt += effect.value;
+            stat.JobSkillDoubtBonus += effect.value;
         }
     }
 
@@ -141,9 +149,14 @@ public static class StatCalculator
     #region 스킬 효과
 
     /// <summary>
-    /// 활성화된 토글형(재사용 불가) 스킬들의 Effect를 매 턴 재적용한다.
+    /// 활성화된(`IsEnabled`) 토글형(재사용 불가) 스킬들의 Effect를 매 턴 재적용한다.
     /// 재사용형 스킬은 사용 시점에 ApplySkillUse로 1회 반영되고 이후 감쇠하므로 여기서 제외한다.
-    /// Supply/Volume도 감쇠·버프 만료 대상이라 토글형 스킬에서 매 턴 재적용하면 무한정 증가하므로 제외한다.
+    /// Support/Growth/DoubtIncrease/DoubtDecrease도 ApplyJob과 동일한 이유로 제외한다 — 구매 시점에
+    /// ApplySkillUse가 이미 1회 반영했고, 이후 감쇠(Support/Growth)하거나 계속 누적(Doubt)되는 게 의도된
+    /// 동작이라 매 턴 다시 더하면 무한정 쌓이는 버그가 된다(과거 Job의 DoubtDecrease 매 턴 재적용 버그와 동일
+    /// 패턴, `Completed_Tasks.md` 참고). Supply/Volume도 감쇠·버프 만료 대상이라 제외한다. 남는 건
+    /// CashBonus/PositiveEventRate/NegativeEventRate/ExitUnlock처럼 매 턴 새로 계산되는(감쇠 없는) 값들뿐이라
+    /// 그대로 재적용해도 안전하다.
     /// </summary>
     private static void ApplySkills(PlayerStat stat)
     {
@@ -154,46 +167,28 @@ public static class StatCalculator
             if (skill.Profile.isReusable)
                 continue;
 
-            foreach (EffectData effect in skill.Profile.effects)
-            {
-                if (effect.effectType == EffectType.SupplyIncrease || effect.effectType == EffectType.SupplyDecrease
-                    || effect.effectType == EffectType.SupplyGrowthSuppress
-                    || effect.effectType == EffectType.VolumeIncrease || effect.effectType == EffectType.VolumeDecrease)
-                    continue;
-
-                // 스킬로 인한 감소는 Job과 달리 0 밑으로 내려가지 않는다 (ApplyEffect는 Event에서도 재사용되므로 여기서만 분기).
-                if (effect.effectType == EffectType.DoubtDecrease)
-                {
-                    stat.Doubt = Mathf.Max(0f, stat.Doubt - effect.value);
-                    continue;
-                }
-
-                ApplyEffect(stat, effect);
-            }
+            ApplyToggleSkillEffects(stat, skill.Profile);
         }
     }
 
     /// <summary>
-    /// 재사용 불가(영구형) 스킬의 CashBonus 효과를 매 턴 다시 채운다. `추가발행권한`처럼 CashBonus를 가진
-    /// 재사용 불가 스킬은 "구매하면 영구 해금"이라 `SkillManager.IsUnlocked`가 곧 활성 상태다 — 토글(`IsEnabled`)
-    /// 시스템은 아직 아무 스킬도 쓰지 않는 죽은 기능이라(`SkillManager.GetActiveSkills` 참고) 여기 의존하지 않는다.
-    /// 현재 CashBonus를 가진 재사용 불가 스킬이 `추가발행권한` 하나뿐이라 최소 범위로 이것만 확인한다 — 토글형
-    /// 스킬이 여러 개로 늘어나면 일반화된 활성화 시스템으로 다시 정리해야 한다.
+    /// 토글형 스킬 하나의 "매 턴 재적용" 대상 Effect만 stat에 반영한다. `ApplySkills()`(매 턴 전체 순회)와
+    /// `SkillManager.HandlePurchase()`(방금 구매한 스킬 하나만 이번 턴에 바로 반영, `ApplySkillUse`가 못
+    /// 채우는 CashBonus 등을 즉시 채우기 위함)가 같이 쓴다 — 전체 순회를 다시 부르면 이미 활성화된 다른
+    /// 스킬들의 값까지 이번 턴에 중복으로 더해지므로, 방금 구매한 스킬 하나로 범위를 좁혀야 한다.
     /// </summary>
-    public static void ApplyUnlockedPermanentSkillCashBonus(PlayerStat stat)
+    public static void ApplyToggleSkillEffects(PlayerStat stat, SkillSO skillProfile)
     {
-        if (SkillManager.Instance == null || !SkillManager.Instance.IsUnlocked(SkillID.추가발행권한))
-            return;
-
-        SkillSO skill = SkillManager.Instance.GetSkillProfile(SkillID.추가발행권한);
-
-        if (skill == null)
-            return;
-
-        foreach (EffectData effect in skill.effects)
+        foreach (EffectData effect in skillProfile.effects)
         {
-            if (effect.effectType == EffectType.CashBonus)
-                stat.CashBonus += effect.value;
+            if (effect.effectType == EffectType.SupportIncrease || effect.effectType == EffectType.GrowthIncrease
+                || effect.effectType == EffectType.DoubtIncrease || effect.effectType == EffectType.DoubtDecrease
+                || effect.effectType == EffectType.SupplyIncrease || effect.effectType == EffectType.SupplyDecrease
+                || effect.effectType == EffectType.SupplyGrowthSuppress
+                || effect.effectType == EffectType.VolumeIncrease || effect.effectType == EffectType.VolumeDecrease)
+                continue;
+
+            ApplyEffect(stat, effect);
         }
     }
 
@@ -242,26 +237,11 @@ public static class StatCalculator
 
         foreach (EffectData effect in skill.effects)
         {
-            if (effect.effectType == EffectType.SupportIncrease)
+            if (effect.effectType == EffectType.SupportIncrease || effect.effectType == EffectType.GrowthIncrease
+                || effect.effectType == EffectType.DoubtIncrease || effect.effectType == EffectType.DoubtDecrease)
             {
-                stat.Support += effect.value;
-                stat.JobSkillSupportBonus += effect.value;
-            }
-            else if (effect.effectType == EffectType.GrowthIncrease)
-            {
-                stat.Growth += effect.value;
-                stat.JobSkillGrowthBonus += effect.value;
-            }
-            else if (effect.effectType == EffectType.DoubtDecrease)
-            {
-                // 스킬로 인한 감소는 Job과 달리 0 밑으로 내려가지 않는다.
-                stat.Doubt = Mathf.Max(0f, stat.Doubt - effect.value);
-                stat.JobSkillDoubtBonus -= effect.value;
-            }
-            else if (effect.effectType == EffectType.DoubtIncrease)
-            {
-                stat.Doubt += effect.value;
-                stat.JobSkillDoubtBonus += effect.value;
+                // 스킬로 인한 Doubt 감소는 Job과 달리 0 밑으로 내려가지 않는다(clampDoubtFloor: true).
+                ApplyOneShotBonusEffect(stat, effect, clampDoubtFloor: true);
             }
             else if (effect.effectType == EffectType.SupplyIncrease)
                 stat.Supply += effect.value;

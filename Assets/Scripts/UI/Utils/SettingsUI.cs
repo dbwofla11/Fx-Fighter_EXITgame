@@ -59,20 +59,15 @@ public class SettingsUI : MonoBehaviour
 
     private void OpenSettings()
     {
-        settingsPanel.SetActive(true);
+        ModalPause.Open(settingsPanel);
         menuBox.SetActive(true);
         soundPanel.SetActive(false);
-
-        // TradeModalUI/EventLogPanelUI/CoinControlModalUI와 동일하게 EventHub로 일시정지시킨다.
-        EventHub.RaiseGamePaused();
     }
 
     private void CloseSettings()
     {
-        settingsPanel.SetActive(false);
-
         // TimeManager가 기억해둔 배속(1/2/4/8)으로 복귀한다.
-        EventHub.RaiseGameResumed();
+        ModalPause.Close(settingsPanel);
     }
 
     private void OpenSoundPanel()

@@ -47,7 +47,6 @@ UI와 Manager 사이를 중계하는 정적(static) 이벤트 허브. (Assets/Sc
 - OnJobSelected : 직업 선택 요청 (JobManager 구독)
 - OnBuyCoin / OnSellCoin : 코인 매수/매도 요청 (PlayerManager, MarketManager 구독)
 - OnManipulateSupply : 발행량 조작 요청, 양수/음수로 증가·감소 (MarketManager 구독) — `추가발행권한` 스킬을 구매하기 전에는 무시된다
-- OnNewsEvent : 시사 이벤트 수동 트리거 (MarketManager 구독) — 자동 발생(30턴마다 확률)은 `MarketManager.NextTurn()`이 별도로 처리하며 동일한 `TriggerNewsEvent`/`EventCalculator.Calculate`를 호출한다. 수동 트리거는 다음 턴까지 기다리지 않고 처리 직후 `EventHub.RaiseMarketUpdated`를 바로 발행해 가격 변화를 즉시 반영한다
 - OnMarketUpdated : 시장 계산 완료 후 UI 갱신 (MarketManager 발행)
 - OnExitRequested : 엑시트 버튼 클릭 요청, 인자 없음 (MarketManager 구독) — `MarketManager.CanExit`(목표 자산 달성 여부)가 false면 무시된다
 - OnGameEnded : 게임 종료(엔딩 확정) 통지, `EndingType` 전달 (MarketManager 발행)
@@ -212,8 +211,9 @@ MarketManager.HandleExitRequested : `CanExit`(현금 >= TargetAsset) 확인 → 
 `PriceCalculator.MinPrice`(1)가 가격 하한선을 강제한다 (Game_Formula.md 2장 참고). `CurrentStat`(Support/Growth/Supply/Doubt 포함)을 보유하며, 거래·시사 이벤트는 이 값에 직접
 반영된다. `NextTurn()`에서 `NewsEventIntervalTurns`(30)턴마다 `NewsEventChance`(40%) 확률로 시사 이벤트를 자동
 발생시킨다. `[SerializeField] List<EventSO> eventDatabase`(`SkillManager.skillDatabase`와 동일한 패턴)를 들고
-있으며, 자동/수동(`EventHub.OnNewsEvent`) 두 경로 모두 내부 `TriggerNewsEvent()`를 거쳐
-`EventCalculator.Calculate(CurrentStat, eventDatabase)`를 호출한다. `EventCalculator`는 먼저
+있으며, `NextTurn()`이 내부 `TriggerNewsEvent()`를 거쳐
+`EventCalculator.Calculate(CurrentStat, eventDatabase)`를 호출한다 (수동 트리거 경로는 없음 — 자동 발생만
+존재). `EventCalculator`는 먼저
 `PositiveEventRate`/`NegativeEventRate`로 `Positive`/`Negative` 카테고리를 정하고, 그 카테고리에 속한 `EventSO`
 중 하나를 `weight` 가중치 랜덤으로 골라 그 SO에 authored된 값(`effects`의 Support/Growth/Doubt, `supplyDelta`,
 `priceRatio`)을 그대로 적용한다. 실제로 발생했으면 `RuntimeEventData`에 기록되고 `MarketManager.EventLog`로
@@ -223,13 +223,12 @@ MarketManager.HandleExitRequested : `CanExit`(현금 >= TargetAsset) 확인 → 
 `TradeCalculator.ManipulateSupply(CurrentStat, amount)`를 호출한다 (현금 비용 없음, Long/Short와 달리
 PlayerManager를 거치지 않는다).
 
-매 턴(및 시사 이벤트 수동 트리거 시점)마다 계산 전후 `CurrentPrice` 차이로 `PriceChangeThisTurn`을 구해
+매 턴마다 계산 전후 `CurrentPrice` 차이로 `PriceChangeThisTurn`을 구해
 `StreamerReactionCalculator.Calculate()`로 `StreamerReaction`을 갱신한다 (2-1장 참고).
 
 매 턴(`NextTurn()`)마다 그 턴의 가격 캔들(`PricePoint` — Open=턴 시작 전 가격, Close=턴 계산 후 가격,
 Date=`TimeManager.CurrentGameDate`)을 `RuntimePriceHistory`에 기록하고, `MarketManager.PriceHistory`
-(`IReadOnlyList<PricePoint>`)로 노출한다. 시사 이벤트 수동 트리거(`HandleNewsEvent`)는 턴을 넘기지 않으므로
-기록 대상이 아니다 (원본은 1턴=1개 일별 `PricePoint` 그대로 유지, 2장 "캔들 차트" 참고). 캔들 차트 UI
+(`IReadOnlyList<PricePoint>`)로 노출한다 (1턴=1개 일별 `PricePoint`, 2장 "캔들 차트" 참고). 캔들 차트 UI
 (`PriceChartUI`)는 이 일별 리스트를 7일씩 모아 캔들(주봉) 1개로 집계해서 최근 N개(주 단위)만 읽어 그린다 —
 집계는 UI 쪽에서만 하고 `MarketManager`/`RuntimePriceHistory`의 기록 방식 자체는 바뀌지 않는다.
 

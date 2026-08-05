@@ -68,20 +68,17 @@ public class CoinControlModalUI : MonoBehaviour
 
     public void Open()
     {
-        // TradeModalUI/EventLogPanelUI와 동일하게, 모달이 떠 있는 동안은 게임 시간을 멈춘다.
-        EventHub.RaiseGamePaused();
+        ModalPause.Open(panel);
 
         amount = 0;
         isIncrease = true;
-        panel.SetActive(true);
         RefreshAmountText();
     }
 
     private void Close()
     {
-        EventHub.RaiseGameResumed();
+        ModalPause.Close(panel);
 
-        panel.SetActive(false);
         amount = 0;
         RefreshAmountText();
     }

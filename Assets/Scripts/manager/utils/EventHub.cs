@@ -54,10 +54,6 @@ public static class EventHub
     // ==========================
     // Market
     // ==========================
-    // 시사 이벤트 적용 요청
-    public static event Action OnNewsEvent;
-    public static void RaiseNewsEvent() => OnNewsEvent?.Invoke();
-
     // 시장 계산 완료 후 UI 갱신
     public static event Action<PlayerStat> OnMarketUpdated;
     public static void RaiseMarketUpdated(PlayerStat stat) => OnMarketUpdated?.Invoke(stat);

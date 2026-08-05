@@ -141,16 +141,14 @@ public class SkillPanelUI : MonoBehaviour
 
     public void Open()
     {
-        EventHub.RaiseGamePaused();
-        gameObject.SetActive(true);
+        ModalPause.Open(gameObject);
         SelectTab(SkillCategory.CoinDesign);
         RefreshDetail();
     }
 
     public void Close()
     {
-        EventHub.RaiseGameResumed();
-        gameObject.SetActive(false);
+        ModalPause.Close(gameObject);
     }
 
     // 탭 전환 : 선택된 카테고리에 속한 스킬 아이콘만 보여주고, 나머지는 숨긴다.

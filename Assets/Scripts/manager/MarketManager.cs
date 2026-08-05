@@ -110,7 +110,6 @@ public class MarketManager : MonoBehaviour
     private void OnEnable()
     {
         EventHub.OnDayChanged += NextTurn;
-        EventHub.OnNewsEvent += HandleNewsEvent;
         EventHub.OnBuyCoin += HandleBuyCoin;
         EventHub.OnSellCoin += HandleSellCoin;
         EventHub.OnManipulateSupply += HandleManipulateSupply;
@@ -120,7 +119,6 @@ public class MarketManager : MonoBehaviour
     private void OnDisable()
     {
         EventHub.OnDayChanged -= NextTurn;
-        EventHub.OnNewsEvent -= HandleNewsEvent;
         EventHub.OnBuyCoin -= HandleBuyCoin;
         EventHub.OnSellCoin -= HandleSellCoin;
         EventHub.OnManipulateSupply -= HandleManipulateSupply;
@@ -195,21 +193,6 @@ public class MarketManager : MonoBehaviour
     #endregion
 
     #region 시사 이벤트
-
-    // 시사 이벤트 적용 요청 수신 (수동 트리거) : NextTurn()과 달리 다음 턴까지 기다리지 않고 즉시 반영한다.
-    private void HandleNewsEvent()
-    {
-        float priceBefore = CurrentStat.CurrentPrice;
-
-        TriggerNewsEvent();
-
-        StatCalculator.ClampStat(CurrentStat);
-
-        UpdateStreamerReaction(priceBefore);
-        EventHub.RaiseMarketUpdated(CurrentStat);
-
-        CheckAutomaticEndings();
-    }
 
     // EventCalculator로 이벤트를 계산해 반영하고, 실제로 발생했으면 로그에 기록한다.
     private void TriggerNewsEvent()
@@ -294,7 +277,6 @@ public class MarketManager : MonoBehaviour
     #region 캔들 기록
 
     // 이번 턴의 가격 캔들(Open=턴 시작 전 가격, Close=턴 계산 후 가격)을 이력에 기록한다.
-    // 시사 이벤트 수동 트리거(HandleNewsEvent)는 턴을 넘기지 않으므로 여기서는 기록하지 않는다 (1턴=1캔들 유지).
     private void LogPricePoint(float open)
     {
         runtimePriceHistory.Points.Add(new PricePoint
@@ -309,7 +291,7 @@ public class MarketManager : MonoBehaviour
 
     #region 스트리머 반응
 
-    // 이번 턴(또는 수동 트리거)의 가격 변화량을 계산해 스트리머 반응 상태로 변환한다.
+    // 이번 턴의 가격 변화량을 계산해 스트리머 반응 상태로 변환한다.
     private void UpdateStreamerReaction(float priceBefore)
     {
         float priceChange = CurrentStat.CurrentPrice - priceBefore;

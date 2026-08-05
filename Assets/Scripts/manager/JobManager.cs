@@ -53,29 +53,11 @@ public class JobManager : MonoBehaviour
             return;
 
         runtimeJobData.CurrentJob = job;
-        runtimeJobData.selected = true;
 
         StatCalculator.ApplyJobSelection(MarketManager.Instance.CurrentStat, job);
         // CashBonus/PositiveEventRate/NegativeEventRate/Volume/ExitUnlock은 ApplyJob이 매 턴 다시 계산하는
         // 값이라, 선택 시점에 한 번 더 불러두지 않으면 첫 턴이 지나기 전까지는 0으로 비어있다(예: 거래 모달이
         // 시간을 멈추므로 선택 직후 바로 거래하면 CashBonus 보너스가 안 붙는 버그가 있었다).
         StatCalculator.ApplyJob(MarketManager.Instance.CurrentStat);
-    }
-
-    /// <summary>
-    /// 직업 선택 여부
-    /// </summary>
-    public bool HasJob()
-    {
-        return runtimeJobData.selected;
-    }
-
-    /// <summary>
-    /// 현재 직업 제거
-    /// </summary>
-    public void ClearJob()
-    {
-        runtimeJobData.CurrentJob = null;
-        runtimeJobData.selected = false;
     }
 }

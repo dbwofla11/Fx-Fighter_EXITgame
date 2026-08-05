@@ -108,8 +108,7 @@ public class SkillManager : MonoBehaviour
         StatCalculator.ClampStat(MarketManager.Instance.CurrentStat);
 
         // 재사용형은 즉시 현금 지급(GrantCashBonus), 재사용 불가(영구형)는 "현금증가량"(PlayerStat.CashBonus) %
-        // 버프로 반영한다 — 후자를 여기서 즉시 한 번 채워두지 않으면 이번 턴이 끝나기 전까지 0으로 비어있다
-        // (IsUnlocked를 먼저 세운 뒤 호출해야 ApplyUnlockedPermanentSkillCashBonus의 해금 체크를 통과한다).
+        // 버프로 반영한다 — 후자를 여기서 즉시 한 번 채워두지 않으면 이번 턴이 끝나기 전까지 0으로 비어있다.
         if (skill.Profile.isReusable)
         {
             GrantCashBonus(skill.Profile);
@@ -118,7 +117,10 @@ public class SkillManager : MonoBehaviour
         else
         {
             skill.IsUnlocked = true;
-            StatCalculator.ApplyUnlockedPermanentSkillCashBonus(MarketManager.Instance.CurrentStat);
+            // 1회성 스킬은 끄는 UI가 없다 — 구매=영구 활성으로 취급해 ApplySkills()가 매 턴 재적용하게 한다.
+            EnableSkill(skill.Profile.id);
+            // 방금 산 이 스킬 하나만 이번 턴에 바로 반영(전체 활성 스킬을 다시 돌리면 기존 스킬 값이 중복 적용됨).
+            StatCalculator.ApplyToggleSkillEffects(MarketManager.Instance.CurrentStat, skill.Profile);
         }
 
         skill.PurchaseCount++;
@@ -212,8 +214,7 @@ public class SkillManager : MonoBehaviour
 
     #region 활성화 토글
 
-    // 현재 6개 스킬이 전부 1회성(구매=영구 해금)이라 HandleSkillClicked에서 호출되지 않음 — 매 턴 재적용되는
-    // 지속효과형 스킬이 추가되면 그 스킬의 아이콘 클릭 핸들러에서 사용.
+    // 1회성(재사용 불가) 스킬 구매 시 HandlePurchase가 호출한다 — 끄는 UI가 없으므로 구매=영구 활성.
     public void EnableSkill(SkillID id)
     {
         SkillRuntimeInfo skill = GetSkill(id);
@@ -222,16 +223,6 @@ public class SkillManager : MonoBehaviour
             return;
 
         skill.IsEnabled = true;
-    }
-    // UI에서 불러다 쓰기 -> 스킬 봔환시 사용
-    public void DisableSkill(SkillID id)
-    {
-        SkillRuntimeInfo skill = GetSkill(id);
-
-        if (skill == null)
-            return;
-
-        skill.IsEnabled = false;
     }
 
     #endregion

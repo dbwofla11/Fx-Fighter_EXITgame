@@ -163,10 +163,10 @@ PriceChangeThisTurn = CurrentPrice(이번 턴 계산 후) - CurrentPrice(이번 
 
 ## 갱신 시점
 
-`MarketManager.NextTurn()`(자동 턴 진행)과 `HandleNewsEvent()`(시사 이벤트 수동 트리거) 양쪽 모두, 계산 전
+`MarketManager.NextTurn()`(자동 턴 진행)은 계산 전
 `CurrentPrice`를 기억해뒀다가 계산 후와 비교해 `PlayerStat.PriceChangeThisTurn`/`StreamerReaction`을 갱신한다.
 별도 `EventHub` 이벤트를 추가하지 않았다 — `PlayerStat` 전체가 이미 `EventHub.OnMarketUpdated`로 나가므로 UI는
-그 안의 두 필드만 읽으면 된다. 감쇠/이월 없이 매 턴(또는 수동 트리거 시점) 새로 계산되는 값이다.
+그 안의 두 필드만 읽으면 된다. 감쇠/이월 없이 매 턴 새로 계산되는 값이다.
 
 ---
 
@@ -188,8 +188,8 @@ PriceChangeThisTurn = CurrentPrice(이번 턴 계산 후) - CurrentPrice(이번 
 7일째가 되는 순간 그 캔들이 확정되며 8일째부터는 다음 캔들 자리가 새로 시작된다 (한 번 확정된 캔들은 이후
 값이 바뀌지 않는다).
 
-시사 이벤트 수동 트리거(`EventHub.OnNewsEvent`)는 턴을 넘기지 않는 즉시 반영이라 별도 일별 기록을 만들지
-않는다. 정규 턴 진행(`MarketManager.NextTurn()`) 시점에만 일별 `PricePoint` 1개가 기록된다.
+정규 턴 진행(`MarketManager.NextTurn()`) 시점에만 일별 `PricePoint` 1개가 기록된다 (수동 트리거 경로는
+존재하지 않는다 — 시사 이벤트는 자동 발생만 있다).
 
 ## 데이터 : PriceHistory
 
@@ -311,9 +311,10 @@ Growth(t+1) = Growth(t) × decayRate
   구매가 준 기여분만 Trade/시사 이벤트를 제외하고 별도로 누적하며, `Support`/`Growth`와 동일한 `decayRate`로
   똑같이 감쇠한다. 게임 계산(가격, 확률 등)에는 전혀 관여하지 않고 오직 개요 화면에 "Job+Skill이 지금
   기여하고 있는 몫"을 스탯당 하나의 숫자로 보여주기 위한 값이다.
-- **Doubt(의심도)는 감쇠하지 않는다.** Job 선택/재사용형 Skill 사용의 `DoubtDecrease`/`DoubtIncrease`(1회성,
-  3-1/3-2장 참고), 토글형 Skill의 `DoubtDecrease`/`DoubtIncrease`(활성 상태인 동안 매 턴 계속 재적용), 시사
-  이벤트(4장)로 값이 바뀌지만, 한 번 바뀐 값은 시간이 지나도 원래대로 돌아오지 않고 턴을 넘어 그대로 유지된다.
+- **Doubt(의심도)는 감쇠하지 않는다.** Job 선택/재사용형 Skill 사용/재사용 불가(토글형) Skill 구매의
+  `DoubtDecrease`/`DoubtIncrease`(전부 1회성 — 3-1/3-2장, `ApplySkills`가 매 턴 재적용 대상에서 제외한다,
+  2026-08-05 정리), 시사 이벤트(4장)로 값이 바뀌지만, 한 번 바뀐 값은 시간이 지나도 원래대로 돌아오지 않고
+  턴을 넘어 그대로 유지된다.
   기획상 Doubt는 시간이 지날수록 자동으로 100을 향해 올라가다가 100이 되면 게임오버가 되는 지표이기 때문이다
   (자동 상승 로직은 아직 미구현, 4장 "후보" 참고).
   - (버그 수정, 2026-08-02) 원래 Job의 `DoubtDecrease`도 CashBonus/Volume과 같은 그룹으로 매 턴 재적용됐는데,
@@ -359,9 +360,15 @@ Support/Growth 부스트형 스킬이다. 직업과 동일하게, **구매 버�
   대상으로 하므로 자동 적용됨)
 - `defaultUnlocked` 값과 무관하게 최초 구매도 항상 비용을 지불해야 한다.
 
-## 재사용 불가 스킬 (`isReusable == false`, 예: `ExitUnlock`)
+## 재사용 불가 스킬 (`isReusable == false`, 예: `추가발행권한`, `ExitUnlock`)
 
-영구 효과형 스킬이다. 기존과 동일하게 활성화(On) 상태를 유지하는 동안 매 턴 효과가 계속 재적용되며, 감쇠 대상이 아니다.
+영구 효과형 스킬이다. 구매 순간 `ApplySkillUse`가 Support/Growth/Doubt 등을 1회 반영하는 건 재사용형과 동일 —
+Support/Growth는 그 뒤 거래·직업과 동일하게 감쇠하고(재구매로 못 갱신하니 시간이 지나면 옅어짐), Doubt는
+감쇠 없이 그대로 유지된다(위 "Doubt는 감쇠하지 않는다" 참고). 다만 CashBonus/`PositiveEventRate`/
+`NegativeEventRate`/`ExitUnlock`처럼 매 턴 새로 계산되는 값(감쇠 대상이 아닌 필드)은 구매 후에도 활성화(On)
+상태를 유지하는 동안 `StatCalculator.ApplySkills()`가 매 턴 재적용한다(2026-08-05, `SkillManager.EnableSkill`
+연결 — 3-3장 참고). `SupplyGrowthSuppress`/`SupplyIncrease`/`SupplyDecrease`/Volume류는 별도 로직(3-3장/2장)이
+처리하므로 이 재적용 대상이 아니다.
 
 ---
 
@@ -400,19 +407,23 @@ Support/Growth처럼 값을 쌓아뒀다가 서서히 줄이는 방식이 불가
 오르지 않아, 이후 Short 거래에서 보너스가 안 붙는 버그였다.
 
 재사용 불가 스킬의 CashBonus는 위 "Job/토글형 스킬의 CashBonus"와 같은 그룹(활성 상태인 동안 매 턴 다시 채워짐)
-이어야 하는 게 맞는 설계다. 다만 토글(`SkillManager.IsEnabled`/`EnableSkill`/`DisableSkill`) 시스템 자체가
-아직 어느 스킬도 쓰지 않는 미완성 상태고(`StatCalculator.ApplySkills`가 `IsEnabled` 대상 스킬만 보는데, 이 함수는
-`ApplyJob`과 달리 Support/Growth/DoubtIncrease/DoubtDecrease를 매 턴 재적용 대상에서 빼지 않아서 그대로 켜면
-구매 시 이미 1회 반영된 효과가 매 턴 또 쌓이는 훨씬 심각한 회귀가 생긴다 — 이번 수정 범위에서는 손대지 않음),
-최소 범위로 `추가발행권한` 하나만 다음처럼 처리한다.
+이어야 하는 게 맞는 설계다.
 
-- `GrantCashBonus`(즉시 현금 지급)는 `isReusable == true`인 스킬에만 적용한다.
-- 재사용 불가 스킬은 구매 즉시 `StatCalculator.ApplyUnlockedPermanentSkillCashBonus`로 CashBonus 효과값을
-  `PlayerStat.CashBonus`에 바로 더하고, 이후 매 턴(`StatCalculator.Calculate()`)에도 같은 함수를 다시 호출해
-  값을 유지한다. `SkillManager.IsUnlocked(SkillID.추가발행권한)`(비가역적 영구 해금 플래그)로만 판단하므로
-  `IsEnabled` 토글 시스템에는 의존하지 않는다.
-- CashBonus를 가진 재사용 불가 스킬이 늘어나면(현재는 `추가발행권한` 하나) 이 하드코딩된 단일 스킬 체크를
-  일반화된 활성화 시스템으로 다시 정리해야 한다 (`Next_Tesk.md` 후보로 남김).
+(2026-08-05) 토글(`SkillManager.IsEnabled`/`EnableSkill`/`DisableSkill`) 시스템을 실제로 연결하면서, CashBonus도
+`추가발행권한` 전용 하드코딩 없이 일반 토글 루프로 흡수했다.
+
+- `HandlePurchase()`가 재사용 불가 스킬 구매 시 `EnableSkill()`을 호출해 `IsEnabled = true`로 만든다.
+- `StatCalculator.ApplySkills()`(매 턴, 활성화된 모든 재사용 불가 스킬 순회)가 `ApplyJob`과 동일하게
+  Support/Growth/DoubtIncrease/DoubtDecrease/Supply류/Volume류는 재적용 대상에서 제외한다 — 구매 시 1회
+  반영된 값이 매 턴 또 쌓이는 회귀를 막기 위함(과거 Job의 DoubtDecrease 매 턴 재적용 버그와 동일 패턴).
+  CashBonus/`PositiveEventRate`/`NegativeEventRate`/`ExitUnlock`은 매 턴 새로 계산되는(감쇠 없는) 값이라
+  제외하지 않고 그대로 재적용한다 — 그래서 CashBonus를 가진 재사용 불가 스킬이 몇 개든 스킬 이름을
+  하드코딩할 필요 없이 자동으로 매 턴 채워진다.
+- 다만 구매 순간에는 아직 `Calculate()`가 안 돌아서 `ApplySkills()`가 자동으로 안 채워주므로, 방금 산
+  스킬 하나만 즉시 반영해야 한다(`StatCalculator.ApplyToggleSkillEffects(stat, skill.Profile)` — `ApplySkills`와
+  같은 제외 목록을 쓰는 공용 함수). 전체 활성 스킬을 다시 순회하면 이미 활성화돼 있던 다른 스킬들의
+  CashBonus까지 이번 턴에 또 더해져 중복되므로, 반드시 방금 산 스킬 하나로 범위를 좁혀야 한다.
+- 예전에 있던 `추가발행권한` 전용 함수(`ApplyUnlockedPermanentSkillCashBonus`)는 이걸로 대체되어 삭제했다.
 
 ---
 
@@ -430,8 +441,7 @@ Support/Growth는 Trade/Job과 동일하게 반영 후 매 턴 감쇠하고, Sup
   `MarketManager.FindGuaranteedEvent(turnCount)`가 매 턴 `eventDatabase`를 훑어 찾는다.
 - 자동(확률) : `MarketManager.NextTurn()`에서 `NewsEventIntervalTurns`(30)턴마다 `NewsEventChance`(40%) 확률로 발생
   여부를 판정한다.
-- 수동 : `EventHub.OnNewsEvent`를 통해 즉시 발생시킬 수 있다 (UI/시스템 트리거용, 자동 판정과 무관).
-- 자동/수동 모두 동일하게 `EventCalculator.Calculate(CurrentStat, eventDatabase)`를 호출한다.
+- 무조건 발생/자동(확률) 모두 동일하게 `EventCalculator.Calculate(CurrentStat, eventDatabase)`를 호출한다.
   `eventDatabase`는 `MarketManager`가 `[SerializeField] List<EventSO>`로 들고 있다 (`SkillManager.skillDatabase`와
   동일한 패턴).
 

@@ -49,18 +49,13 @@ public class EventLogPanelUI : MonoBehaviour
 
     public void Open()
     {
-        // 롱숏 거래 모달(TradeModalUI)과 동일하게, 이 패널이 떠 있는 동안은 게임 시간을 멈춘다.
-        EventHub.RaiseGamePaused();
-
-        gameObject.SetActive(true);
+        ModalPause.Open(gameObject);
         ShowOverview();
     }
 
     public void Close()
     {
-        EventHub.RaiseGameResumed();
-
-        gameObject.SetActive(false);
+        ModalPause.Close(gameObject);
     }
 
     private void ShowOverview()

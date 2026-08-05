@@ -492,3 +492,102 @@
   안 됨"(토글 리스너 중복 등록 버그) 버그를 잡아줘서 같이 고쳤다. `SkillSO` 6개가 전부 `SkillCategory.CoinDesign`
   이라 나머지 3개 탭은 아직 빈 화면 — 데이터 이슈(`Next_Tesk.md` 참고), UI는 완료. 자세한 내용은
   `Issues/Issue_SkillPanel.md` 참고.
+- **완료** : 발행량 스킬 3종 Supply 효과 부여(2026-08-05). `추가발행권한`/`우회발행권한`은 (버튼 해금과 별개로)
+  매 턴 자동 발행량 증가분(`TradeCalculator.SupplyGrowthPerTurn`=50)을 비율로 억제하는 신규 `EffectType.
+  SupplyGrowthSuppress`(추가발행권한 20%, 우회발행권한 15%, 중복 시 합산)를 갖도록 결정했다 —
+  `StatCalculator.CalculateSupplyGrowthSuppression()`이 `ApplyUnlockedPermanentSkillCashBonus`와 동일한
+  패턴(재사용 불가 스킬 두 개만 최소 범위로 직접 체크)으로 계산해 `GrowSupply`에 넘긴다. `발행량은폐`는 이름과
+  달리 Supply 자체는 건드리지 않고 기존 `DoubtDecrease`만 유지하기로 결정 — 설명 문구에 "의심도를 낮춰준다"로
+  명시했다. 부수 작업으로 죽어있던 `PlayerStat.Volume`(거래량)도 `PriceCalculator`의 가격 변동폭 배율
+  (`VolumeDeltaWeight`=0.01, 30턴 버프)로 연결하고, `거래량부풀리기`/`자전거래`/`고래계정운용` 구매 시
+  반영되도록 `StatCalculator.ApplySkillUse`에 누락돼 있던 `VolumeIncrease` 케이스를 추가했다. 정기소각/
+  반감기는 `SupplyDecrease` 수치를 -15/-30 → -1500/-3000으로 올리고 `[1회성] → [재사용형]`으로 바꿔 반복
+  소각이 가능해지도록 했다. 새 `EffectType`이 스킬 패널에 코드명 그대로 노출되던 버그(`EventEffectFormatter`에
+  라벨 누락)도 같이 고쳤다.
+  - 검증 : Unity MCP Play 모드에서 `execute_code`로 직접 스킬 구매(`EventHub.RaiseSkillClicked`/
+    `RaiseSkillPurchased`) 후 `MarketManager.NextTurn()`을 반복 호출해 확인 — 거래량 3종 누적 시
+    `PlayerStat.Volume`이 0→50으로 쌓이고 `PriceCalculator`의 실제 로그 변동폭이 1.5배(50×0.01+1)로 정확히
+    반영됨, 30턴 뒤 `VolumeBuffTurnsRemaining` 만료로 Volume이 0으로 리셋됨을 확인. 추가발행권한/우회발행권한
+    구매 전후로 턴당 Supply 증가량이 50 → 40(20% 억제) → 32.5(35% 억제)로 정확히 감소함을 확인. 정기소각/
+    반감기를 재사용형 전환 후 3회/2회 반복 구매해 매번 `PurchaseCount` 증가 + 비용 스케일링 + Supply 감소가
+    정상 동작함을 확인(Supply는 `ClampStat`이 보유 코인수량 밑으로 못 내려가게 막는 기존 클램프에 걸림 —
+    의도된 동작). 수치(억제율 20%/15%, `VolumeDeltaWeight`, 소각량 1500/3000)는 전부 임시값이라 실제
+    플레이 밸런스 조정은 아직 필요.
+- **완료** : 시사 이벤트 수동 트리거 죽은 코드 제거(2026-08-05). 사용자가 "시사 이벤트는 자동으로만 되는데
+  수동 트리거는 없다"고 확인해줘서, 아무 UI도 발행하지 않던 `EventHub.OnNewsEvent`/`RaiseNewsEvent`와
+  이를 구독하던 `MarketManager.HandleNewsEvent()`를 통째로 삭제했다. 자동 발생 경로(`NextTurn()` →
+  `TriggerNewsEvent()`/`TriggerGuaranteedEvent()`)는 그대로 남겨뒀다 — `HandleNewsEvent`가 내부적으로
+  호출하던 게 이 함수라 로직 자체는 안 건드림. 수동 트리거만 언급하던 주석(`LogPricePoint`/
+  `UpdateStreamerReaction`)도 같이 정리하고, `PROJECT_ARCHITECTURE.md`/`Game_Formula.md`의 관련 서술도
+  현재 코드에 맞게 고쳤다(`Logging.md`/`Issues/*.md`는 과거 기록이라 그대로 둠). `Next_Tesk.md`의 "후보 :
+  UI 연결" 섹션은 이걸로 마지막 미완료 항목까지 없어져서 통째로 제거했다(안에 있던 완료 항목들은 전부
+  `Completed_Tasks.md`에 개별 기록이 이미 있음).
+  - 검증 : Unity MCP로 컴파일 확인(에러/경고 0) 후 Play 모드에서 `MarketManager.NextTurn()`을 60회
+    반복 호출 — `EventLog`에 무조건 발생 이벤트(스트리머_소개/거래소_상장)가 정상 기록됨을 확인, 콘솔
+    에러/경고 없음. 자동 발생 경로가 삭제 영향을 받지 않았음을 확인.
+- **완료(문서만 뒤늦게 반영)** : 스킬 `SkillCategory` 데이터 배분(2026-08-05 확인). `Next_Tesk.md` 11번이
+  "스킬 6개가 전부 `CoinDesign`이라 탭 3개가 비어있고 여론조작 스킬은 `SkillID`/`SkillSO`도 없다"고 남아있어서
+  Play 모드로 실제 확인해보니, 이미 다른 세션에서 끝나 있었다 — 코드/데이터 자체는 문제없었고 `Next_Tesk.md`
+  갱신만 누락된 상태였다. `SkillID` enum에 44개 스킬이 전부 정의돼 있고(코인설계 11/시장조작 9/여론조작 15/
+  방어 9), `SkillManager.skillDatabase`에도 44개 전부 등록돼 카테고리별로 정확히 분류된다. 씬의 `SkillPanelUI`도
+  탭 4개 + 아이콘 슬롯 44개(`Icon_SNS선동`, `Icon_로비` 등) + 카테고리별 `groupLabels`(`GroupLabel_Propaganda_0~2`,
+  `GroupLabel_Depence_Exit_0~1` 등)까지 전부 연결돼 있다.
+  - 검증 : Unity MCP Play 모드에서 `execute_code`로 `SkillID` enum 44개 전부를
+    `SkillManager.Instance.GetSkillProfile()`로 조회해 전부 null이 아님(등록됨) + `category`별 개수(11/9/15/9)를
+    확인. `find_gameobjects`/컴포넌트 리소스로 `SkillPanelUI`의 `tabs`(4개)/`icons`(44개)/`groupLabels`(카테고리별
+    라벨 오브젝트) 직렬화 필드도 전부 채워져 있음을 확인.
+- **완료** : 토글형(재사용 불가) 스킬 활성화 시스템 일반화(2026-08-05, `Next_Tesk.md` 12번). `SkillManager.
+  IsEnabled`/`EnableSkill`/`DisableSkill`/`GetActiveSkills`가 아무도 안 부르는 죽은 배관이었던 걸 실제로
+  연결했다. `SkillManager.HandlePurchase()`의 1회성(재사용 불가) 구매 분기에 `EnableSkill(skill.Profile.id)`를
+  추가(끄는 UI가 없으니 구매=영구 활성으로 취급). 이걸 안전하게 켜기 전에 `StatCalculator.ApplySkills()`의
+  재적용 제외 목록에 `SupportIncrease`/`GrowthIncrease`/`DoubtIncrease`/`DoubtDecrease`(`ApplyJob()`과 동일 —
+  구매 시점에 `ApplySkillUse`가 이미 1회 반영했고 이후 감쇠/누적이 의도된 동작이라 매 턴 재적용하면 무한정
+  쌓이는 버그가 됨, 과거 Job의 DoubtDecrease 매 턴 재적용 버그와 동일 패턴)와 `CashBonus`(이미
+  `ApplyUnlockedPermanentSkillCashBonus`가 전담 중이라 중복 방지)를 추가로 넣었다. 결과적으로 이 루프는
+  `PositiveEventRate`/`NegativeEventRate`/`ExitUnlock`만 실제로 재적용하게 된다 — 지금 스킬 중엔 이 타입을
+  쓰는 게 없어서 기존 동작(Growth/Support 감쇠, CashBonus/SupplyGrowthSuppress 유지)엔 변화가 없고, 이 타입을
+  가진 1회성 스킬이 추가되면 앞으로 자동으로 매 턴 재적용된다. `SupplyGrowthSuppress`/`CashBonus`의 기존 전용
+  함수(`CalculateSupplyGrowthSuppression`/`ApplyUnlockedPermanentSkillCashBonus`)는 구조가 달라서(비율 반환/
+  중복 위험) 그대로 남겨뒀다.
+  - 검증 : Unity MCP Play 모드에서 `추가발행권한` 구매 후 `GetActiveSkills()`가 실제로 1개를 반환함을 확인
+    (변경 전엔 항상 0개). 40턴 반복 실행해 변경 전과 정확히 동일한 수치(Growth 62.1→59.1→56.2→53.4로 계속
+    감쇠, CashBonus 15 고정 유지, 중복 없음)가 나옴을 확인해 회귀 없음을 검증. `우회발행권한`까지 추가
+    구매해 `GetActiveSkills()` count=2, 턴당 Supply 증가량이 여전히 40→32.5로 정확함도 재확인. 콘솔 에러/
+    경고 없음.
+- **완료** : CashBonus도 위 토글 루프로 흡수(같은 날 후속, 2026-08-05). `추가발행권한` 하나만 하드코딩해서
+  보던 `ApplyUnlockedPermanentSkillCashBonus()`를 삭제하고, `ApplySkills()`의 CashBonus 제외를 풀어 일반
+  토글 루프가 처리하게 했다. 구매 즉시(이번 턴) 반영이 필요해서 `ApplySkills()`의 내부 순회 로직을
+  `StatCalculator.ApplyToggleSkillEffects(stat, skillProfile)`라는 공용 함수로 뽑아 `ApplySkills()`(매 턴
+  전체 순회)와 `SkillManager.HandlePurchase()`(방금 산 스킬 하나만 즉시 반영)가 같이 쓰게 했다 — 구매
+  시점에 전체 순회(`ApplySkills(stat)`)를 다시 부르면 이미 활성화돼 있던 다른 스킬들의 CashBonus까지
+  이번 턴에 또 더해져 중복되므로, 반드시 방금 산 스킬 하나로 범위를 좁혀야 한다는 게 포인트.
+  - 검증 : Play 모드에서 `추가발행권한` 구매 직후 CashBonus=15, 5턴 뒤에도 15(중복/감쇠 없음), CashBonus
+    없는 `우회발행권한`을 추가 구매한 시점에도 15 그대로(다른 스킬 구매가 기존 스킬 값을 안 건드림),
+    그 뒤 5턴 더 진행해도 15 유지, 발행량 억제(40→32.5)도 그대로임을 확인. 컴파일·콘솔 에러 없음.
+- **완료** : 죽은 코드 정리 + 중복 로직 통합(2026-08-05). 사용자 요청으로 전체 코드베이스를 서브에이전트로
+  훑어 죽은 코드/중복을 찾고 정리했다.
+  - **죽은 코드 삭제** : `ScreenWarningBorderUI`(씬의 어떤 GameObject에도 안 붙어있어 경고 테두리 연출
+    전체가 런타임에 아예 작동 안 했음 — 스크립트 GUID로 전체 씬/에셋 재확인, 프로젝트에 `.prefab` 자체가
+    0개라 프리팹 경유도 아님), `SkillManager.DisableSkill()`(정의부 말고 호출 0건 — 1회성 스킬은 끄는 UI가
+    없어서 애초에 안 쓰임), `JobManager.HasJob()`/`ClearJob()`(호출 0건, `CurrentJob` getter만 실제로 쓰임) +
+    이것만 쓰던 `RuntimeJobData.selected` 필드도 같이 제거.
+  - **모달 Open/Close 보일러플레이트 통합** : `TradeModalUI`/`CoinControlModalUI`/`SkillPanelUI`/
+    `EventLogPanelUI`/`EventNotificationUI`/`SettingsUI` 6곳이 각자 구현하던 "`EventHub.RaiseGamePaused()`
+    + 패널 SetActive(true)" / "`RaiseGameResumed()` + SetActive(false)" 패턴을 신규
+    `UI/Utils/ModalPause.cs`(정적 헬퍼, `Open(GameObject)`/`Close(GameObject)`)로 뽑았다. 베이스 클래스
+    상속은 안 씀(패널 대상이 자기 자신 gameObject/별도 panel 필드/여러 자식 패널 등 클래스마다 달라서
+    가상 메서드 오버라이드보다 정적 헬퍼가 더 간단함). `EventNotificationUI`는 원래 SetActive 이후에
+    RaiseGamePaused를 부르던 순서가 다른 5곳과 달랐는데, 통합하면서 다른 곳과 동일하게 일시정지를 먼저
+    부르도록 자연히 맞춰졌다(같은 프레임 내 순서라 시각적 차이 없음).
+  - **`StatCalculator` Support/Growth/Doubt 1회성 적용 로직 통합** : `ApplyJobSelection`/`ApplySkillUse`가
+    각자 구현하던 SupportIncrease/GrowthIncrease/DoubtIncrease/DoubtDecrease 반영 + `JobSkillXBonus` 갱신
+    로직을 `ApplyOneShotBonusEffect(stat, effect, clampDoubtFloor)`로 통합했다. 스킬만 Doubt 감소가 0
+    밑으로 안 내려가는 기존 차이는 `clampDoubtFloor` bool로 유지(Job=false, Skill=true). 이벤트에도
+    재사용되는 범용 디스패처 `ApplyEffect()`(보너스 추적 없음)는 의도적으로 그대로 뒀다 — 통합하면 이벤트도
+    `JobSkillXBonus`를 건드리게 돼버려 의미가 달라짐.
+  - 검증 : 컴파일 클린 확인 후 Play 모드에서 `Resources.FindObjectsOfTypeAll<SkillPanelUI>()`로 비활성
+    패널을 찾아 `Open()`/`Close()` 직접 호출 — `Time.timeScale`이 1→0→1로, `activeSelf`가 False→True→False로
+    정확히 바뀜을 확인(`ModalPause` 배관 검증). `추가발행권한` 구매 시 Growth=30/CashBonus=15/Doubt가
+    스킬 전용 0-플로어에 걸려 0으로 유지(음수로 안 내려감, `clampDoubtFloor` 검증), `거래량부풀리기` 추가
+    구매로 Doubt가 0+5=5로 정확히 오름(DoubtIncrease 경로 검증), 3턴 뒤에도 CashBonus 15 유지(회귀 없음).
+    콘솔 에러/경고 없음.

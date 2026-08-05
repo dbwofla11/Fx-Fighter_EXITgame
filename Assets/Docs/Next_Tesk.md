@@ -6,56 +6,20 @@
 
 | # | 작업 | 비고 |
 |---|---|---|
-| 6 | 발행량 스킬 3종 Supply 효과 부여 | 설계 결정 필요 (수치 없이 코드부터 짜기 애매함) |
-| 7 | 밸런스 수치 조정 | 캔들/확률 등, 실제 플레이 후 |
+| 7 | 밸런스 수치 조정 | 캔들/확률 등, 실제 플레이 후 — 이번 세션에 추가된 거래량/발행량 억제/소각 수치도 포함 |
 | 9 | 엔딩 결과 화면 UI 재작업 | 로직(`EndingResultUI`의 `EventHub.OnGameEnded` 구독/문구 표시)은 유지, Figma에 새 목업 올라오면 비주얼만 교체 |
-| 11 | 스킬 `SkillCategory` 데이터 배분 | 현재 6개 전부 `CoinDesign` — 스킬 패널 탭 3개(시장 조작/여론 조작/방어 및 엑시트)가 비어 있음, `Issues/Issue_SkillPanel.md` 참고. 최근 추가된 여론조작 아이콘(SNS조작/홍보조작/언론조작)용 `SkillID`/`SkillSO`도 아직 없음 |
-| 12 | 토글형(재사용 불가) 스킬 활성화 시스템 일반화 | `SkillManager.IsEnabled`/`EnableSkill`/`DisableSkill`이 어느 스킬에도 안 쓰이는 죽은 기능. `추가발행권한`의 CashBonus만 `StatCalculator.ApplyUnlockedPermanentSkillCashBonus`로 최소 범위 땜빵함(`Game_Formula.md` 3-3장 참고) — CashBonus 있는 재사용 불가 스킬이 늘어나거나 다른 효과 타입도 "활성 상태 유지 중 매 턴 재적용"이 필요해지면, `StatCalculator.ApplySkills`가 `ApplyJob`처럼 Support/Growth/DoubtIncrease/DoubtDecrease를 재적용 대상에서 빼도록 먼저 고친 뒤 `IsEnabled`를 실제로 켜는 UI/로직을 연결해야 한다 |
 
 (각 항목의 자세한 내용은 아래 섹션 및 `Completed_Tasks.md`/`Logging.md` 참고.)
 
 ---
 
-## 후보 : UI 연결
-
-`EventHub`의 이벤트 대부분은 Manager 쪽 구독 로직만 갖춰져 있고, 이를 발행하는 실제 UI가 아직 없다.
-
-- 스킬 아이콘/구매 버튼 (`EventHub.RaiseSkillClicked`/`RaiseSkillPurchased`)
-- 시사 이벤트 수동 트리거가 필요한 경우의 UI (`EventHub.RaiseNewsEvent`) — 자동 발생은 이미 `MarketManager`에 구현됨
-- ~~직업 선택 화면~~ — **완료** (`Completed_Tasks.md` 참고). 씬을 분리해서 만듦 — 아래 "후보 : 직업(Job)
-  프로필" 절 참고.
-- ~~이벤트 로그 패널(커뮤니티 탭)~~ — **완료** (`Completed_Tasks.md` 참고). Figma가 프레임 2개로 나뉘어 있다는
-  걸 뒤늦게 확인했다 — node `1253:2`("뉴스,이벤트 페이지 - 스탯개요")는 "개요" 탭, node `1261:195`("뉴스,이벤트
-  페이지 - 이벤트 패널")는 "커뮤니티" 탭 콘텐츠였다. 처음엔 반대로(이벤트 로그를 "개요" 탭에) 연결했다가
-  수정했다. "개요" 탭은 아래 항목이 아직 없어 자리만 잡아두고 비워둠.
-- ~~개요 탭 콘텐츠(스탯개요 + 엑시트 버튼)~~ — **완료** (`Completed_Tasks.md` 참고).
-- ~~엔딩 결과 화면(로직)~~ — **완료** (`Completed_Tasks.md` 참고). Figma에 대응 프레임이 없어 최소 구성(제목+설명
-  텍스트, 전체화면 어두운 오버레이)의 임시 UI로 만들었다. **비주얼은 재작업 예정** — 사용자가 Figma에 새
-  디자인을 올린 뒤 직접 UI를 다시 짤 계획(위 표 9번). `EndingResultUI.cs`의 `EventHub.OnGameEnded` 구독/
-  엔딩별 문구 로직은 그대로 유지하고 씬의 텍스트/배경 오브젝트만 교체하면 됨.
-
-나머지는 설계는 끝났으나 화면이 없다.
-
-- ~~스트리머 패널의 가격 반응(표정 스프라이트 전환)~~ — **완료** (`Completed_Tasks.md` 참고). 말풍선/멘트,
-  립싱크·모션 등 영상 기반 연출은 사용자가 참고 영상을 준 뒤 별도로 진행.
-
-## 후보 : 발행량 관련 스킬 3종에 실제 Supply 효과 부여
-
-`추가발행권한`/`우회발행권한`/`발행량은폐` 세 스킬은 이름과 설명(예: "위기 상황에서 자금을 빠르게 마련",
-"발행 사실이 드러나더라도 의심을 최소화")으로 미루어 보면 발행량과 강하게 연관되어 있지만, 지금 `.asset`
-데이터에는 `SupplyIncrease`/`SupplyDecrease` 효과가 하나도 없다 (`추가발행권한`은 발행량 조작 버튼의 해금
-조건 역할만 하고 있음). 아래를 정해야 한다.
-
-- `추가발행권한`/`우회발행권한`을 구매하는 순간에도 (버튼 해금과 별개로) Supply를 직접 늘리는 1회성 효과를
-  줄 것인지, 아니면 순수하게 "버튼 해금 + 기존 효과(Growth/CashBonus/DoubtDecrease)"만으로 끝낼 것인지.
-- `발행량은폐`는 설명상 Supply 자체보다는 "정보를 숨긴다"는 쪽이라 `DoubtDecrease`만으로 충분해 보이는데,
-  이대로 유지할지 확인 필요.
-- 만약 Supply 효과를 추가한다면 구체적 수치도 함께 정해야 한다.
-
 ## 후보 : 밸런스 수치 조정 (실제 플레이 후)
 
 - `PriceChartUI.visibleCandleCount`(기본 16)/`candleWidthRatio`(0.95) 등 캔들 차트 관련 수치
 - `ProbabilityCalculator.SupportWeight`/`GrowthWeight`/`DoubtWeight`(현재 모두 0.25) 등 상승확률 가중치
+- 발행량/거래량 스킬 수치(`Completed_Tasks.md` "발행량 스킬 3종 Supply 효과 부여" 참고) — 억제율 20%/15%,
+  `PriceCalculator.VolumeDeltaWeight`(0.01), 정기소각/반감기 소각량(1500/3000) 전부 임시값, Play 모드
+  검증은 끝났으니 실제 플레이하며 체감 밸런스만 조정하면 됨
 - 그 외 이벤트/스킬 수치 등도 실제 플레이 데이터가 쌓이면 같이 재검토
 
 ## 후보 : 직업(Job) 프로필 — 더미 수치 재조정 필요

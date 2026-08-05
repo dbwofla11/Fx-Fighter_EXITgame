@@ -7,6 +7,4 @@ public class RuntimeJobData
 
     // <summary>현재 선택된 직업</summary>
     public JobSO CurrentJob;
-
-    public bool selected; 
 }

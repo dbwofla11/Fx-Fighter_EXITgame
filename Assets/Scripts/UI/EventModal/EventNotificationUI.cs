@@ -33,16 +33,11 @@ public class EventNotificationUI : MonoBehaviour
         string effects = entry.Profile.effects != null ? EventEffectFormatter.BuildEffectsText(entry.Profile.effects) : "";
 
         if (cardView != null) cardView.Populate(color, entry.Profile.message, UIFormat.DateDot(entry.Date), effects);
-        if (panel != null) panel.SetActive(true);
-
-        // 알림이 떠 있는 동안은 TradeModalUI/EventLogPanelUI와 동일하게 게임 시간을 멈춘다.
-        EventHub.RaiseGamePaused();
+        ModalPause.Open(panel);
     }
 
     private void Close()
     {
-        if (panel != null) panel.SetActive(false);
-
-        EventHub.RaiseGameResumed();
+        ModalPause.Close(panel);
     }
 }
