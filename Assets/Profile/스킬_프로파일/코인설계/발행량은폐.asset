@@ -16,7 +16,7 @@ MonoBehaviour:
   description: "\uACF5\uAE09\uB7C9 \uAD00\uB828 \uC815\uBCF4\uB97C \uC758\uB3C4\uC801\uC73C\uB85C \uD750\uB9B0\uB2E4. \uD22C\uC790\uC790\uB4E4\uC740 \uC2E4\uC81C \uBB3C\uB7C9 \uADDC\uBAA8\uB97C \uC27D\uAC8C \uC54C\uC544\uB0BC \uC218 \uC5C6\uB2E4. \uC758\uC2EC\uB3C4\uB97C \uB0AE\uCDB0\uC900\uB2E4."
   icon: {fileID: 21300000, guid: a926bc0e74e47c34dbf915e160b72bef, type: 3}
   category: 0
-  baseCost: 20000
+  baseCost: 10000
   costMultiplier: 1.15
   defaultUnlocked: 0
   isReusable: 0

@@ -17,7 +17,7 @@ MonoBehaviour:
     \uD504\uB85C\uC81D\uD2B8\uC758 \uC2E0\uB8B0\uB3C4\uB97C \uD06C\uAC8C \uD5A5\uC0C1\uC2DC\uD0A8\uB2E4."
   icon: {fileID: 21300000, guid: 9d9889453c0013049ae43217bbda8ddb, type: 3}
   category: 0
-  baseCost: 120000
+  baseCost: 60000
   costMultiplier: 1.15
   defaultUnlocked: 0
   isReusable: 0

@@ -11,4 +11,10 @@ public class PricePoint
     public float Open;
 
     public float Close;
+
+    // 일봉 레벨에서는 항상 Open/Close 중 하나와 같아 의미가 없다(PriceCalculator가 하루에 한 번만 가격을 바꿈).
+    // 여러 일봉을 묶은 주봉/월봉 캔들에서만 실제 값이 채워진다 — PriceChartUI.AggregateHistory() 참고.
+    public float High;
+
+    public float Low;
 }

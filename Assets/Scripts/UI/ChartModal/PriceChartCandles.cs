@@ -17,6 +17,9 @@ public class PriceChartCandles
     private const float ShakeDuration = 0.3f;
     private const float ShakeMagnitude = 4f;
 
+    // 심지(고가/저가)는 몸통보다 훨씬 얇게 — 토스증권류 차트 관례.
+    private const float WickWidthRatio = 0.1f;
+
     // ponytail: 붕괴 연출 튜닝값. 밸런스 아니라 느낌 조정용이라 플레이 후 자유롭게 바꿔도 됨.
     // 처음엔 20f/0.12초로 잡았더니 수치상으로는 위로 움직이는 게 맞는데(로그로 확인함) 뒤이어 오는
     // 250f/0.35초짜리 낙하에 묻혀서 실제로는 거의 안 보였다 — 높이를 3배로 키우고, 정점에서 살짝
@@ -39,6 +42,8 @@ public class PriceChartCandles
 
     private readonly List<RectTransform> pool = new();
     private readonly List<Image> images = new();
+    private readonly List<RectTransform> wickPool = new();
+    private readonly List<Image> wickImages = new();
     private readonly List<TextMeshProUGUI> dateLabels = new();
     private readonly List<PricePoint> boundPoints = new();
 
@@ -62,6 +67,21 @@ public class PriceChartCandles
 
         for (int i = 0; i < poolCapacity; i++)
         {
+            // 심지를 몸통보다 먼저 만들어서(형제 순서상 아래) 몸통 뒤에 깔리게 한다.
+            GameObject wick = new GameObject($"Wick_{i}", typeof(RectTransform), typeof(Image));
+            wick.transform.SetParent(chartArea, false);
+
+            RectTransform wickRect = (RectTransform)wick.transform;
+            wickRect.anchorMin = new Vector2(0f, 0f);
+            wickRect.anchorMax = new Vector2(0f, 0f);
+            wickRect.pivot = new Vector2(0.5f, 0f);
+
+            Image wickImage = wick.GetComponent<Image>();
+            wickImage.raycastTarget = false; // 호버는 몸통이 담당
+
+            wickPool.Add(wickRect);
+            wickImages.Add(wickImage);
+
             GameObject candle = new GameObject($"Candle_{i}", typeof(RectTransform), typeof(Image));
             candle.transform.SetParent(chartArea, false);
 
@@ -120,7 +140,17 @@ public class PriceChartCandles
         rect.anchoredPosition = new Vector2(x, yBottom);
         rect.sizeDelta = new Vector2(candleWidth, height);
 
-        images[i].color = p.Close >= p.Open ? upColor : downColor;
+        Color color = p.Close >= p.Open ? upColor : downColor;
+        images[i].color = color;
+
+        // 일봉 단위(High/Low가 Open/Close 밖으로 안 나감)에서는 심지가 몸통과 겹쳐 안 보인다 — 주/월봉일 때만 눈에 띈다.
+        RectTransform wickRect = wickPool[i];
+        float wickBottomY = dateLabelAreaHeight + (p.Low - min) / range * candleAreaHeight;
+        float wickTopY = dateLabelAreaHeight + (p.High - min) / range * candleAreaHeight;
+        wickRect.gameObject.SetActive(true);
+        wickRect.anchoredPosition = new Vector2(x, wickBottomY);
+        wickRect.sizeDelta = new Vector2(candleWidth * WickWidthRatio, Mathf.Max(wickTopY - wickBottomY, 1f));
+        wickImages[i].color = color;
 
         label.gameObject.SetActive(true);
         label.rectTransform.anchoredPosition = new Vector2(x, 4f);
@@ -134,6 +164,7 @@ public class PriceChartCandles
     public void Hide(int i)
     {
         pool[i].gameObject.SetActive(false);
+        wickPool[i].gameObject.SetActive(false);
         dateLabels[i].gameObject.SetActive(false);
         boundPoints[i] = null;
     }
@@ -142,6 +173,8 @@ public class PriceChartCandles
     {
         foreach (RectTransform rect in pool)
             rect.gameObject.SetActive(false);
+        foreach (RectTransform wick in wickPool)
+            wick.gameObject.SetActive(false);
         foreach (TextMeshProUGUI label in dateLabels)
             label.gameObject.SetActive(false);
     }
@@ -211,6 +244,7 @@ public class PriceChartCandles
                 continue;
 
             runner.StartCoroutine(CollapseRoutine(pool[i], images[i], dateLabels[i], i * CollapseStaggerStep));
+            runner.StartCoroutine(CollapseRoutine(wickPool[i], wickImages[i], null, i * CollapseStaggerStep));
         }
     }
 
@@ -222,7 +256,7 @@ public class PriceChartCandles
 
         Vector2 basePos = rect.anchoredPosition;
         Color baseImageColor = image.color;
-        Color baseLabelColor = label.color;
+        Color baseLabelColor = label != null ? label.color : default;
         // 캔들마다 낙하 중 좌우로 흩어질 방향/폭을 미리 뽑아둔다(hop 중엔 그대로 위로만, fall 중에만 적용).
         float driftX = UnityEngine.Random.Range(-CollapseDriftRange, CollapseDriftRange);
 
@@ -249,7 +283,8 @@ public class PriceChartCandles
             rect.anchoredPosition = hopPeakPos + fallOffset;
 
             image.color = new Color(baseImageColor.r, baseImageColor.g, baseImageColor.b, baseImageColor.a * (1f - progress));
-            label.color = new Color(baseLabelColor.r, baseLabelColor.g, baseLabelColor.b, baseLabelColor.a * (1f - progress));
+            if (label != null)
+                label.color = new Color(baseLabelColor.r, baseLabelColor.g, baseLabelColor.b, baseLabelColor.a * (1f - progress));
 
             yield return null;
         }

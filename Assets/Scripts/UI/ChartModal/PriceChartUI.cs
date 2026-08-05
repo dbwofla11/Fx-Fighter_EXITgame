@@ -191,11 +191,21 @@ public class PriceChartUI : MonoBehaviour, IScrollHandler, IBeginDragHandler, ID
         {
             int end = Mathf.Min(i + periodDays, daily.Count) - 1;
 
+            float high = float.MinValue;
+            float low = float.MaxValue;
+            for (int k = i; k <= end; k++)
+            {
+                high = Mathf.Max(high, daily[k].Open, daily[k].Close);
+                low = Mathf.Min(low, daily[k].Open, daily[k].Close);
+            }
+
             result.Add(new PricePoint
             {
                 Date = daily[end].Date,
                 Open = daily[i].Open,
-                Close = daily[end].Close
+                Close = daily[end].Close,
+                High = high,
+                Low = low
             });
         }
 
@@ -213,8 +223,8 @@ public class PriceChartUI : MonoBehaviour, IScrollHandler, IBeginDragHandler, ID
         for (int i = 0; i < count; i++)
         {
             PricePoint p = history[startIndex + i];
-            min = Mathf.Min(min, Mathf.Min(p.Open, p.Close));
-            max = Mathf.Max(max, Mathf.Max(p.Open, p.Close));
+            min = Mathf.Min(min, p.Low);
+            max = Mathf.Max(max, p.High);
         }
 
         movingAverage.ExpandPriceRange(daily, viewport.PeriodDays, startIndex, count, ref min, ref max);
