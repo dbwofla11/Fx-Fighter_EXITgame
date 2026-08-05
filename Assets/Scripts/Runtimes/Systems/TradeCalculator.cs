@@ -11,8 +11,8 @@ public static class TradeCalculator
     private const float GrowthWeightPerCoin = 0.1f;
     // 매수/매도(Long/Short) 전용 가중치. 기존 발행량 조작과 같은 값(0.1)을 썼더니 거래만으로 지지도/상승률이
     // 너무 크게 흔들린다는 피드백으로 5분의 1로 낮춤(2026-08-05). ManipulateSupply는 그대로 0.1 유지.
-    private const float TradeSupportWeightPerCoin = 0.02f;
-    private const float TradeGrowthWeightPerCoin = 0.02f;
+    private const float TradeSupportWeightPerCoin = 0.005f;
+    private const float TradeGrowthWeightPerCoin = 0.005f;
     private const float DoubtWeightPerSupplyUnit = 0.1f;
     private const float DoubtWeightPerTradeCoin = 0.002f;
 
