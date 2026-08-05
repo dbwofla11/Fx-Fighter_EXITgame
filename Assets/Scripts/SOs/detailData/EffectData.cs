@@ -83,5 +83,12 @@ public enum EffectType
     /// <summary>
     /// 발행량 감소
     /// </summary>
-    SupplyDecrease
+    SupplyDecrease,
+
+    /// <summary>
+    /// 매 턴 자동 발행량 증가분(TradeCalculator.SupplyGrowthPerTurn)을 억제하는 비율(%). 재사용 불가
+    /// (영구 해금형) 스킬 전용 — StatCalculator.CalculateSupplyGrowthSuppression이 별도로 읽어서 매 턴
+    /// 반영하고, SupplyIncrease/Decrease와 마찬가지로 ApplySkills()의 매 턴 재적용 루프에서는 제외한다.
+    /// </summary>
+    SupplyGrowthSuppress
 }

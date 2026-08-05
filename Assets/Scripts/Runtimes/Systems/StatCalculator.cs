@@ -2,6 +2,9 @@ using UnityEngine;
 
 public static class StatCalculator
 {
+    // Volume이 스킬/이벤트로 오른 뒤 자동으로 0으로 리셋되기까지 유지되는 턴 수 (버프 지속시간).
+    private const int VolumeBuffDurationTurns = 30;
+
     #region 턴 계산
 
     /// <summary>
@@ -26,8 +29,17 @@ public static class StatCalculator
         stat.JobSkillSupportBonus = previous.JobSkillSupportBonus;
         stat.JobSkillGrowthBonus = previous.JobSkillGrowthBonus;
         stat.JobSkillDoubtBonus = previous.JobSkillDoubtBonus;
+
+        // Volume은 Support/Growth처럼 감쇠하며 이어지는 게 아니라, VolumeBuffTurnsRemaining이 0이 될 때까지만
+        // "버프"로 유지되다가 만료되면 다음 턴부터 0으로 완전히 리셋된다(위 Reset()이 이미 0으로 잡아둠).
+        if (previous.VolumeBuffTurnsRemaining > 0)
+        {
+            stat.Volume = previous.Volume;
+            stat.VolumeBuffTurnsRemaining = previous.VolumeBuffTurnsRemaining - 1;
+        }
+
         TradeCalculator.Decay(stat);
-        TradeCalculator.GrowSupply(stat);
+        TradeCalculator.GrowSupply(stat, CalculateSupplyGrowthSuppression());
 
         // Doubt는 감쇠하지 않고 계속 쌓이는 값이다 (시간이 지날수록 자동으로 100을 향해 오르다가 100이 되면
         // 게임오버가 되는 기획). 매 턴 새로 계산하지 않고 이전 값을 그대로 이어받는다.
@@ -131,7 +143,7 @@ public static class StatCalculator
     /// <summary>
     /// 활성화된 토글형(재사용 불가) 스킬들의 Effect를 매 턴 재적용한다.
     /// 재사용형 스킬은 사용 시점에 ApplySkillUse로 1회 반영되고 이후 감쇠하므로 여기서 제외한다.
-    /// Supply도 감쇠 대상이라 토글형 스킬에서 매 턴 재적용하면 무한정 증가하므로 제외한다.
+    /// Supply/Volume도 감쇠·버프 만료 대상이라 토글형 스킬에서 매 턴 재적용하면 무한정 증가하므로 제외한다.
     /// </summary>
     private static void ApplySkills(PlayerStat stat)
     {
@@ -144,7 +156,9 @@ public static class StatCalculator
 
             foreach (EffectData effect in skill.Profile.effects)
             {
-                if (effect.effectType == EffectType.SupplyIncrease || effect.effectType == EffectType.SupplyDecrease)
+                if (effect.effectType == EffectType.SupplyIncrease || effect.effectType == EffectType.SupplyDecrease
+                    || effect.effectType == EffectType.SupplyGrowthSuppress
+                    || effect.effectType == EffectType.VolumeIncrease || effect.effectType == EffectType.VolumeDecrease)
                     continue;
 
                 // 스킬로 인한 감소는 Job과 달리 0 밑으로 내려가지 않는다 (ApplyEffect는 Event에서도 재사용되므로 여기서만 분기).
@@ -184,7 +198,42 @@ public static class StatCalculator
     }
 
     /// <summary>
-    /// 스킬을 구매(재사용형은 매 구매, 1회성은 최초 구매)하는 순간, 그 스킬의 Support/Growth/Doubt/Supply 효과를 stat에 직접 반영한다.
+    /// 발행량 관련 재사용 불가 스킬(추가발행권한/우회발행권한)이 해금돼있으면 그 SupplyGrowthSuppress 효과를
+    /// 합산해, 매 턴 자동 발행량 증가분(TradeCalculator.GrowSupply)을 얼마나 억제할지(0~1 비율)를 계산한다.
+    /// 위 CashBonus와 동일한 이유로 최소 범위(알려진 두 스킬만)로 직접 확인한다 — 토글형 스킬이 여러 개로
+    /// 늘어나면 일반화된 활성화 시스템으로 다시 정리해야 한다.
+    /// </summary>
+    private static float CalculateSupplyGrowthSuppression()
+    {
+        if (SkillManager.Instance == null)
+            return 0f;
+
+        float suppressPercent = 0f;
+        suppressPercent += SumSupplyGrowthSuppress(SkillID.추가발행권한);
+        suppressPercent += SumSupplyGrowthSuppress(SkillID.우회발행권한);
+
+        return Mathf.Clamp01(suppressPercent / 100f);
+    }
+
+    private static float SumSupplyGrowthSuppress(SkillID id)
+    {
+        if (!SkillManager.Instance.IsUnlocked(id))
+            return 0f;
+
+        SkillSO skill = SkillManager.Instance.GetSkillProfile(id);
+        if (skill == null)
+            return 0f;
+
+        float sum = 0f;
+        foreach (EffectData effect in skill.effects)
+            if (effect.effectType == EffectType.SupplyGrowthSuppress)
+                sum += effect.value;
+
+        return sum;
+    }
+
+    /// <summary>
+    /// 스킬을 구매(재사용형은 매 구매, 1회성은 최초 구매)하는 순간, 그 스킬의 Support/Growth/Doubt/Supply/Volume 효과를 stat에 직접 반영한다.
     /// </summary>
     public static void ApplySkillUse(PlayerStat stat, SkillSO skill)
     {
@@ -218,6 +267,17 @@ public static class StatCalculator
                 stat.Supply += effect.value;
             else if (effect.effectType == EffectType.SupplyDecrease)
                 stat.Supply -= effect.value;
+            else if (effect.effectType == EffectType.VolumeIncrease)
+            {
+                // N턴짜리 버프 — 다시 쓰면 값은 쌓이고 지속시간은 새로 갱신된다.
+                stat.Volume += effect.value;
+                stat.VolumeBuffTurnsRemaining = VolumeBuffDurationTurns;
+            }
+            else if (effect.effectType == EffectType.VolumeDecrease)
+            {
+                stat.Volume -= effect.value;
+                stat.VolumeBuffTurnsRemaining = VolumeBuffDurationTurns;
+            }
         }
     }
 
@@ -261,11 +321,14 @@ public static class StatCalculator
                 break;
 
             case EffectType.VolumeIncrease:
+                // N턴짜리 버프 — 다시 적용되면 값은 쌓이고 지속시간은 새로 갱신된다.
                 stat.Volume += effect.value;
+                stat.VolumeBuffTurnsRemaining = VolumeBuffDurationTurns;
                 break;
 
             case EffectType.VolumeDecrease:
                 stat.Volume -= effect.value;
+                stat.VolumeBuffTurnsRemaining = VolumeBuffDurationTurns;
                 break;
 
             case EffectType.ExitUnlock:
@@ -278,6 +341,10 @@ public static class StatCalculator
 
             case EffectType.SupplyDecrease:
                 stat.Supply -= effect.value;
+                break;
+
+            case EffectType.SupplyGrowthSuppress:
+                // stat 직접 반영 없음 — CalculateSupplyGrowthSuppression()이 매 턴 별도로 읽어서 GrowSupply에 넘긴다.
                 break;
 
             default:

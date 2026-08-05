@@ -41,6 +41,17 @@ public class PriceChartViewport
         ViewOffset += candles;
     }
 
+    // 버튼 등으로 기간을 명시적으로 고를 때 쓴다. ZoomBy의 자동 전환과 달리, 항상 그 기간의
+    // 기본(줌아웃 최대) 화면으로 리셋한다 — 사용자가 예측 가능한 상태로 시작하게 하려는 의도.
+    public void SetPeriod(int periodDays)
+    {
+        if (periodDays == PeriodDays)
+            return;
+
+        PeriodDays = periodDays;
+        ZoomCandleCount = poolCapacity;
+    }
+
     // 캔들 개수 범위(minZoomCandleCount~poolCapacity)를 벗어나 더 축소/확대하면 주↔월 기간 자체를 바꿔서
     // "스케일 축소"가 끊기지 않고 계속 이어지게 한다 (주 최대축소 다음은 월 최소확대, 그 역도 동일).
     public void ZoomBy(int delta)

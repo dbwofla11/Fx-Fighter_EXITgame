@@ -52,12 +52,19 @@ public class PriceChartUI : MonoBehaviour, IScrollHandler, IBeginDragHandler, ID
         new Color(0.85f, 0.30f, 0.55f), // 120일 - 마젠타
     };
 
+    // Ctrl+휠로도 기간이 바뀌지만 눈에 안 띄어서, 패널 우상단에 명시적으로 고를 수 있는 버튼도 둔다.
+    [Header("주/월봉 전환 버튼")]
+    [SerializeField] private int periodToggleFontSize = 20;
+    [SerializeField] private Color periodToggleActiveColor = new Color(0.15f, 0.15f, 0.15f);
+    [SerializeField] private Color periodToggleInactiveColor = new Color(0.7f, 0.7f, 0.7f);
+
     private RectTransform chartArea;
     private PriceChartViewport viewport;
     private PriceChartGrid grid;
     private PriceChartCandles candles;
     private PriceChartMovingAverage movingAverage;
     private PriceChartTooltip tooltip;
+    private PriceChartPeriodToggle periodToggle;
 
     #endregion
 
@@ -86,6 +93,10 @@ public class PriceChartUI : MonoBehaviour, IScrollHandler, IBeginDragHandler, ID
         tooltip = new PriceChartTooltip(chartArea, tooltipFontSize, tooltipColor);
         candles.Hovered += tooltip.Show;
         candles.Unhovered += tooltip.Hide;
+
+        periodToggle = new PriceChartPeriodToggle(chartArea, viewport,
+            periodToggleFontSize, periodToggleActiveColor, periodToggleInactiveColor);
+        periodToggle.Changed += Redraw;
     }
 
     private void OnEnable()
@@ -128,6 +139,8 @@ public class PriceChartUI : MonoBehaviour, IScrollHandler, IBeginDragHandler, ID
     {
         if (MarketManager.Instance == null)
             return;
+
+        periodToggle.Refresh(); // Ctrl+휠로 기간이 바뀌었을 수도 있으니 버튼 표시도 매번 동기화한다.
 
         IReadOnlyList<PricePoint> daily = MarketManager.Instance.PriceHistory;
         List<PricePoint> history = AggregateHistory(daily, viewport.PeriodDays);

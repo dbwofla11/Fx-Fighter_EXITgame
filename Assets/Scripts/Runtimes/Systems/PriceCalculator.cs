@@ -4,6 +4,11 @@ public static class PriceCalculator
 {
     private const float MaxSupply = 100000f;
 
+    // ponytail: 거래량(Volume) 1당 변동폭 배율 조정치. 밸런스용 임시 수치, 실제 플레이 후 조정 필요.
+    // 거래량부풀리기(+25) 하나만 썼을 때 대략 +25% 변동폭이 되도록 잡음.
+    private const float VolumeDeltaWeight = 0.01f;
+    private const float MinVolumeDeltaMultiplier = 0.2f; // Volume이 크게 마이너스여도 변동폭이 0에 너무 가까워지지 않게.
+
     /// <summary>가격이 내려갈 수 있는 최소값. 0 이하로 내려가면 거래(수량×가격) 계산이 깨지고
     /// 이벤트의 priceRatio(가격에 곱하는 충격)도 0에 곱해 무력화되므로 하한선을 둔다.</summary>
     public const float MinPrice = 1f;
@@ -13,11 +18,12 @@ public static class PriceCalculator
         bool isUp = Random.value <= stat.UpProbability;
 
         float scarcity = CalculateScarcity(stat.Supply);
+        float volumeMultiplier = Mathf.Max(MinVolumeDeltaMultiplier, 1f + stat.Volume * VolumeDeltaWeight);
 
         float delta = Mathf.Abs(
             stat.Growth * 0.6f +
             stat.Support * 0.25f +
-            scarcity * 0.15f);
+            scarcity * 0.15f) * volumeMultiplier;
 
         if (isUp)
             stat.CurrentPrice += delta;

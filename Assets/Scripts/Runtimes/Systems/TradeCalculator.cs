@@ -1,4 +1,5 @@
 using System;
+using UnityEngine;
 
 /// <summary>
 /// Long/Short 거래, 발행량 조작 1건이 시장에 주는 영향(Support/Growth/Doubt/Supply)을 계산한다.
@@ -76,8 +77,10 @@ public static class TradeCalculator
     }
 
     // 매 턴 자동으로 발행량이 늘어난다 (인플레이션). 발행량 조작/이벤트/스킬로 늘고 주는 것과는 별개로 항상 적용.
-    public static void GrowSupply(PlayerStat stat)
+    // suppressionRatio(0~1)는 추가발행권한/우회발행권한 같은 스킬이 이 증가율 자체를 얼마나 깎는지 — Scarcity
+    // 공식(비율 기반)과 같은 방식으로, 고정값을 빼는 게 아니라 증가폭에 곱해서 마이너스로 넘어가지 않게 한다.
+    public static void GrowSupply(PlayerStat stat, float suppressionRatio)
     {
-        stat.Supply += SupplyGrowthPerTurn;
+        stat.Supply += SupplyGrowthPerTurn * (1f - Mathf.Clamp01(suppressionRatio));
     }
 }

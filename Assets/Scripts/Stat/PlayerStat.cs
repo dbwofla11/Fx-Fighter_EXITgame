@@ -24,6 +24,11 @@ public class PlayerStat
     /// <summary>거래량</summary>
     public float Volume;
 
+    /// <summary>Volume이 버프처럼 유지되는 남은 턴 수. 0이 되면 다음 턴에 Volume이 0으로 리셋된다
+    /// (StatCalculator.Calculate 참고). 매 턴 감쇠되는 Support/Growth와 달리 "N턴짜리 임시 효과"라
+    /// 별도 카운트다운으로 관리한다.</summary>
+    public int VolumeBuffTurnsRemaining;
+
     // ==========================
     // UI 표시용 (Job/Skill 기여분만 별도 추적)
     // ==========================
@@ -81,6 +86,7 @@ public class PlayerStat
 
         Supply = 0;
         Volume = 0;
+        VolumeBuffTurnsRemaining = 0;
 
         JobSkillSupportBonus = 0;
         JobSkillGrowthBonus = 0;
