@@ -591,3 +591,32 @@
     스킬 전용 0-플로어에 걸려 0으로 유지(음수로 안 내려감, `clampDoubtFloor` 검증), `거래량부풀리기` 추가
     구매로 Doubt가 0+5=5로 정확히 오름(DoubtIncrease 경로 검증), 3턴 뒤에도 CashBonus 15 유지(회귀 없음).
     콘솔 에러/경고 없음.
+- **완료** : 재시작(2회차 플레이) 버그 2건 수정(2026-08-05, 사용자 실플레이 제보). 둘 다 "Managers"
+  GameObject가 `DontDestroyOnLoad`라 두 번째 플레이부터 `Awake`/`Start`가 다시 안 불리는 동일 계열의 버그였다.
+  - **버그 1 : 직업이 재시작 시 적용 안 됨.** `CharacterSelectUI.ConfirmSelection()`은
+    `JobSelectionHandoff.SelectedJob`에 선택한 직업을 담아두고, `JobManager.Start()`가 `SampleScene` 로드 후
+    그 핸드오프를 소비해서 `SelectJob()`을 호출하는 구조였다. `JobManager`가 `DontDestroyOnLoad`라 최초
+    1회차에만 `Start()`가 실행되고, 2회차부터는 같은 인스턴스가 씬을 넘어 살아남아 `Start()`가 다시 안 불려서
+    핸드오프가 영원히 소비되지 않았다(직업이 그대로 이전 판 값으로 남거나 안 바뀜). `PlayerManager`/
+    `MarketManager`/`TimeManager`/`SkillManager`는 이미 `ConfirmSelection()`이 2회차부터 `ResetState()`를
+    직접 불러 이 문제를 피해가고 있었는데 `JobManager`만 빠져있었다 — 같은 분기에
+    `JobManager.Instance.SelectJob(jobs[selectedIndex])` 직접 호출을 추가해 맞췄다(1회차는 `Managers`가 아직
+    없어 이 분기를 안 타므로 기존 핸드오프+`Start()` 경로가 계속 처리한다).
+  - **버그 2 : 재시작하면 설정(SettingsUI) 메뉴가 안 열림.** `SettingsUI`가 실수로 `TimeManager`/`JobManager`
+    등 실제 싱글턴들과 같은 "Managers" GameObject에 컴포넌트로 얹혀 있었다. 2회차 씬 로드 때 새로 생긴
+    "Managers" 복제본의 `SettingsUI.Start()`는 (Destroy가 프레임 끝까지 지연되므로) 정상 실행되어 새
+    `SettingsBtn`에 리스너를 등록하지만, 같은 프레임 끝에 형제 컴포넌트들(`TimeManager` 등)의 `Awake`가
+    "이미 `Instance` 있음"을 보고 `Destroy(gameObject)`를 불러 그 복제 `SettingsUI`까지 통째로 파괴돼버려서,
+    `SettingsBtn`의 클릭 리스너가 죽은 인스턴스를 가리키게 됐다. Unity 에디터의 "Copy Component/Paste As
+    New"와 동일한 `UnityEditorInternal.ComponentUtility.CopyComponent`/`PasteComponentAsNew`를 코드로 호출해
+    `SettingsUI`를 (Managers처럼 영구 지속될 필요 없는) `Main_Canvas`로 옮기고 원본은 제거했다 — 19개
+    직렬화 필드(참조) 전부 그대로 보존됨을 확인. `GameStarter`(BGM 1회 재생)도 같은 GameObject에 있었지만
+    1회성 트리거라 죽기 직전에 이미 효과가 발생해 실제로는 안 깨져서 그대로 뒀다.
+  - 검증 : 두 버그 모두 이 자동화 환경의 알려진 한계(에디터 창 미포커스 시 Play 모드 프레임이 거의 안
+    진행돼 `Start()`/씬 전환이 실제로 안 끝남 — `Time.frameCount`/`CurrentGameDate`가 멈춰있고
+    `playmode_transition` 상태에 걸려있는 것으로 확인)에 걸려 실제 씬 전환으로는 재현이 불가능했다. 대신
+    코드 레벨에서 원인을 특정하고, 각 버그의 핵심 호출 경로를 Play 모드에서 직접 실행해 검증했다 : (1)
+    `PlayerManager.Instance != null` 분기를 그대로 재현해 `JobManager.Instance.SelectJob()`을 두 번 다른
+    직업으로 호출 — `CurrentJob`/`Growth`가 매번 정확히 갱신됨을 확인. (2) 이동된 `SettingsUI`의
+    `openButton.onClick.Invoke()`/`closeButton.onClick.Invoke()`를 실제 클릭처럼 호출 — `Time.timeScale`
+    1→0→1, 패널 `activeSelf` False→True→False로 정상 동작함을 확인. 컴파일·콘솔 에러 없음.

@@ -103,6 +103,12 @@ public class CharacterSelectUI : MonoBehaviour
             MarketManager.Instance.ResetState();
             TimeManager.Instance.ResetState();
             SkillManager.Instance.ResetState();
+
+            // JobManager도 DontDestroyOnLoad라 Awake/Start가 다시 안 불린다 — 아래 핸드오프(JobSelectionHandoff)는
+            // JobManager.Start()가 소비하는데, 그 Start()는 최초 1회만 실행되므로 2회차부터는 직업이 반영되지
+            // 않는 버그가 있었다. 여기서 직접 선택해 반영한다 (1회차는 Managers가 아직 없어 이 분기를 안 타므로
+            // 계속 핸드오프+JobManager.Start()에 맡긴다).
+            JobManager.Instance.SelectJob(jobs[selectedIndex]);
         }
 
         JobSelectionHandoff.SelectedJob = jobs[selectedIndex];
