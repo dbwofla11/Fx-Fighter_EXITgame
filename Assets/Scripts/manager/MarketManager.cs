@@ -16,6 +16,10 @@ public class MarketManager : MonoBehaviour
     private const float NewsEventChance = 0.4f;
     private int turnCount;
 
+    // 가격이 하한선(PriceCalculator.MinPrice)에 붙은 채로 연속된 턴 수. NextTurn()마다 갱신되고,
+    // 하한선을 벗어나면 즉시 0으로 리셋된다 (EndingCalculator.PriceFloorStreakLimit 도달 시 거지 엔딩).
+    private int priceFloorStreak;
+
     [SerializeField] // 시사 이벤트로 뽑힐 수 있는 이벤트 목록 (가중치 랜덤 선택, EventCalculator.PickWeighted 참고)
     private List<EventSO> eventDatabase;
 
@@ -38,10 +42,11 @@ public class MarketManager : MonoBehaviour
     // 게임 시작 시점의 발행량. Supply도 CurrentPrice와 동일하게 턴을 넘어 이월되는 값이라 여기서 한 번만 설정한다.
     private const float InitialSupply = 2000f;
 
-    // Doubt 자동 상승 : 게임 시간 2년(730턴)째 1회 +20, 그 이후로는 매 턴 +0.5씩 계속 증가한다.
+    // Doubt 자동 상승 : 게임 시간 2년(730턴)째 1회 +4, 그 이후로는 매 턴 +0.1씩 계속 증가한다.
+    // 2026-08-05에 자동 추적 증가율이 너무 빠르다는 피드백으로 기존 수치(20 / 0.5)의 5분의 1로 조정.
     private const int DoubtAutoRiseStartTurn = 730;
-    private const float DoubtAutoRiseInitialAmount = 20f;
-    private const float DoubtAutoRisePerTurn = 0.5f;
+    private const float DoubtAutoRiseInitialAmount = 4f;
+    private const float DoubtAutoRisePerTurn = 0.1f;
 
     /// <summary>게임이 이미 끝났는지 여부 (엔딩 확정 후 true).</summary>
     public bool IsGameOver { get; private set; }
@@ -141,6 +146,8 @@ public class MarketManager : MonoBehaviour
 
         PriceCalculator.Calculate(CurrentStat);
 
+        UpdatePriceFloorStreak();
+
         UpdateStreamerReaction(priceBefore);
 
         LogPricePoint(priceBefore);
@@ -158,6 +165,12 @@ public class MarketManager : MonoBehaviour
             CurrentStat.Doubt += DoubtAutoRiseInitialAmount;
         else if (turnCount > DoubtAutoRiseStartTurn)
             CurrentStat.Doubt += DoubtAutoRisePerTurn;
+    }
+
+    // 가격이 하한선에 붙어있으면 연속 턴 수를 늘리고, 벗어나면 리셋한다.
+    private void UpdatePriceFloorStreak()
+    {
+        priceFloorStreak = CurrentStat.CurrentPrice <= PriceCalculator.MinPrice ? priceFloorStreak + 1 : 0;
     }
 
     #endregion
@@ -230,7 +243,8 @@ public class MarketManager : MonoBehaviour
         EndingType? ending = EndingCalculator.CheckAutomatic(
             CurrentStat,
             PlayerManager.Instance.currentMoney,
-            PlayerManager.Instance.currentCoins);
+            PlayerManager.Instance.currentCoins,
+            priceFloorStreak);
 
         if (ending.HasValue)
             EndGame(ending.Value);

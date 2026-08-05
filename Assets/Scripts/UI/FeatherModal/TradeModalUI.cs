@@ -27,6 +27,7 @@ public class TradeModalUI : MonoBehaviour
 
     [Header("Preview / Confirm")]
     public TextMeshProUGUI previewText;
+    public TextMeshProUGUI doubtIncreaseText;
     public Button btnConfirm;
     public Button btnCancel;
 
@@ -115,22 +116,27 @@ public class TradeModalUI : MonoBehaviour
     }
 
     // 지금 매수/매도 가능한 최대 수치. Long은 현재 현금으로 살 수 있는 최대 수량, Short는 보유 코인 전량.
-    // 슬라이더 오른쪽 끝 값과 +MAX 버튼이 이 값을 공유한다.
+    // 여기에 Doubt가 100(체포 엔딩)을 넘지 않는 한도까지 더해 더 작은 쪽을 쓴다 — 한 번의 거래로 Doubt가
+    // 갑자기 100을 넘어 체포당하는 걸 막기 위함. 슬라이더 오른쪽 끝 값과 +MAX 버튼이 이 값을 공유한다.
     private long GetMaxTradeAmount()
     {
         if (MarketManager.Instance == null || PlayerManager.Instance == null)
             return 0;
 
+        long maxByBalance;
+
         if (mode == TradeMode.Long)
         {
             float price = MarketManager.Instance.CurrentStat.CurrentPrice;
-            if (price <= 0f)
-                return 0;
-
-            return (long)(PlayerManager.Instance.currentMoney / price);
+            maxByBalance = price <= 0f ? 0 : (long)(PlayerManager.Instance.currentMoney / price);
+        }
+        else
+        {
+            maxByBalance = PlayerManager.Instance.currentCoins;
         }
 
-        return PlayerManager.Instance.currentCoins;
+        long maxByDoubt = TradeCalculator.MaxTradeAmountByDoubt(MarketManager.Instance.CurrentStat.Doubt);
+        return System.Math.Min(maxByBalance, maxByDoubt);
     }
 
     private void SetTradeAmountToMax()
@@ -184,6 +190,9 @@ public class TradeModalUI : MonoBehaviour
         // 시세가 바뀌면 매수 가능 최대치도 바뀌므로 슬라이더 오른쪽 끝을 매 프레임 맞춰준다.
         if (tradeAmountSlider != null)
             tradeAmountSlider.maxValue = Mathf.Max(1, GetMaxTradeAmount());
+
+        if (doubtIncreaseText != null)
+            doubtIncreaseText.text = "의심도 +" + TradeCalculator.PreviewTradeDoubtIncrease(tradeAmount).ToString("N2");
 
         if (mode == TradeMode.Long)
         {

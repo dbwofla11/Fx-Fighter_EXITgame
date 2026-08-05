@@ -45,6 +45,7 @@ public class SkillPanelUI : MonoBehaviour
     public TextMeshProUGUI nameText;
     public TextMeshProUGUI descriptionText;
     public Button purchaseBtn;
+    public GameObject purchaseBtnShadow; // 구매 버튼 아래 깔린 입체 음영(빨강 고정). 잠기면 숨겨서 "다 썼다"는 느낌을 준다.
 
     [Header("Currency")]
     public TextMeshProUGUI moneyText;
@@ -58,15 +59,30 @@ public class SkillPanelUI : MonoBehaviour
     private static readonly Color UnselectedTabColor = new Color(1f, 0.8588f, 0.8588f);
     private static readonly Color SelectedIconColor = new Color(1f, 0.68f, 0.68f);
     private const float PurchaseBurstIntensity = 0.7f; // ponytail: 구매엔 "규모" 개념이 없어 고정값
-    // 1회성 스킬은 구매(사용) 전엔 흰색, 구매 후엔 회색으로 표시해 이미 썼다는 걸 구분.
-    private static readonly Color UsedOneTimeIconColor = new Color(0.75f, 0.75f, 0.75f);
+    // 1회성 스킬은 구매(사용) 전엔 흰색, 구매 후엔 연한 파란색으로 표시해 이미 썼다는 걸 구분한다.
+    // 초록 -> 연한 파랑으로 교체 (피드백, 2026-08-05).
+    private static readonly Color UsedOneTimeIconColor = new Color(0.55f, 0.75f, 1f);
+    // 구매 완료(잠김) 상태의 구매 버튼 색. ColorTint의 disabledColor는 원래 버튼 색(핑크 계열)을 그대로
+    // 어둡게만 하는 정도라 회색으로 안 보여서, 잠기면 이 색을 직접 덮어쓴다.
+    private static readonly Color PurchasedButtonColor = new Color(0.6f, 0.6f, 0.6f);
+    private Color purchaseBtnDefaultColor;
+    private bool purchaseBtnDefaultColorCaptured;
 
     public bool IsOpen => gameObject.activeSelf;
 
     private void Start()
     {
         if (closeBtn != null) closeBtn.onClick.AddListener(Close);
-        if (purchaseBtn != null) purchaseBtn.onClick.AddListener(() => EventHub.RaiseSkillPurchased());
+
+        if (purchaseBtn != null)
+        {
+            purchaseBtn.onClick.AddListener(() => EventHub.RaiseSkillPurchased());
+
+            // Button의 기본 ColorTint 전환은 포인터 상태(hover/press/disabled)가 바뀔 때마다 자체 색으로
+            // 되돌아가 RefreshDetail이 지정한 잠금 상태 색(회색)을 덮어써 버린다. 전환 자체를 꺼서
+            // purchaseBtn.image.color를 RefreshDetail만 제어하도록 한다.
+            purchaseBtn.transition = Selectable.Transition.None;
+        }
 
         foreach (IconSlot slot in icons)
         {
@@ -166,6 +182,7 @@ public class SkillPanelUI : MonoBehaviour
             nameText.text = "";
             descriptionText.text = "";
             purchaseBtn.gameObject.SetActive(false);
+            if (purchaseBtnShadow != null) purchaseBtnShadow.SetActive(false);
             return;
         }
 
@@ -183,6 +200,14 @@ public class SkillPanelUI : MonoBehaviour
             profile.description;
         purchaseBtn.gameObject.SetActive(true);
         purchaseBtn.interactable = !locked;
+        if (purchaseBtnShadow != null) purchaseBtnShadow.SetActive(!locked);
+
+        if (!purchaseBtnDefaultColorCaptured)
+        {
+            purchaseBtnDefaultColor = purchaseBtn.image.color;
+            purchaseBtnDefaultColorCaptured = true;
+        }
+        purchaseBtn.image.color = locked ? PurchasedButtonColor : purchaseBtnDefaultColor;
     }
 
     // 우측 상단 보유 현금/코인 실시간 표시.

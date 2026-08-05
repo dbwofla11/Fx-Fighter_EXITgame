@@ -76,7 +76,7 @@ public class StatGaugeUI : MonoBehaviour
             positiveBar.fillAmount = Mathf.Clamp01(value / MaxAbsValue);
         }
 
-        valueText.text = (value >= 0 ? "+" : "") + value.ToString("F0");
+        valueText.text = (value >= 0 ? "+" : "") + value.ToString("F1");
 
         if (!hasDoubtBaseline)
         {

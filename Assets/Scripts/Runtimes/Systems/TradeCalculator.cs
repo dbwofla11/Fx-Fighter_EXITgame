@@ -6,8 +6,13 @@ using System;
 /// </summary>
 public static class TradeCalculator
 {
+    // 발행량 조작(ManipulateSupply) 전용 가중치.
     private const float SupportWeightPerCoin = 0.1f;
     private const float GrowthWeightPerCoin = 0.1f;
+    // 매수/매도(Long/Short) 전용 가중치. 기존 발행량 조작과 같은 값(0.1)을 썼더니 거래만으로 지지도/상승률이
+    // 너무 크게 흔들린다는 피드백으로 5분의 1로 낮춤(2026-08-05). ManipulateSupply는 그대로 0.1 유지.
+    private const float TradeSupportWeightPerCoin = 0.02f;
+    private const float TradeGrowthWeightPerCoin = 0.02f;
     private const float DoubtWeightPerSupplyUnit = 0.1f;
     private const float DoubtWeightPerTradeCoin = 0.002f;
 
@@ -22,17 +27,31 @@ public static class TradeCalculator
     // 수량에 비례해 조금씩 오른다 (감쇠 없이 그대로 누적, ManipulateSupply와 동일한 설계).
     public static void Long(PlayerStat stat, long amount)
     {
-        stat.Support += amount * SupportWeightPerCoin;
-        stat.Growth += amount * GrowthWeightPerCoin;
+        stat.Support += amount * TradeSupportWeightPerCoin;
+        stat.Growth += amount * TradeGrowthWeightPerCoin;
         stat.Doubt += Math.Abs(amount) * DoubtWeightPerTradeCoin;
     }
 
     // Short : 판매 -> Support/Growth 감소. Doubt는 Long과 동일하게 수량에 비례해 오른다.
     public static void Short(PlayerStat stat, long amount)
     {
-        stat.Support -= amount * SupportWeightPerCoin;
-        stat.Growth -= amount * GrowthWeightPerCoin;
+        stat.Support -= amount * TradeSupportWeightPerCoin;
+        stat.Growth -= amount * TradeGrowthWeightPerCoin;
         stat.Doubt += Math.Abs(amount) * DoubtWeightPerTradeCoin;
+    }
+
+    // 거래 확정 전 미리보기용 : 이 수량을 매수/매도하면 Doubt가 얼마나 오르는지.
+    public static float PreviewTradeDoubtIncrease(long amount)
+    {
+        return Math.Abs(amount) * DoubtWeightPerTradeCoin;
+    }
+
+    // 이번 거래로 Doubt가 100(체포 엔딩 기준)을 넘지 않는 한도 내에서 최대로 거래 가능한 수량.
+    // 거래 모달의 슬라이더/+MAX 버튼이 잔고 기준 최대치와 이 값 중 더 작은 쪽을 쓴다.
+    public static long MaxTradeAmountByDoubt(float currentDoubt)
+    {
+        float headroom = 100f - currentDoubt;
+        return headroom <= 0f ? 0L : (long)(headroom / DoubtWeightPerTradeCoin);
     }
 
     // 발행량 조작 : 발행량 증가(희석) -> Support/Growth 감소, 발행량 감소(소각) -> Support/Growth 증가.

@@ -19,10 +19,10 @@ MonoBehaviour:
     \uC0C1\uC2B9\uC744 \uD6A8\uACFC\uC801\uC73C\uB85C \uC5B5\uC81C\uD55C\uB2E4."
   icon: {fileID: 21300000, guid: b5db4b637acbb664ba6401dec42220f1, type: 3}
   category: 2
-  baseCost: 9000
-  costMultiplier: 1.15
+  baseCost: 18000
+  costMultiplier: 2
   defaultUnlocked: 0
-  isReusable: 0
+  isReusable: 1
   effects:
   - effectType: 2
     value: 20

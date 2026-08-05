@@ -1,0 +1,20 @@
+using UnityEngine;
+using UnityEngine.UI;
+
+// 타이틀 씬 전용. "게임 시작" 클릭 시 캐릭터 선택 씬으로 넘어간다 (씬 전환은 항상 GameSceneManager를 통한다).
+public class TitleScreenUI : MonoBehaviour
+{
+    [SerializeField] private Button startButton;
+
+    private void Start()
+    {
+        if (startButton == null)
+            return;
+
+        startButton.onClick.AddListener(() => GameSceneManager.LoadCharacterSelect());
+
+        // "게임 시작"만 매수·매도 버튼과 같은 둥둥 뜨는 idle 애니메이션을 쓴다 (HoverIdleBob 재사용,
+        // 호버 대상이 아니라 alwaysActive로 항상 재생되게 한다). 타이틀/부제목은 고정.
+        startButton.gameObject.AddComponent<HoverIdleBob>().SetAlwaysActive(true);
+    }
+}

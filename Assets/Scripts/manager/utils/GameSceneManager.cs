@@ -4,6 +4,7 @@ using UnityEngine.SceneManagement;
 // 씬을 넘긴다 (EventHub가 Manager 호출을 한 곳에 모으는 것과 같은 이유).
 public static class GameSceneManager
 {
+    public const string TitleScene = "TitleScene";
     public const string CharacterSelectScene = "CharacterSelectScene";
     public const string MainScene = "SampleScene";
 

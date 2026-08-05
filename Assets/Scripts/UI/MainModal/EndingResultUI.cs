@@ -67,7 +67,7 @@ public class EndingResultUI : MonoBehaviour
             case EndingType.Exit:
                 return ("엑시트 엔딩", "당신은 돈을 얻었지만 사람들의 신뢰를 잃었다. 세상은 당신을 성공한 사업가가 아닌 사기꾼으로 기억한다.");
             case EndingType.Broke:
-                return ("거지 엔딩", "가진 것을 모두 잃었다. 현금도 코인도 남지 않은 채, 화려했던 시작은 빈털터리로 끝났다.");
+                return ("거지 엔딩", "가진 것을 모두 잃었거나, 바닥까지 떨어진 코인을 방치했다. 화려했던 시작은 빈털터리로 끝났다.");
             default:
                 return ("", "");
         }

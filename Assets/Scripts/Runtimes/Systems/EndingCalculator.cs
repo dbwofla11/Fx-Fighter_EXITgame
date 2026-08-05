@@ -4,16 +4,20 @@
 /// </summary>
 public static class EndingCalculator
 {
+    /// <summary>가격이 하한선에 이 턴 수만큼 연속으로 붙어있으면 거지 엔딩으로 처리한다 (3주, DaysPerCandle=7 기준).</summary>
+    public const int PriceFloorStreakLimit = 21;
+
     /// <summary>
     /// 매 턴 자동으로 판정되는 엔딩(체포/거지)을 확인한다. 둘 다 성립하면 체포가 우선이다.
+    /// 거지 엔딩은 자산 소진(현금+코인 0) 또는 가격이 하한선에 3주 연속 방치된 경우 둘 다 해당한다.
     /// 해당하는 엔딩이 없으면 null.
     /// </summary>
-    public static EndingType? CheckAutomatic(PlayerStat stat, long currentMoney, long currentCoins)
+    public static EndingType? CheckAutomatic(PlayerStat stat, long currentMoney, long currentCoins, int priceFloorStreak)
     {
         if (stat.Doubt >= 100f)
             return EndingType.Arrest;
 
-        if (currentMoney == 0 && currentCoins == 0)
+        if ((currentMoney == 0 && currentCoins == 0) || priceFloorStreak >= PriceFloorStreakLimit)
             return EndingType.Broke;
 
         return null;

@@ -2,14 +2,14 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-// 발행량 조작 모달. TotalSupplyText/HeldCoinText는 기본 화면에서도 항상 보이며 EventHub.OnMarketUpdated로
-// 갱신된다. panel(딤 오버레이+팝업 박스)만 "코인 발행" 트리거 버튼(MintButtonUI)이 열고 닫는다.
+// 발행량 조작 모달. TotalSupplyText는 기본 화면에서도 항상 보이며 EventHub.OnMarketUpdated로 갱신된다.
+// 보유 코인수량은 PlayerUI.coinText가 이미 항상 표시하고 있어 여기서는 중복 표시하지 않는다.
+// panel(딤 오버레이+팝업 박스)만 "코인 발행" 트리거 버튼(MintButtonUI)이 열고 닫는다.
 // 확인 버튼을 눌러야만 EventHub.RaiseManipulateSupply가 호출된다.
 public class CoinControlModalUI : MonoBehaviour
 {
     [Header("항상 표시")]
     public TextMeshProUGUI totalSupplyText;
-    public TextMeshProUGUI heldCoinText;
 
     [Header("모달 (평소 숨김)")]
     public GameObject panel;
@@ -64,9 +64,6 @@ public class CoinControlModalUI : MonoBehaviour
     private void HandleMarketUpdated(PlayerStat stat)
     {
         totalSupplyText.text = "현재 발행량 : " + stat.Supply.ToString("N0") + "개";
-
-        if (PlayerManager.Instance != null)
-            heldCoinText.text = "보유 코인수량 : " + PlayerManager.Instance.currentCoins.ToString("N0") + "개";
     }
 
     public void Open()

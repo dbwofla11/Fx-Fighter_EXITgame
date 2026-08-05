@@ -517,9 +517,11 @@ Doubt는 시간이 지나면 저절로 오르는 지표다. 게임 시간으로 
 
 ## 4. 거지 엔딩
 
-- **조건** : 현금 0 + 코인 0
+- **조건** : 현금 0 + 코인 0, **또는** 코인 가격이 하한선(`PriceCalculator.MinPrice = 1`)에 21턴(3주,
+  `DaysPerCandle=7` 기준) 연속으로 붙어있음
 - **결과** : 미정 (추가 기획 필요)
-- **판정 시점** : 자동 (매 턴 체크)
+- **판정 시점** : 자동 (매 턴 체크). 하한가 연속 턴 수는 `MarketManager.priceFloorStreak`가 매 턴 갱신하며,
+  가격이 하한선을 벗어나면 즉시 0으로 리셋된다 (`EndingCalculator.PriceFloorStreakLimit = 21`).
 
 ## 공통 사항
 
