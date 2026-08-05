@@ -7,15 +7,16 @@ using UnityEngine;
 /// </summary>
 public static class TradeCalculator
 {
-    // 발행량 조작(ManipulateSupply) 전용 가중치.
-    private const float SupportWeightPerCoin = 0.1f;
-    private const float GrowthWeightPerCoin = 0.1f;
+    // 발행량 조작(ManipulateSupply) 전용 가중치. 지지도/상승률 변화가 너무 크다는 피드백으로 5분의 1로 낮춤(2026-08-05).
+    private const float SupportWeightPerCoin = 0.02f;
+    private const float GrowthWeightPerCoin = 0.02f;
     // 매수/매도(Long/Short) 전용 가중치. 기존 발행량 조작과 같은 값(0.1)을 썼더니 거래만으로 지지도/상승률이
-    // 너무 크게 흔들린다는 피드백으로 5분의 1로 낮춤(2026-08-05). ManipulateSupply는 그대로 0.1 유지.
+    // 너무 크게 흔들린다는 피드백으로 5분의 1로 낮춤(2026-08-05).
     private const float TradeSupportWeightPerCoin = 0.005f;
     private const float TradeGrowthWeightPerCoin = 0.005f;
-    // 발행량 조작 시 의심도가 너무 빨리 오른다는 피드백으로 10분의 1로 낮춤(2026-08-05).
-    private const float DoubtWeightPerSupplyUnit = 0.01f;
+    // 발행량 조작 시 의심도가 너무 빨리 오른다는 피드백으로 10분의 1로 낮췄다가(2026-08-05),
+    // 다시 1.5배로 올림(2026-08-05).
+    private const float DoubtWeightPerSupplyUnit = 0.015f;
     private const float DoubtWeightPerTradeCoin = 0.002f;
 
     private const float SupportDecayRate = 0.995f;
@@ -54,6 +55,20 @@ public static class TradeCalculator
     {
         float headroom = 99f - currentDoubt;
         return headroom <= 0f ? 0L : (long)(headroom / DoubtWeightPerTradeCoin);
+    }
+
+    // 발행량 조작 확정 전 미리보기용 : 이 수량을 조작하면 Doubt가 얼마나 오르는지. PreviewTradeDoubtIncrease와 동일 설계.
+    public static float PreviewSupplyDoubtIncrease(long amount)
+    {
+        return Math.Abs(amount) * DoubtWeightPerSupplyUnit;
+    }
+
+    // 이번 발행량 조작으로 Doubt가 99를 넘지 않는 한도 내에서 최대로 조작 가능한 수량. MaxTradeAmountByDoubt와 동일 설계.
+    // 발행량 모달의 슬라이더/+MAX 버튼이 정책 상한(MaxAdjustAmount)과 이 값 중 더 작은 쪽을 쓴다.
+    public static long MaxSupplyAmountByDoubt(float currentDoubt)
+    {
+        float headroom = 99f - currentDoubt;
+        return headroom <= 0f ? 0L : (long)(headroom / DoubtWeightPerSupplyUnit);
     }
 
     // 발행량 조작 : 발행량 증가(희석) -> Support/Growth 감소, 발행량 감소(소각) -> Support/Growth 증가.

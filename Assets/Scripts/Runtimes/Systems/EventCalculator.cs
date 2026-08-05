@@ -41,9 +41,18 @@ public static class EventCalculator
         PriceCalculator.ClampPrice(stat);
     }
 
+    /// <summary>
+    /// 실제 긍정 이벤트 발생 확률(%, 0~100). 기본 50%에 PositiveEventRate/NegativeEventRate 보너스를 더한 값 —
+    /// RollCategory와 EventOverviewUI가 이 값을 공유해서 표시 확률이 실제 판정 확률과 항상 일치하게 한다.
+    /// </summary>
+    public static float PositiveEventChancePercent(PlayerStat stat)
+    {
+        return Mathf.Clamp(50f + stat.PositiveEventRate - stat.NegativeEventRate, 0f, 100f);
+    }
+
     private static EventCategory RollCategory(PlayerStat stat)
     {
-        float pPositive = Mathf.Clamp01(0.5f + stat.PositiveEventRate / 100f - stat.NegativeEventRate / 100f);
+        float pPositive = PositiveEventChancePercent(stat) / 100f;
         return Random.value <= pPositive ? EventCategory.Positive : EventCategory.Negative;
     }
 

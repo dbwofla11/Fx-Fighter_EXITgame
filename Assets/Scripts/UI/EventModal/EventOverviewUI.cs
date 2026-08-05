@@ -56,8 +56,11 @@ public class EventOverviewUI : MonoBehaviour
         if (growthBonusText != null) growthBonusText.text = $"코인 상승도 상승률 <color={BonusValueColor}>{UIFormat.Signed(stat.JobSkillGrowthBonus)}</color>";
         if (doubtBonusText != null) doubtBonusText.text = $"의심도 상승률 <color={BonusValueColor}>{UIFormat.Signed(stat.JobSkillDoubtBonus)}</color>";
 
-        if (positiveRateText != null) positiveRateText.text = $"긍정 이벤트 확률 {UIFormat.Percent(stat.PositiveEventRate)}";
-        if (negativeRateText != null) negativeRateText.text = $"부정 이벤트 확률 {UIFormat.Percent(stat.NegativeEventRate)}";
+        // PositiveEventRate/NegativeEventRate는 기본 50%에 더해지는 보너스분만 담고 있어 그대로 표시하면
+        // 항상 0%로 보인다 — EventCalculator.PositiveEventChancePercent로 실제 판정 확률을 구해 표시한다.
+        float positivePercent = EventCalculator.PositiveEventChancePercent(stat);
+        if (positiveRateText != null) positiveRateText.text = $"긍정 이벤트 확률 {UIFormat.Percent(positivePercent)}";
+        if (negativeRateText != null) negativeRateText.text = $"부정 이벤트 확률 {UIFormat.Percent(100f - positivePercent)}";
         if (cashBonusText != null) cashBonusText.text = $"현금 증가량 {UIFormat.SignedPercent(stat.CashBonus)}";
 
         long targetAsset = MarketManager.TargetAsset;

@@ -14,19 +14,31 @@ public class CoinControlModalUI : MonoBehaviour
     [Header("모달 (평소 숨김)")]
     public GameObject panel;
     public TextMeshProUGUI amountText;
-    public TextMeshProUGUI previewText;
     public Button btnPlusMinus;
+    public Image btnPlusMinusImage;
+    public Slider amountSlider;
     public Button btnAmount1;
     public Button btnAmount10;
     public Button btnAmount100;
     public Button btnAmountMax;
+
+    [Header("Preview / Confirm")]
+    public TextMeshProUGUI previewText;
+    public TextMeshProUGUI doubtIncreaseText;
     public Button btnConfirm;
     public Button btnCancel;
 
+    [Header("Stats Block (발행 전/후)")]
+    public TextMeshProUGUI currentSupplyText;
+    public TextMeshProUGUI afterSupplyText;
+
+    // TradeModalUI(AddModeColor)와 동일 팔레트. 발행량은 증가만 허용하므로(감소/소각 없음) 항상 이 색 고정.
+    private static readonly Color AddModeColor = new Color(0.7f, 0.7f, 0.74f);
+
+    // Max 상한은 잔고가 아닌 정책값. 슬라이더 오른쪽 끝과 +MAX 버튼이 이 값을 공유한다.
     private const long MaxAdjustAmount = 2000;
 
     private long amount = 0;
-    private bool isIncrease = true;
 
     private void OnEnable()
     {
@@ -40,16 +52,19 @@ public class CoinControlModalUI : MonoBehaviour
 
     private void Start()
     {
-        btnPlusMinus.onClick.AddListener(ToggleDirection);
-        btnAmount1.onClick.AddListener(() => AddAmount(1));
-        btnAmount10.onClick.AddListener(() => AddAmount(10));
-        btnAmount100.onClick.AddListener(() => AddAmount(100));
-        btnAmountMax.onClick.AddListener(() => SetAmount(MaxAdjustAmount));
-        btnConfirm.onClick.AddListener(OnConfirmClicked);
-        btnCancel.onClick.AddListener(Close);
+        if (btnPlusMinus != null) btnPlusMinus.interactable = false;
+        if (btnAmount1 != null) btnAmount1.onClick.AddListener(() => AddAmount(1));
+        if (btnAmount10 != null) btnAmount10.onClick.AddListener(() => AddAmount(10));
+        if (btnAmount100 != null) btnAmount100.onClick.AddListener(() => AddAmount(100));
+        if (btnAmountMax != null) btnAmountMax.onClick.AddListener(() => SetAmount(GetMaxAdjustAmount()));
+        if (amountSlider != null) amountSlider.onValueChanged.AddListener(OnSliderChanged);
+        if (btnConfirm != null) btnConfirm.onClick.AddListener(OnConfirmClicked);
+        if (btnCancel != null) btnCancel.onClick.AddListener(Close);
 
         panel.SetActive(false);
+        RefreshSliderRange();
         RefreshAmountText();
+        if (btnPlusMinusImage != null) btnPlusMinusImage.color = AddModeColor;
 
         if (MarketManager.Instance != null)
             HandleMarketUpdated(MarketManager.Instance.CurrentStat);
@@ -58,7 +73,7 @@ public class CoinControlModalUI : MonoBehaviour
     private void Update()
     {
         if (panel.activeSelf)
-            RefreshPreviewText();
+            RefreshPreviewAndConfirmState();
     }
 
     private void HandleMarketUpdated(PlayerStat stat)
@@ -71,8 +86,9 @@ public class CoinControlModalUI : MonoBehaviour
         ModalPause.Open(panel);
 
         amount = 0;
-        isIncrease = true;
+        RefreshSliderRange();
         RefreshAmountText();
+        RefreshPreviewAndConfirmState();
     }
 
     private void Close()
@@ -83,15 +99,9 @@ public class CoinControlModalUI : MonoBehaviour
         RefreshAmountText();
     }
 
-    private void ToggleDirection()
-    {
-        isIncrease = !isIncrease;
-        RefreshAmountText();
-    }
-
     private void AddAmount(long delta)
     {
-        amount += delta;
+        amount = System.Math.Min(GetMaxAdjustAmount(), amount + delta);
         RefreshAmountText();
     }
 
@@ -101,21 +111,77 @@ public class CoinControlModalUI : MonoBehaviour
         RefreshAmountText();
     }
 
-    private void RefreshAmountText()
+    // 지금 조작 가능한 최대 수치. 정책 상한(MaxAdjustAmount)과 Doubt가 99를 넘지 않는 한도 중 더 작은 쪽 —
+    // TradeModalUI.GetMaxTradeAmount와 동일 설계. 슬라이더 오른쪽 끝과 +MAX 버튼이 이 값을 공유한다.
+    private long GetMaxAdjustAmount()
     {
-        string sign = isIncrease ? "+" : "-";
-        amountText.text = sign + amount.ToString("N0");
+        if (MarketManager.Instance == null)
+            return MaxAdjustAmount;
+
+        long maxByDoubt = TradeCalculator.MaxSupplyAmountByDoubt(MarketManager.Instance.CurrentStat.Doubt);
+        return System.Math.Min(MaxAdjustAmount, maxByDoubt);
     }
 
-    // 확정 전 "조정 후 예상 발행량" 미리보기만 계산한다.
-    private void RefreshPreviewText()
+    // 모달을 열 때 슬라이더의 오른쪽 끝을 맞춘다.
+    private void RefreshSliderRange()
+    {
+        if (amountSlider == null)
+            return;
+
+        amountSlider.minValue = 0;
+        amountSlider.maxValue = Mathf.Max(1, GetMaxAdjustAmount());
+        amountSlider.SetValueWithoutNotify(amount);
+    }
+
+    private void OnSliderChanged(float value)
+    {
+        amount = (long)value;
+        RefreshAmountText(skipSlider: true);
+    }
+
+    // skipSlider: 슬라이더 드래그가 값을 바꾼 경우, 그 값으로 다시 슬라이더를 덮어써서 튀는 것을 막는다.
+    private void RefreshAmountText(bool skipSlider = false)
+    {
+        if (amountText != null)
+            amountText.text = "+" + amount.ToString("N0");
+
+        if (!skipSlider && amountSlider != null)
+            amountSlider.SetValueWithoutNotify(amount);
+    }
+
+    // 확정 전 "조정 후 예상 발행량" 미리보기 + Before/After 발행량 텍스트를 계산한다.
+    // 발행량은 증가만 허용하므로(감소/소각 없음) 유효성 조건은 수량이 0보다 큰지만 본다.
+    private void RefreshPreviewAndConfirmState()
     {
         if (MarketManager.Instance == null)
             return;
 
-        long signedAmount = isIncrease ? amount : -amount;
-        float resultSupply = MarketManager.Instance.CurrentStat.Supply + signedAmount;
-        previewText.text = "조정 후 예상 발행량: " + resultSupply.ToString("N0") + "개";
+        float currentSupply = MarketManager.Instance.CurrentStat.Supply;
+        float resultSupply = currentSupply + amount;
+        bool isValid = amount > 0;
+
+        // Doubt가 바뀌면 조작 가능 최대치도 바뀌므로 슬라이더 오른쪽 끝을 매 프레임 맞춰준다 (Trade와 동일).
+        if (amountSlider != null)
+            amountSlider.maxValue = Mathf.Max(1, GetMaxAdjustAmount());
+
+        if (doubtIncreaseText != null)
+            doubtIncreaseText.text = "의심도 +" + TradeCalculator.PreviewSupplyDoubtIncrease(amount).ToString("N2");
+
+        if (currentSupplyText != null)
+        {
+            currentSupplyText.text = currentSupply.ToString("N0") + "개";
+            currentSupplyText.color = isValid ? Color.white : Color.red;
+        }
+        if (afterSupplyText != null)
+            afterSupplyText.text = "→ " + resultSupply.ToString("N0") + "개";
+
+        if (previewText != null)
+        {
+            previewText.text = "조정 후 예상 발행량: " + resultSupply.ToString("N0") + "개";
+            previewText.color = isValid ? Color.white : Color.red;
+        }
+        if (btnConfirm != null)
+            btnConfirm.interactable = isValid;
     }
 
     private void OnConfirmClicked()
@@ -123,8 +189,14 @@ public class CoinControlModalUI : MonoBehaviour
         if (amount <= 0)
             return;
 
-        long signedAmount = isIncrease ? amount : -amount;
-        EventHub.RaiseManipulateSupply(signedAmount);
+        float intensity = Mathf.Clamp01((float)amount / Mathf.Max(1, GetMaxAdjustAmount()));
+        RectTransform burst = UIBurstParticle.Spawn((RectTransform)btnConfirm.transform, Vector2.zero, AddModeColor, intensity);
+        // Close()가 곧바로 panel을 비활성화하는데, 버스트가 그 자식으로 남아있으면 애니메이션이 끝나기
+        // 전에 얼어붙어 다음에 열 때 안 사라진 조각이 남는다 — TradeModalUI와 동일하게 root로 옮긴다.
+        if (burst != null)
+            burst.SetParent(btnConfirm.transform.root, true);
+
+        EventHub.RaiseManipulateSupply(amount);
 
         if (MarketManager.Instance != null)
             EventHub.RaiseMarketUpdated(MarketManager.Instance.CurrentStat);
