@@ -10,6 +10,7 @@ public class EventNotificationUI : MonoBehaviour
     public GameObject panel;
     public EventCardView cardView;
     public Button closeButton;
+    [SerializeField] private AudioClip closeSfx; // 이벤트알림끄는소리
 
     private void OnEnable()
     {
@@ -38,6 +39,7 @@ public class EventNotificationUI : MonoBehaviour
 
     private void Close()
     {
+        if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(closeSfx);
         ModalPause.Close(panel);
     }
 }

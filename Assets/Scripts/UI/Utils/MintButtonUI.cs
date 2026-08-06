@@ -9,6 +9,7 @@ public class MintButtonUI : MonoBehaviour
     public Button btnMint;
     public CanvasGroup canvasGroup;
     public CoinControlModalUI coinControlModal;
+    [SerializeField] private AudioClip clickSfx; // 일반버튼소리
 
     private void OnEnable()
     {
@@ -23,7 +24,11 @@ public class MintButtonUI : MonoBehaviour
 
     private void Start()
     {
-        btnMint.onClick.AddListener(() => coinControlModal.Open());
+        btnMint.onClick.AddListener(() =>
+        {
+            if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(clickSfx);
+            coinControlModal.Open();
+        });
     }
 
     private void RefreshUnlockState()

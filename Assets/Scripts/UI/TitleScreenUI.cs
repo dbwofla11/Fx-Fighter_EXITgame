@@ -7,6 +7,7 @@ public class TitleScreenUI : MonoBehaviour
     [SerializeField] private Button startButton;
     [SerializeField] private Button quitAppButton; // "완전 게임종료" — 앱 자체를 끈다 (SettingsUI의 "게임종료"는 여기로 돌아올 뿐, 앱 종료는 여기서만)
     [SerializeField] private AudioClip titleBgmClip; // GameStarter.mainBgmClip과 동일한 패턴 (AudioManager.PlayBGM)
+    [SerializeField] private AudioClip clickSfx; // 일반버튼소리
 
     private void Start()
     {
@@ -15,7 +16,15 @@ public class TitleScreenUI : MonoBehaviour
 
         if (startButton != null)
         {
-            startButton.onClick.AddListener(() => GameSceneManager.LoadCharacterSelect());
+            startButton.onClick.AddListener(() =>
+            {
+                if (AudioManager.Instance != null)
+                {
+                    AudioManager.Instance.PlaySFX(clickSfx);
+                    AudioManager.Instance.StopBGM(); // 캐릭터 선택 씬엔 브금이 없어서 안 끄면 타이틀 브금이 계속 들린다
+                }
+                GameSceneManager.LoadCharacterSelect();
+            });
 
             // "게임 시작"만 매수·매도 버튼과 같은 둥둥 뜨는 idle 애니메이션을 쓴다 (HoverIdleBob 재사용,
             // 호버 대상이 아니라 alwaysActive로 항상 재생되게 한다). 타이틀/부제목은 고정.
@@ -23,7 +32,11 @@ public class TitleScreenUI : MonoBehaviour
         }
 
         if (quitAppButton != null)
-            quitAppButton.onClick.AddListener(QuitApplication);
+            quitAppButton.onClick.AddListener(() =>
+            {
+                if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(clickSfx);
+                QuitApplication();
+            });
     }
 
     private void QuitApplication()

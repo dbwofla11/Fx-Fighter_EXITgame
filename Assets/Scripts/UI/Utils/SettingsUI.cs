@@ -33,6 +33,9 @@ public class SettingsUI : MonoBehaviour
     public TMP_Dropdown resolutionDropdown;
     public Toggle fullscreenToggle;
 
+    [Header("SFX")]
+    [SerializeField] private AudioClip clickSfx; // 일반버튼소리
+
     private const string ResolutionIndexKey = "ResolutionIndex";
     private const string FullscreenKey = "Fullscreen";
     private List<Resolution> resolutions;
@@ -46,15 +49,20 @@ public class SettingsUI : MonoBehaviour
         settingsPanel.SetActive(false);
 
         // 버튼 클릭 시 작동할 함수를 코드로 연결
-        openButton.onClick.AddListener(OpenSettings);
-        closeButton.onClick.AddListener(CloseSettings);
-        quitButton.onClick.AddListener(QuitGame);
-        soundButton.onClick.AddListener(OpenSoundPanel);
-        soundCloseButton.onClick.AddListener(CloseSoundPanel);
-        saveButton.onClick.AddListener(SaveAndCloseSoundPanel);
+        openButton.onClick.AddListener(() => { PlayClickSfx(); OpenSettings(); });
+        closeButton.onClick.AddListener(() => { PlayClickSfx(); CloseSettings(); });
+        quitButton.onClick.AddListener(() => { PlayClickSfx(); QuitGame(); });
+        soundButton.onClick.AddListener(() => { PlayClickSfx(); OpenSoundPanel(); });
+        soundCloseButton.onClick.AddListener(() => { PlayClickSfx(); CloseSoundPanel(); });
+        saveButton.onClick.AddListener(() => { PlayClickSfx(); SaveAndCloseSoundPanel(); });
 
         SetupSoundControls();
         SetupResolutionControls();
+    }
+
+    private void PlayClickSfx()
+    {
+        if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(clickSfx);
     }
 
     private void OpenSettings()

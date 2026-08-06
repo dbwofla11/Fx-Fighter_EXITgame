@@ -9,6 +9,7 @@ public class EventLogButton : MonoBehaviour
     [SerializeField] private Sprite onSprite;
     [SerializeField] private Sprite offSprite;
     [SerializeField] private EventLogPanelUI eventLogPanel;
+    [SerializeField] private AudioClip clickSfx; // 클릭소리
 
     private Image icon;
 
@@ -30,6 +31,7 @@ public class EventLogButton : MonoBehaviour
 
     private void Toggle()
     {
+        if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(clickSfx);
         eventLogPanel.Toggle();
     }
 }

@@ -51,8 +51,9 @@ public class SkillPanelUI : MonoBehaviour
     public TextMeshProUGUI moneyText;
     public TextMeshProUGUI coinText;
 
-    [Header("Purchase VFX/SFX")]
-    [SerializeField] private AudioClip purchaseSfx; // 미할당 시 AudioManager.PlaySFX가 자체적으로 무시함
+    [Header("SFX")]
+    [SerializeField] private AudioClip clickSfx;   // 클릭소리 (아이콘 클릭)
+    [SerializeField] private AudioClip confirmSfx; // 확인버튼소리 (구매 버튼)
 
     // EventLogPanelUI의 탭 색상 관례와 동일 : 진한 빨강(#FF8686)=선택된 탭, 연한 빨강(#FFDBDB)=안 눌린 탭.
     private static readonly Color SelectedTabColor = new Color(1f, 0.5255f, 0.5255f);
@@ -72,7 +73,11 @@ public class SkillPanelUI : MonoBehaviour
 
     private void Start()
     {
-        if (closeBtn != null) closeBtn.onClick.AddListener(Close);
+        if (closeBtn != null) closeBtn.onClick.AddListener(() =>
+        {
+            if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(clickSfx);
+            Close();
+        });
 
         if (purchaseBtn != null)
         {
@@ -92,13 +97,21 @@ public class SkillPanelUI : MonoBehaviour
             if (profile != null && slot.button.image != null)
                 slot.button.image.sprite = profile.icon;
 
-            slot.button.onClick.AddListener(() => EventHub.RaiseSkillClicked(id));
+            slot.button.onClick.AddListener(() =>
+            {
+                if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(clickSfx);
+                EventHub.RaiseSkillClicked(id);
+            });
         }
 
         foreach (TabSlot tab in tabs)
         {
             SkillCategory category = tab.category;
-            tab.button.onClick.AddListener(() => SelectTab(category));
+            tab.button.onClick.AddListener(() =>
+            {
+                if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(clickSfx);
+                SelectTab(category);
+            });
         }
     }
 
@@ -129,8 +142,7 @@ public class SkillPanelUI : MonoBehaviour
                 burst.SetParent(purchaseBtn.transform.root, true);
         }
 
-        if (AudioManager.Instance != null)
-            AudioManager.Instance.PlaySFX(purchaseSfx);
+        if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(confirmSfx);
     }
 
     public void Toggle()

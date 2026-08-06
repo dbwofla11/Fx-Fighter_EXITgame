@@ -27,6 +27,7 @@ public class CharacterSelectUI : MonoBehaviour
     [SerializeField] private Sprite cashIcon;
 
     [SerializeField] private Button nextButton;
+    [SerializeField] private AudioClip clickSfx; // 일반버튼소리
 
     private int selectedIndex;
 
@@ -35,11 +36,16 @@ public class CharacterSelectUI : MonoBehaviour
         for (int i = 0; i < slotButtons.Length; i++)
         {
             int index = i;
-            slotButtons[i].onClick.AddListener(() => SelectJob(index));
+            slotButtons[i].onClick.AddListener(() => { PlayClickSfx(); SelectJob(index); });
         }
-        nextButton.onClick.AddListener(ConfirmSelection);
+        nextButton.onClick.AddListener(() => { PlayClickSfx(); ConfirmSelection(); });
 
         SelectJob(0);
+    }
+
+    private void PlayClickSfx()
+    {
+        if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(clickSfx);
     }
 
     private void SelectJob(int index)

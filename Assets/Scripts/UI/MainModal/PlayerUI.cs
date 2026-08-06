@@ -12,6 +12,7 @@ public class PlayerUI : MonoBehaviour
     public Button btnLong;
     public Button btnShort;
     public TradeModalUI tradeModal;
+    [SerializeField] private AudioClip clickSfx; // 클릭소리
 
     private void OnEnable()
     {
@@ -26,12 +27,17 @@ public class PlayerUI : MonoBehaviour
 
     private void Start()
     {
-        btnLong.onClick.AddListener(() => tradeModal.Open(TradeMode.Long));
-        btnShort.onClick.AddListener(() => tradeModal.Open(TradeMode.Short));
+        btnLong.onClick.AddListener(() => { PlayClickSfx(); tradeModal.Open(TradeMode.Long); });
+        btnShort.onClick.AddListener(() => { PlayClickSfx(); tradeModal.Open(TradeMode.Short); });
 
         // 롱/숏 버튼에 마우스를 올리면 공중에 뜬 것처럼 살짝 흔들리는 idle 연출.
         btnLong.gameObject.AddComponent<HoverIdleBob>();
         btnShort.gameObject.AddComponent<HoverIdleBob>();
+    }
+
+    private void PlayClickSfx()
+    {
+        if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(clickSfx);
     }
 
     private void HandleMarketUpdated(PlayerStat stat) => RefreshTexts();

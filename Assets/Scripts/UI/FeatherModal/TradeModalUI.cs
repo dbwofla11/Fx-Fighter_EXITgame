@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using TMPro;
 
 public enum TradeMode
@@ -31,6 +32,10 @@ public class TradeModalUI : MonoBehaviour
     public Button btnConfirm;
     public Button btnCancel;
 
+    [Header("SFX")]
+    [SerializeField] private AudioClip clickSfx;   // 일반버튼소리 (+1/10/100/Max, +-, 취소)
+    [SerializeField] private AudioClip confirmSfx; // 확인버튼소리
+
     [Header("Stats Block (Figma 통계블록)")]
     public TextMeshProUGUI currentCashText;
     public TextMeshProUGUI currentCoinText;
@@ -55,17 +60,38 @@ public class TradeModalUI : MonoBehaviour
     // 호출됐는지 기억해서, 그런 경우엔 Start()가 다시 닫지 않게 막는다.
     private void Start()
     {
-        if (btnPlus1 != null) btnPlus1.onClick.AddListener(() => AddTradeAmount(1));
-        if (btnPlus10 != null) btnPlus10.onClick.AddListener(() => AddTradeAmount(10));
-        if (btnPlus100 != null) btnPlus100.onClick.AddListener(() => AddTradeAmount(100));
-        if (btnPlusMax != null) btnPlusMax.onClick.AddListener(SetTradeAmountToMax);
-        if (btnPlusMinus != null) btnPlusMinus.onClick.AddListener(ToggleSubtractMode);
-        if (tradeAmountSlider != null) tradeAmountSlider.onValueChanged.AddListener(OnSliderChanged);
-        if (btnConfirm != null) btnConfirm.onClick.AddListener(OnConfirmClicked);
-        if (btnCancel != null) btnCancel.onClick.AddListener(Close);
+        if (btnPlus1 != null) btnPlus1.onClick.AddListener(() => { PlayClickSfx(); AddTradeAmount(1); });
+        if (btnPlus10 != null) btnPlus10.onClick.AddListener(() => { PlayClickSfx(); AddTradeAmount(10); });
+        if (btnPlus100 != null) btnPlus100.onClick.AddListener(() => { PlayClickSfx(); AddTradeAmount(100); });
+        if (btnPlusMax != null) btnPlusMax.onClick.AddListener(() => { PlayClickSfx(); SetTradeAmountToMax(); });
+        if (btnPlusMinus != null) btnPlusMinus.onClick.AddListener(() => { PlayClickSfx(); ToggleSubtractMode(); });
+        if (tradeAmountSlider != null)
+        {
+            tradeAmountSlider.onValueChanged.AddListener(OnSliderChanged);
+            AddPointerDownSfx(tradeAmountSlider.gameObject);
+        }
+        if (btnConfirm != null) btnConfirm.onClick.AddListener(() => { if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(confirmSfx); OnConfirmClicked(); });
+        if (btnCancel != null) btnCancel.onClick.AddListener(() => { PlayClickSfx(); Close(); });
 
         if (!isOpen && panel != null)
             panel.SetActive(false);
+    }
+
+    private void PlayClickSfx()
+    {
+        if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(clickSfx);
+    }
+
+    // 슬라이더는 onValueChanged가 드래그 중 매 프레임 울려서 그걸로 소리를 걸면 시끄럽다 —
+    // 잡는 순간(PointerDown) 한 번만 재생한다.
+    private void AddPointerDownSfx(GameObject target)
+    {
+        EventTrigger trigger = target.GetComponent<EventTrigger>();
+        if (trigger == null) trigger = target.AddComponent<EventTrigger>();
+
+        EventTrigger.Entry entry = new EventTrigger.Entry { eventID = EventTriggerType.PointerDown };
+        entry.callback.AddListener(_ => PlayClickSfx());
+        trigger.triggers.Add(entry);
     }
 
     private void Update()

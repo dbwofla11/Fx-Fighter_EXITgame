@@ -8,6 +8,7 @@ public class SkillPanelButton : MonoBehaviour
     [SerializeField] private Sprite onSprite;
     [SerializeField] private Sprite offSprite;
     [SerializeField] private SkillPanelUI skillPanel;
+    [SerializeField] private AudioClip openSfx; // 스킬버튼구매소리
 
     private Image icon;
 
@@ -29,6 +30,7 @@ public class SkillPanelButton : MonoBehaviour
 
     private void Toggle()
     {
+        if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(openSfx);
         skillPanel.Toggle();
     }
 }

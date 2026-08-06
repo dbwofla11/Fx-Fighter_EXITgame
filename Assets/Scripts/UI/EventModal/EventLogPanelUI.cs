@@ -26,6 +26,9 @@ public class EventLogPanelUI : MonoBehaviour
     public RectTransform cardListParent;
     public EventCardView cardTemplate;
 
+    [Header("SFX")]
+    [SerializeField] private AudioClip clickSfx; // 클릭소리
+
     // 탭 선택 상태 표시. Figma상 진한 빨강(#FF8686)=눌린(선택된) 탭, 연한 빨강(#FFDBDB)=안 눌린 탭.
     private static readonly Color SelectedTabColor = new Color(1f, 0.5255f, 0.5255f);
     private static readonly Color UnselectedTabColor = new Color(1f, 0.8588f, 0.8588f);
@@ -34,9 +37,9 @@ public class EventLogPanelUI : MonoBehaviour
 
     private void Start()
     {
-        if (overviewTab != null) overviewTab.onClick.AddListener(ShowOverview);
-        if (communityTab != null) communityTab.onClick.AddListener(ShowCommunity);
-        if (closeBtn != null) closeBtn.onClick.AddListener(Close);
+        if (overviewTab != null) overviewTab.onClick.AddListener(() => { PlayClickSfx(); ShowOverview(); });
+        if (communityTab != null) communityTab.onClick.AddListener(() => { PlayClickSfx(); ShowCommunity(); });
+        if (closeBtn != null) closeBtn.onClick.AddListener(() => { PlayClickSfx(); Close(); });
 
         if (cardTemplate != null) cardTemplate.gameObject.SetActive(false);
     }
@@ -56,6 +59,11 @@ public class EventLogPanelUI : MonoBehaviour
     public void Close()
     {
         ModalPause.Close(gameObject);
+    }
+
+    private void PlayClickSfx()
+    {
+        if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(clickSfx);
     }
 
     private void ShowOverview()

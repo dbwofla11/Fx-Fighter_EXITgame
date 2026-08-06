@@ -968,6 +968,7 @@ MonoBehaviour:
   startButton: {fileID: 1082988145}
   quitAppButton: {fileID: 475424897}
   titleBgmClip: {fileID: 8300000, guid: 2eca51429053515489dc94177a92f933, type: 3}
+  clickSfx: {fileID: 8300000, guid: e931d915f986c9944a4621a535a16703, type: 3}
 --- !u!114 &582636520
 MonoBehaviour:
   m_ObjectHideFlags: 0

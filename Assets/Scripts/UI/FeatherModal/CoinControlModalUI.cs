@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using TMPro;
 
 // 발행량 조작 모달. TotalSupplyText는 기본 화면에서도 항상 보이며 EventHub.OnMarketUpdated로 갱신된다.
@@ -28,6 +29,10 @@ public class CoinControlModalUI : MonoBehaviour
     public Button btnConfirm;
     public Button btnCancel;
 
+    [Header("SFX")]
+    [SerializeField] private AudioClip clickSfx;   // 일반버튼소리 (+1/10/100/Max, +-, 취소)
+    [SerializeField] private AudioClip confirmSfx; // 확인버튼소리
+
     [Header("Stats Block (발행 전/후)")]
     public TextMeshProUGUI currentSupplyText;
     public TextMeshProUGUI afterSupplyText;
@@ -53,13 +58,17 @@ public class CoinControlModalUI : MonoBehaviour
     private void Start()
     {
         if (btnPlusMinus != null) btnPlusMinus.interactable = false;
-        if (btnAmount1 != null) btnAmount1.onClick.AddListener(() => AddAmount(1));
-        if (btnAmount10 != null) btnAmount10.onClick.AddListener(() => AddAmount(10));
-        if (btnAmount100 != null) btnAmount100.onClick.AddListener(() => AddAmount(100));
-        if (btnAmountMax != null) btnAmountMax.onClick.AddListener(() => SetAmount(GetMaxAdjustAmount()));
-        if (amountSlider != null) amountSlider.onValueChanged.AddListener(OnSliderChanged);
-        if (btnConfirm != null) btnConfirm.onClick.AddListener(OnConfirmClicked);
-        if (btnCancel != null) btnCancel.onClick.AddListener(Close);
+        if (btnAmount1 != null) btnAmount1.onClick.AddListener(() => { PlayClickSfx(); AddAmount(1); });
+        if (btnAmount10 != null) btnAmount10.onClick.AddListener(() => { PlayClickSfx(); AddAmount(10); });
+        if (btnAmount100 != null) btnAmount100.onClick.AddListener(() => { PlayClickSfx(); AddAmount(100); });
+        if (btnAmountMax != null) btnAmountMax.onClick.AddListener(() => { PlayClickSfx(); SetAmount(GetMaxAdjustAmount()); });
+        if (amountSlider != null)
+        {
+            amountSlider.onValueChanged.AddListener(OnSliderChanged);
+            AddPointerDownSfx(amountSlider.gameObject);
+        }
+        if (btnConfirm != null) btnConfirm.onClick.AddListener(() => { if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(confirmSfx); OnConfirmClicked(); });
+        if (btnCancel != null) btnCancel.onClick.AddListener(() => { PlayClickSfx(); Close(); });
 
         panel.SetActive(false);
         RefreshSliderRange();
@@ -74,6 +83,23 @@ public class CoinControlModalUI : MonoBehaviour
     {
         if (panel.activeSelf)
             RefreshPreviewAndConfirmState();
+    }
+
+    private void PlayClickSfx()
+    {
+        if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(clickSfx);
+    }
+
+    // 슬라이더는 onValueChanged가 드래그 중 매 프레임 울려서 그걸로 소리를 걸면 시끄럽다 —
+    // 잡는 순간(PointerDown) 한 번만 재생한다.
+    private void AddPointerDownSfx(GameObject target)
+    {
+        EventTrigger trigger = target.GetComponent<EventTrigger>();
+        if (trigger == null) trigger = target.AddComponent<EventTrigger>();
+
+        EventTrigger.Entry entry = new EventTrigger.Entry { eventID = EventTriggerType.PointerDown };
+        entry.callback.AddListener(_ => PlayClickSfx());
+        trigger.triggers.Add(entry);
     }
 
     private void HandleMarketUpdated(PlayerStat stat)
