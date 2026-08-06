@@ -85,6 +85,18 @@ Price(t)
 
 (`isUp`이면 +, 아니면 -)
 
+**거래량(Volume) 배율** : 위 절대값(`|0.6×Growth + 0.25×Support + 0.15×Scarcity|`)에 `volumeMultiplier`를 한
+번 더 곱한다 — 이 문서에 그동안 누락돼 있었지만 `PriceCalculator.Calculate`에 이미 구현돼 있다.
+
+volumeMultiplier = Max(MinVolumeDeltaMultiplier, 1 + Volume × VolumeDeltaWeight)
+
+- VolumeDeltaWeight = 0.01 (`PriceCalculator.VolumeDeltaWeight`) — 거래량부풀리기(+25) 스킬 하나만 썼을 때
+  대략 변동폭이 +25% 되도록 잡은 임시 수치(ponytail, 플레이 후 조정 필요)
+- MinVolumeDeltaMultiplier = 0.2 (`PriceCalculator.MinVolumeDeltaMultiplier`) — `Volume`이 크게 마이너스여도
+  배율이 0에 너무 가까워지지 않게 하는 하한
+- `PlayerStat.Volume`은 Job/Skill의 `VolumeIncrease`/`VolumeDecrease` 효과(3-1/3-2장)로만 바뀌며, CashBonus와
+  같은 그룹(활성 상태인 동안 매 턴 새로 채워짐, 감쇠 없음)이다.
+
 - **초기 가격(`MarketManager.InitialPrice`) = 10** (2026-08-04, 1000 → 10로 조정). 게임 시작 시 `CurrentPrice`가
   이 값으로 설정된다 (이전에는 초기화 코드가 없어 C# 기본값인 0으로 시작했었다 — 아래 "가격 하한선" 참고).
 - **가격 하한선(`PriceCalculator.MinPrice`) = 1**. `CurrentPrice`는 절대 이 값 밑으로 내려가지 않는다
@@ -257,12 +269,16 @@ Growth += ±Amount × wg_trade
 
 Doubt += |Amount| × wd_trade
 
-- ws_trade = 0.1 (Support 가중치)
-- wg_trade = 0.1 (Growth 가중치)
+- ws_trade = 0.005 (Support 가중치, `TradeCalculator.TradeSupportWeightPerCoin`, 2026-08-05에 발행량 조작과
+  같은 값(0.1)이었다가 거래만으로 지지도/상승률이 너무 크게 흔들린다는 피드백으로 낮춤)
+- wg_trade = 0.005 (Growth 가중치, `TradeCalculator.TradeGrowthWeightPerCoin`, 위와 동일한 조정)
 - wd_trade = 0.002 (Doubt 가중치, `TradeCalculator.DoubtWeightPerTradeCoin`, 2026-08-04에 0.02 → 0.002로 1/10
   낮춤) — Long/Short 둘 다 부호 없이 더해진다 (감쇠 없이 그대로 누적, `ManipulateSupply`와 동일한 설계). 거래를
   자주/크게 할수록 "시장에서 눈에 띈다"는 의미로, 후반 Doubt가 자동으로도 오르는 상황(3장 "Doubt 자동 상승")에
-  거래까지 더해지면 부담이 커지므로 Support/Growth 가중치(0.1)보다 훨씬 작게(1/50) 잡았다.
+  거래까지 더해지면 부담이 커지므로 Support/Growth 가중치보다 훨씬 작게 잡았다.
+- (2026-08-05 정리) `ws_trade`/`wg_trade`는 발행량 조작 전용 가중치(아래 "발행량 조작" 절의 `ws_supply`/
+  `wg_supply`)와 더는 같은 상수를 재사용하지 않는다 — 거래(Long/Short)와 발행량 조작이 시장에 주는 충격의
+  크기가 서로 다르다는 판단으로 `TradeCalculator`에서 각각 별도 상수로 분리했다.
 - Support/Growth 부호는 Long(+) / Short(-)
 
 ## 발행량 조작
@@ -281,14 +297,17 @@ Supply += amount
 
 PlayerManager.currentCoins += amount
 
-Support -= amount × ws_trade
+Support -= amount × ws_supply
 
-Growth -= amount × wg_trade
+Growth -= amount × wg_supply
 
 Doubt += |amount| × wd_supply
 
-- ws_trade/wg_trade = 0.1 (Long/Short와 동일한 가중치를 그대로 재사용한다)
-- wd_supply = 0.1 (Doubt 가중치)
+- ws_supply = 0.02, wg_supply = 0.02 (`TradeCalculator.SupportWeightPerCoin`/`GrowthWeightPerCoin`, Long/Short
+  전용 `ws_trade`/`wg_trade`(위 "거래가 Support/Growth/Doubt에 주는 영향" 절)와는 별개 상수 — 2026-08-05에
+  지지도/상승률 변화가 너무 크다는 피드백으로 5분의 1로 낮춤)
+- wd_supply = 0.015 (Doubt 가중치, `TradeCalculator.DoubtWeightPerSupplyUnit`, 2026-08-05에 1/10로 낮췄다가
+  다시 1.5배로 올림)
 - 발행량 증가(희석)든 감소(소각)든 "조작했다는 사실 자체"가 의심을 키우므로 Doubt는 amount의 **절대값**에 비례해
   증가한다. Doubt는 감쇠하지 않으므로(3장 참고) 한 번 늘어난 만큼 그대로 남는다.
 - Support/Growth는 부호가 거래와 반대다 : 발행량 증가는 시장에 코인이 흔해진다는 뜻이라 Support/Growth를
@@ -494,8 +513,9 @@ Doubt는 시간이 지나면 저절로 오르는 지표다. 게임 시간으로 
 그 이후로는 매 턴 계속 증가한다. Doubt는 감쇠하지 않으므로(3장) 자동 상승분도 그대로 누적된다.
 
 - 1턴 = 1일 기준, 게임 시간 2년 = 730턴
-- 730턴째 : Doubt += 20 (1회)
-- 731턴부터 : 매 턴 Doubt += 0.5
+- 730턴째 : Doubt += 4 (1회, `MarketManager.DoubtAutoRiseInitialAmount`)
+- 731턴부터 : 매 턴 Doubt += 0.1 (`MarketManager.DoubtAutoRisePerTurn`)
+- (2026-08-05) 자동 상승 속도가 너무 빠르다는 피드백으로 기존 수치(20 / 0.5)의 1/5로 낮췄다.
 
 ---
 
@@ -508,7 +528,8 @@ Doubt는 시간이 지나면 저절로 오르는 지표다. 게임 시간으로 
 - **조건** : `Doubt >= 100`
 - **결과** : 수사 후 체포, 자산 몰수
 - **판정 시점** : 자동 (매 턴 체크)
-- **설명** : "끝없는 탐욕은 결국 법의 심판으로 돌아왔다."
+- **설명** (2026-08-06, 전용 `EndingScene`에 배경 이미지와 함께 표시, `EndingSceneUI.cs`) : "결국 금감원에
+  걸려버렸다....."
 
 ## 2. 엑시트 엔딩 (Neutral Ending)
 
@@ -529,8 +550,9 @@ Doubt는 시간이 지나면 저절로 오르는 지표다. 게임 시간으로 
 
 - **조건** : 현금 0 + 코인 0, **또는** 코인 가격이 상폐 기준(`MarketManager.DelistingPriceThreshold = 2`)
   이하로 7턴(1주, `DaysPerCandle=7` 기준) 연속으로 붙어있음
-- **결과** : 미정 (추가 기획 필요). 게임오버 연출은 체포 엔딩과 동일(StatGaugeUI 패널 붕괴 +
-  PriceChartUI 캔들 붕괴)하게 처리한다.
+- **결과** : 게임오버 연출은 체포 엔딩과 동일하게, `SampleScene`에서 StatGaugeUI 패널 붕괴 + PriceChartUI
+  캔들 붕괴가 먼저 보인 뒤 전용 `EndingScene`으로 넘어간다.
+- **설명** (2026-08-06, `EndingSceneUI.cs`) : "코인이 상장폐지 당했다......."
 - **판정 시점** : 자동 (매 턴 체크). 상폐 기준 연속 턴 수는 `MarketManager.priceFloorStreak`가 매 턴
   갱신하며, 가격이 상폐 기준을 벗어나면 즉시 0으로 리셋된다 (`EndingCalculator.PriceFloorStreakLimit = 7`).
 
