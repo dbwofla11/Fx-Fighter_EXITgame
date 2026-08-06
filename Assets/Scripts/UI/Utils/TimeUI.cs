@@ -72,12 +72,6 @@ public class TimeUI : MonoBehaviour
 
     private void Update()
     {
-        // 스페이스바/P: 정지 상태 토글
-        if (Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.P))
-        {
-            TimeManager.Instance.TogglePause();
-        }
-
         if (pauseHighlight != null)
         {
             bool isPaused = TimeManager.Instance.IsPaused;

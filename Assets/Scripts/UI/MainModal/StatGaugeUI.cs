@@ -12,7 +12,7 @@ using TMPro;
 public class StatGaugeUI : MonoBehaviour
 {
     // EndingResultUI가 이 시간만큼 결과 패널 표시를 늦춰서 붕괴 연출이 먼저 보이게 한다.
-    public const float ArrestCollapseDuration = 0.6f;
+    public const float ArrestCollapseDuration = 1f;
 
     private enum StatType { Support, Growth, Doubt }
 
