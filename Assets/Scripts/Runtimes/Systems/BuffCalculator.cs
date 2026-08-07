@@ -40,7 +40,8 @@ public static class BuffCalculator
             if (entry.Value.TurnsRemaining <= 0)
                 continue;
 
-            stat.Doubt -= entry.Value.PerTurn;
+            // 스킬로 인한 Doubt 감소는 0 밑으로 안 내려간다(ApplySkillUse의 즉시형 DoubtDecrease와 동일 원칙).
+            stat.Doubt = UnityEngine.Mathf.Max(0f, stat.Doubt - entry.Value.PerTurn);
             stat.DoubtDeclines[entry.Key] = new DoubtDeclineBuff
             {
                 PerTurn = entry.Value.PerTurn,

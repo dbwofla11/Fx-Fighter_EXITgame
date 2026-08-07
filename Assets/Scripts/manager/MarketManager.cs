@@ -269,6 +269,7 @@ public class MarketManager : MonoBehaviour
     {
         IsGameOver = true;
         TimeManager.Instance.PauseGame();
+        GameStatsTracker.Instance?.CaptureExitCash(PlayerManager.Instance.currentMoney);
         EventHub.RaiseGameEnded(ending);
     }
 

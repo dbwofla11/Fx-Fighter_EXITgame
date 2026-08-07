@@ -717,3 +717,21 @@
   여론조작 4종(SNS선동/댓글부대운영/커뮤니티알바/파트너십발표, 전부 5→2.5), 코인설계 1종(독약조항,
   5→2.5). `기업인` 직업의 `DoubtIncrease 25`(직업 효과, 스킬 아님)는 이번 범위 밖이라 손대지 않음.
   순수 데이터(.asset) 조정, 코드 변경 없음.
+- **완료** : 버그 수정 2건(2026-08-08, 플레이테스트 피드백 2차).
+  ① 여론조작 스킬(실시간여론관리/수상경력홍보/후기마케팅)의 "의심도 하락"(`DoubtDecline`) 버프가 0 밑으로
+  안 멈추고 계속 깎여 마이너스까지 내려가던 문제 — `BuffCalculator.TickDoubtDeclines`가 매 턴
+  `stat.Doubt -= entry.Value.PerTurn`만 하고 하한 체크가 없었다. 즉시형 스킬 Doubt 감소(`ApplySkillUse`의
+  `clampDoubtFloor: true`)는 이미 0에서 멈추는데 이 분할형만 그 원칙이 빠져있던 불일치였다. `Mathf.Max(0f, ...)`
+  로 맞춰 고쳤다. `StatCalculator.ClampStat`의 전역 하한(-100)은 그대로 뒀다 — 이건 정치인 직업의
+  `DoubtDecrease 10`이 선택 시점(Doubt=0)에 즉시 0으로 도로 잘려 무효화되는 걸 막으려고 의도적으로 열어둔
+  것이라(`StatCalculator.cs` 주석 참고) 손대면 정치인 특성이 죽는다 — 이번 버그는 그 전역 하한이 아니라
+  분할 하락 버프에 국소적으로 하한이 빠졌던 게 원인이었다.
+  ② 재사용형 스킬 구매 버튼을 눌러도 반응이 없어 구매됐는지 안 보이던 문제 — 지난 세션에 파티클 버스트를
+  뺀 뒤로는 사운드 말고 아무 시각 피드백이 없었다(재사용형은 `locked` 상태가 항상 false라 잠금 색상도 안
+  바뀜). TimeUI의 PauseBtn/SpeedBtn/PlayBtn에 이미 붙어있던 `ButtonPressEffect`(누르면 축소, 떼면 원상복귀,
+  코드 없이 컴포넌트만 붙이면 동작)를 `PurchaseBtn`에도 그대로 붙였다. 붙이고 나서 "버튼 밑에 깔린
+  `PurchaseBtnShadow`(입체 음영)는 왜 같이 안 줄어드냐"는 피드백을 받아 확인해보니, 이 음영은 버튼의
+  자식이 아니라 `DetailBox` 밑 형제 노드였다(버튼 뒤에 깔리려면 자식이 아니라 형제+낮은 sibling index여야
+  해서 — 자식이면 부모 위에 그려짐). 그래서 `ButtonPressEffect`에 옵션 필드 `linkedShadow`(Transform)를
+  추가해 지정돼 있으면 버튼과 같은 배율로 같이 눌리게 했다(비워두면 기존 PauseBtn/SpeedBtn/PlayBtn처럼
+  그대로 동작). `PurchaseBtn`의 `linkedShadow`를 `PurchaseBtnShadow`로 연결.
