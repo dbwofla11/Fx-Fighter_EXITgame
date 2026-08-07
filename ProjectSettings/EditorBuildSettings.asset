@@ -17,5 +17,8 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/EndingScene.unity
     guid: 4723823595f4d404b8c869086bcbe12e
+  - enabled: 1
+    path: Assets/Scenes/ExitEndingScene.unity
+    guid: 7f71e0d1cf350ac4bbb5c5671d0b110d
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}

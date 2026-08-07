@@ -638,3 +638,20 @@
 - **완료** : 스킬 가격 일괄 인상(2026-08-07). 전체 스킬 42개의 `baseCost`를 1.5배로 올리고, `로비`
   스킬만 예외로 2배 인상했다. 코드 변경 없음, 순수 데이터(.asset) 조정 — 재조정 필요 시 `Next_Tesk.md`
   "밸런스 수치 조정" 참고.
+- **완료(부분)** : 엑시트 엔딩(영웅/엑시트) 전용 씬 분리(2026-08-08). 기존엔 `SampleScene` 안 `EndingResultUI`
+  오버레이 패널로 문구만 표시했는데, 체포/거지처럼 별도 씬으로 관리하기로 방향을 바꿨다. 신규
+  `Assets/Scripts/UI/EndingScene/ExitEndingSceneUI.cs` + `Assets/Scenes/ExitEndingScene.unity`(`EndingScene.unity`를
+  복제해 만듦 — Camera/EventSystem/CanvasScaler(1920x1080)/암전 코루틴 구조 동일, 배경 스프라이트는 Hero/Exit
+  공용 1장 + 문구만 분기)를 추가하고 Build Settings에 등록(`GameSceneManager.LoadExitEnding()`)했다.
+  `EndingResultUI`는 오버레이 표시 로직(panel/titleText/descriptionText/Describe())을 전부 걷어내고 4종 엔딩
+  전부(체포/거지는 `EndingScene`, 영웅/엑시트는 `ExitEndingScene`) 전용 씬으로 넘기기만 하는 디스패처로
+  단순화됐다. **미완료** : 배경 이미지(`ExitEndingSceneUI.bgSprite`)가 아직 비어있음 — `generate_image`
+  MCP 도구가 fal/openrouter 둘 다 API 키 미설정으로 막혀서 코드/씬 구조만 먼저 완성함. 키 등록(Unity MCP
+  Tools 창 Asset Generation 탭) 후 이어서 생성하거나, 이미지를 직접 받아서 `Assets/Sprites/`에 넣고
+  `ExitEndingScene.unity`의 `Main_Canvas(ExitEndingSceneUI).bgSprite`에 연결하면 됨.
+- **완료** : SFX 추가 — 스킬 구매 / 차트 파티클(2026-08-08). `SkillPanelUI.confirmSfx`는 애초에
+  `TradeModalUI`/`CoinControlModalUI`와 독립된 필드였음을 확인(씬에서 우연히 같은 클립을 공유했을 뿐) —
+  코드 변경 없이 씬에서 `스킬구매소리.mp3`로 재할당만 했다. 차트 파티클은 `PriceChartCandles`가
+  MonoBehaviour가 아니라 `[SerializeField]`를 못 써서, `gameOverSfx`와 동일한 기존 패턴대로 호출부인
+  `PriceChartUI`에 `particleBurstSfx` 필드를 추가하고 `HandleMarketUpdated`의 `SpawnBurstOnLast()` 호출
+  옆에서 재생하도록 했다(`파티클소리1.wav` 할당). 둘 다 씬 저장 완료, 컴파일 에러 없음.

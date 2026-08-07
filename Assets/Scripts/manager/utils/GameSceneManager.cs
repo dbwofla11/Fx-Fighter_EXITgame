@@ -8,9 +8,11 @@ public static class GameSceneManager
     public const string CharacterSelectScene = "CharacterSelectScene";
     public const string MainScene = "SampleScene";
     public const string EndingScene = "EndingScene";
+    public const string ExitEndingScene = "ExitEndingScene";
 
     public static void LoadCharacterSelect() => SceneManager.LoadScene(CharacterSelectScene);
     public static void LoadMainGame() => SceneManager.LoadScene(MainScene);
     public static void LoadTitle() => SceneManager.LoadScene(TitleScene);
     public static void LoadEnding() => SceneManager.LoadScene(EndingScene);
+    public static void LoadExitEnding() => SceneManager.LoadScene(ExitEndingScene);
 }

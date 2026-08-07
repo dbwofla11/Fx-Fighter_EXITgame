@@ -446,6 +446,43 @@ Support/Growth처럼 값을 쌓아뒀다가 서서히 줄이는 방식이 불가
 
 ---
 
+# 3-4. 의심도 하락 (DoubtDecline, 여론조작 스킬 전용)
+
+여론조작 카테고리 스킬 중 3종(실시간여론관리/수상경력홍보/후기마케팅)만 기존 `DoubtDecrease`(구매 즉시
+1회 차감, 3-1/3-2장) 대신 `DoubtDecline`을 쓴다(2026-08-07 추가). 방어/코인설계 카테고리의 기존
+`DoubtDecrease` 9개는 그대로 즉시 감소 방식을 유지한다 — Doubt를 즉시 깎는 대신, 총량을 일정 기간에 걸쳐
+나눠 깎아서 "서서히 깎이는" 느낌을 준다.
+
+공식
+
+DoubtDeclinePerTurn = totalAmount × declineRatioPerTurn
+
+Doubt(t+1) = Doubt(t) - Σ (그 시점에 진행 중인 모든 DoubtDecline의 DoubtDeclinePerTurn)
+
+변수
+
+- totalAmount : 스킬의 `effect.value` (기존 `DoubtDecrease`와 동일한 값 그대로, 절반으로 낮추지 않음) —
+  실시간여론관리=20, 수상경력홍보=5, 후기마케팅=5
+- declineRatioPerTurn = 0.005 (0.5%, `BuffCalculator.DoubtDeclineRatioPerTurn`)
+- durationTurns = 200 (`BuffCalculator.DoubtDeclineDurationTurns`) — `declineRatioPerTurn × durationTurns = 1.0`이
+  되도록 짝을 맞춰서 정확히 총량만큼만 깎이고 끝난다. 세션 중 50→100→200턴으로 여러 번 조정된 임시 밸런스
+  값이다.
+
+**스킬별 독립 진행** : `PlayerStat.DoubtDeclines`(`Dictionary<SkillID, DoubtDeclineBuff>`)로 관리되어, 서로
+다른 스킬의 하락이 동시에 진행 중이면 각자의 `DoubtDeclinePerTurn`이 전부 합산 차감된다(예: 세 스킬을 모두
+사면 매 턴 `(20+5+5) × 0.005`가 한꺼번에 깎임). 처음엔 `PlayerStat`에 단일 필드 하나로 구현했다가, 서로
+다른 스킬을 동시에 쓰면 하나가 다른 하나를 덮어써버리는 문제가 있어 스킬별 딕셔너리로 다시 짰다. **같은
+스킬을 재구매**하면 그 스킬 항목만 새 값으로 덮어써지고(재사용 시 값 갱신 — 2장 "거래량(Volume) 배율"의
+Volume N턴 버프와 동일한 패턴), 다른 스킬의 진행 중인 하락은 그대로 유지된다.
+
+**구현** : `Assets/Scripts/Runtimes/Systems/BuffCalculator.cs`(`TradeCalculator`/`EventCalculator`와 동일한
+static 클래스 패턴)의 `StartDoubtDecline`(구매 시 시작, `StatCalculator.ApplySkillUse`가 호출)/
+`TickDoubtDeclines`(매 턴 차감, `StatCalculator.Calculate()`가 호출)가 전담한다. 기존
+`StatCalculator`/`PlayerStat`에 흩어져 있던 Volume N턴 버프 로직(`VolumeBuffTurnsRemaining` 카운트다운)도
+이 세션에서 같은 파일로 이관했다. 자세한 관련 파일/호출 스택은 `Issue_DoubtDecline.md` 참고.
+
+---
+
 # 4. 시사 이벤트
 
 시사 이벤트는 발생하는 즉시, 뽑힌 `EventSO`가 정의한 만큼 Support/Growth/Doubt/Supply/가격에 직접 반영된다

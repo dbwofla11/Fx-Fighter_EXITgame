@@ -7,7 +7,7 @@
 | # | 작업 | 비고 |
 |---|---|---|
 | 7 | 밸런스 수치 조정 | 캔들/확률 등, 실제 플레이 후 — 이번 세션에 손댄 발행량 조작 Support/Growth 가중치(1/5), Doubt 가중치(1.5배), 정기소각/반감기 소각량(1500/3000, 미변경), 부정 이벤트 5종 수치 절반 조정 + 신규 이벤트 3종, 코인발행 최대치(100,000)도 전부 임시 체감값이라 같이 재검토 |
-| 9 | 엑시트 엔딩 화면 작업 | 체포/거지는 전용 `EndingScene` + 배경 이미지 + 문구로 완성됨(`EndingSceneUI`). 엑시트(구 "영웅"/"엑시트" 두 갈래 모두 "엑시트 엔딩"이라는 같은 이름으로 통일함, `EndingResultUI.Describe()`)는 아직 `SampleScene` 안 `EndingResultUI` 오버레이 패널 그대로(문구만 표시, 이미지 없음) — **체포/거지처럼 별도 씬으로 안 나누고 지금 방식(같은 씬 오버레이) 그대로 유지하기로 결정함**, 이미지만 받아서 패널에 반영하면 됨 |
+| 9 | 엑시트 엔딩 배경 이미지 | 체포/거지는 전용 `EndingScene`(`EndingSceneUI`), 엑시트(영웅/엑시트 통일)는 전용 `ExitEndingScene`(`ExitEndingSceneUI`)로 씬/코드 분리 완료(2026-08-08, `Completed_Tasks.md` 참고). **남은 건 이미지 하나뿐** — `generate_image` MCP가 fal/openrouter API 키 미설정으로 막혀서 `ExitEndingSceneUI.bgSprite`가 비어있음. 키 등록 후 생성하거나 직접 받아서 `Assets/Sprites/`에 넣고 `ExitEndingScene.unity`에 연결 |
 | 15 | 튜토리얼 작업 | 아직 관련 코드/씬 전혀 없음(신규). 노출 시점(타이틀/캐릭터선택 직후 vs 메인 첫 진입), 스킵 가능 여부, UI 형태(오버레이 모달 vs 전용 씬)부터 방향 확인 필요 |
 
 (각 항목의 자세한 내용은 아래 섹션 및 `Completed_Tasks.md`/`Logging.md` 참고.)

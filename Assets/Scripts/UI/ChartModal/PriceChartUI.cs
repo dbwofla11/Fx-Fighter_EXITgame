@@ -19,6 +19,7 @@ public class PriceChartUI : MonoBehaviour, IScrollHandler, IBeginDragHandler, ID
     [SerializeField] private float candleWidthRatio = 0.95f;
     [SerializeField] private float minCandleHeight = 4f;
     [SerializeField] private AudioClip gameOverSfx; // 체포/거지 엔딩 확정 시 캔들 붕괴 연출과 함께 재생
+    [SerializeField] private AudioClip particleBurstSfx; // 급등/급락 파티클 등장마다 재생
     [SerializeField] private Color upColor = new Color(0.2941176f, 0.4117647f, 0.1843137f);   // BtnLong과 동일 색
     [SerializeField] private Color downColor = new Color(0.6745098f, 0.1960784f, 0.1960784f); // BtnShort와 동일 색
 
@@ -130,7 +131,10 @@ public class PriceChartUI : MonoBehaviour, IScrollHandler, IBeginDragHandler, ID
         // Redraw()가 끝나 마지막 캔들 위치가 확정된 뒤에 터뜨려야 종가 위치에 정확히 찍힌다.
         // 과거로 스크롤 중(viewport.ViewOffset != 0)이면 화면의 마지막 캔들이 실제 최신 캔들이 아니므로 터뜨리지 않는다.
         if (viewport.ViewOffset == 0 && (stat.StreamerReaction == StreamerReactionState.Surge || stat.StreamerReaction == StreamerReactionState.Crash))
+        {
             candles.SpawnBurstOnLast();
+            if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(particleBurstSfx);
+        }
     }
 
     #endregion
