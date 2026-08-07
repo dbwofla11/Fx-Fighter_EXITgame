@@ -62,7 +62,7 @@ public class EndingResultUI : MonoBehaviour
         switch (ending)
         {
             case EndingType.Hero:
-                return ("영웅 엔딩", "당신은 투기 대신 신뢰를 선택했다. 많은 사람이 당신의 프로젝트로 이익을 얻었고, 당신은 업계의 모범 사례로 남았다.");
+                return ("엑시트 엔딩", "당신은 투기 대신 신뢰를 선택했다. 많은 사람이 당신의 프로젝트로 이익을 얻었고, 당신은 업계의 모범 사례로 남았다.");
             case EndingType.Exit:
                 return ("엑시트 엔딩", "당신은 돈을 얻었지만 사람들의 신뢰를 잃었다. 세상은 당신을 성공한 사업가가 아닌 사기꾼으로 기억한다.");
             default:

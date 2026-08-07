@@ -76,6 +76,9 @@ public class AudioManager : MonoBehaviour
     }
 
     // 크로스페이드 타이머 로직
+    // unscaledDeltaTime을 쓴다: EndGame()이 TimeManager.PauseGame()으로 timeScale을 0으로 만든 뒤
+    // 엔딩씬에서 PlayBGM을 호출하므로, scaled deltaTime이면 페이드가 영원히 안 끝난다
+    // (EndingSceneUI.FadeCanvasGroup과 같은 이유로 unscaled를 쓴다).
     private IEnumerator CrossFadeCoroutine(AudioSource activeSource, AudioSource nextSource, float duration)
     {
         float time = 0;
@@ -83,7 +86,7 @@ public class AudioManager : MonoBehaviour
 
         while (time < duration)
         {
-            time += Time.deltaTime;
+            time += Time.unscaledDeltaTime;
             // 서서히 볼륨 줄이고 / 키우기
             activeSource.volume = Mathf.Lerp(targetVolume, 0f, time / duration);
             nextSource.volume = Mathf.Lerp(0f, targetVolume, time / duration);

@@ -19,12 +19,12 @@ MonoBehaviour:
     \uD06C\uAC8C \uB192\uC544\uC9C4\uB2E4."
   icon: {fileID: 21300000, guid: 82fff15d4969c67489897b855440e0af, type: 3}
   category: 2
-  baseCost: 20000
+  baseCost: 30000
   costMultiplier: 1.2
   defaultUnlocked: 0
   isReusable: 1
   effects:
   - effectType: 0
     value: 5
-  - effectType: 2
+  - effectType: 13
     value: 5

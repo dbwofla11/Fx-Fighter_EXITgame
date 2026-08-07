@@ -2,9 +2,6 @@ using UnityEngine;
 
 public static class StatCalculator
 {
-    // Volume이 스킬/이벤트로 오른 뒤 자동으로 0으로 리셋되기까지 유지되는 턴 수 (버프 지속시간).
-    private const int VolumeBuffDurationTurns = 30;
-
     #region 턴 계산
 
     /// <summary>
@@ -30,13 +27,8 @@ public static class StatCalculator
         stat.JobSkillGrowthBonus = previous.JobSkillGrowthBonus;
         stat.JobSkillDoubtBonus = previous.JobSkillDoubtBonus;
 
-        // Volume은 Support/Growth처럼 감쇠하며 이어지는 게 아니라, VolumeBuffTurnsRemaining이 0이 될 때까지만
-        // "버프"로 유지되다가 만료되면 다음 턴부터 0으로 완전히 리셋된다(위 Reset()이 이미 0으로 잡아둠).
-        if (previous.VolumeBuffTurnsRemaining > 0)
-        {
-            stat.Volume = previous.Volume;
-            stat.VolumeBuffTurnsRemaining = previous.VolumeBuffTurnsRemaining - 1;
-        }
+        // Volume(N턴 버프)/DoubtDecline(N턴 분할 하락) 카운트다운은 BuffCalculator가 전담한다.
+        BuffCalculator.TickVolumeBuff(stat, previous);
 
         TradeCalculator.Decay(stat);
         TradeCalculator.GrowSupply(stat, CalculateSupplyGrowthSuppression());
@@ -44,6 +36,7 @@ public static class StatCalculator
         // Doubt는 감쇠하지 않고 계속 쌓이는 값이다 (시간이 지날수록 자동으로 100을 향해 오르다가 100이 되면
         // 게임오버가 되는 기획). 매 턴 새로 계산하지 않고 이전 값을 그대로 이어받는다.
         stat.Doubt = previous.Doubt;
+        BuffCalculator.TickDoubtDeclines(stat, previous);
 
         ApplyJob(stat);
         ApplySkills(stat);
@@ -183,6 +176,7 @@ public static class StatCalculator
         {
             if (effect.effectType == EffectType.SupportIncrease || effect.effectType == EffectType.GrowthIncrease
                 || effect.effectType == EffectType.DoubtIncrease || effect.effectType == EffectType.DoubtDecrease
+                || effect.effectType == EffectType.DoubtDecline
                 || effect.effectType == EffectType.SupplyIncrease || effect.effectType == EffectType.SupplyDecrease
                 || effect.effectType == EffectType.SupplyGrowthSuppress
                 || effect.effectType == EffectType.VolumeIncrease || effect.effectType == EffectType.VolumeDecrease)
@@ -248,16 +242,13 @@ public static class StatCalculator
             else if (effect.effectType == EffectType.SupplyDecrease)
                 stat.Supply -= effect.value;
             else if (effect.effectType == EffectType.VolumeIncrease)
-            {
-                // N턴짜리 버프 — 다시 쓰면 값은 쌓이고 지속시간은 새로 갱신된다.
-                stat.Volume += effect.value;
-                stat.VolumeBuffTurnsRemaining = VolumeBuffDurationTurns;
-            }
+                BuffCalculator.StartVolumeBuff(stat, effect.value);
             else if (effect.effectType == EffectType.VolumeDecrease)
-            {
-                stat.Volume -= effect.value;
-                stat.VolumeBuffTurnsRemaining = VolumeBuffDurationTurns;
-            }
+                BuffCalculator.StartVolumeBuff(stat, -effect.value);
+            else if (effect.effectType == EffectType.DoubtDecline)
+                // 여론조작 스킬 전용 — 총량(effect.value)을 즉시 깎지 않고 200턴에 걸쳐 0.5%씩 분할 차감 시작.
+                // 스킬별로 독립적이라(BuffCalculator.StartDoubtDecline) 다른 스킬의 진행 중인 하락과 합산된다.
+                BuffCalculator.StartDoubtDecline(stat, skill.id, effect.value);
         }
     }
 
@@ -301,14 +292,11 @@ public static class StatCalculator
                 break;
 
             case EffectType.VolumeIncrease:
-                // N턴짜리 버프 — 다시 적용되면 값은 쌓이고 지속시간은 새로 갱신된다.
-                stat.Volume += effect.value;
-                stat.VolumeBuffTurnsRemaining = VolumeBuffDurationTurns;
+                BuffCalculator.StartVolumeBuff(stat, effect.value);
                 break;
 
             case EffectType.VolumeDecrease:
-                stat.Volume -= effect.value;
-                stat.VolumeBuffTurnsRemaining = VolumeBuffDurationTurns;
+                BuffCalculator.StartVolumeBuff(stat, -effect.value);
                 break;
 
             case EffectType.ExitUnlock:
@@ -325,6 +313,10 @@ public static class StatCalculator
 
             case EffectType.SupplyGrowthSuppress:
                 // stat 직접 반영 없음 — CalculateSupplyGrowthSuppression()이 매 턴 별도로 읽어서 GrowSupply에 넘긴다.
+                break;
+
+            case EffectType.DoubtDecline:
+                // stat 직접 반영 없음 — ApplySkillUse가 BuffCalculator.StartDoubtDecline으로 시작을 전담한다.
                 break;
 
             default:

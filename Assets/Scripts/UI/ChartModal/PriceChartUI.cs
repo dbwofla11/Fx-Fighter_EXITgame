@@ -18,6 +18,7 @@ public class PriceChartUI : MonoBehaviour, IScrollHandler, IBeginDragHandler, ID
     [SerializeField] private int minZoomCandleCount = 6; // 최대로 확대(줌인)했을 때 보이는 캔들 개수
     [SerializeField] private float candleWidthRatio = 0.95f;
     [SerializeField] private float minCandleHeight = 4f;
+    [SerializeField] private AudioClip gameOverSfx; // 체포/거지 엔딩 확정 시 캔들 붕괴 연출과 함께 재생
     [SerializeField] private Color upColor = new Color(0.2941176f, 0.4117647f, 0.1843137f);   // BtnLong과 동일 색
     [SerializeField] private Color downColor = new Color(0.6745098f, 0.1960784f, 0.1960784f); // BtnShort와 동일 색
 
@@ -117,6 +118,7 @@ public class PriceChartUI : MonoBehaviour, IScrollHandler, IBeginDragHandler, ID
         if (ending != EndingType.Arrest && ending != EndingType.Broke)
             return;
 
+        if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(gameOverSfx);
         candles.PlayCollapse();
     }
 

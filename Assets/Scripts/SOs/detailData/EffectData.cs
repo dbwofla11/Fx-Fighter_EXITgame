@@ -90,5 +90,11 @@ public enum EffectType
     /// (영구 해금형) 스킬 전용 — StatCalculator.CalculateSupplyGrowthSuppression이 별도로 읽어서 매 턴
     /// 반영하고, SupplyIncrease/Decrease와 마찬가지로 ApplySkills()의 매 턴 재적용 루프에서는 제외한다.
     /// </summary>
-    SupplyGrowthSuppress
+    SupplyGrowthSuppress,
+
+    /// <summary>
+    /// 의심도 하락 (여론조작 스킬 전용). DoubtDecrease처럼 즉시 깎지 않고, 총량의 0.5%씩 200턴에 걸쳐
+    /// 분할 차감된다 — BuffCalculator.StartDoubtDecline/TickDoubtDeclines 참고.
+    /// </summary>
+    DoubtDecline
 }

@@ -620,3 +620,21 @@
     직업으로 호출 — `CurrentJob`/`Growth`가 매번 정확히 갱신됨을 확인. (2) 이동된 `SettingsUI`의
     `openButton.onClick.Invoke()`/`closeButton.onClick.Invoke()`를 실제 클릭처럼 호출 — `Time.timeScale`
     1→0→1, 패널 `activeSelf` False→True→False로 정상 동작함을 확인. 컴파일·콘솔 에러 없음.
+- **완료** : 신규 스탯 "의심도 하락"(`DoubtDecline`, 여론조작 스킬 3종 전용, 2026-08-07). 기존 `DoubtDecrease`는
+  구매 즉시 1회 차감이지만, 여론조작 카테고리의 실시간여론관리(재사용형, 총량 20)/수상경력홍보(1회성,
+  총량 5)/후기마케팅(1회성, 총량 5) 3개만 총량을 즉시 깎지 않고 매 턴 0.5%씩(200턴에 걸쳐 균등 분할) Doubt를
+  깎도록 바꿨다. 방어/코인설계 카테고리의 기존 `DoubtDecrease` 9개는 그대로 즉시 감소 유지. 신규
+  `Assets/Scripts/Runtimes/Systems/BuffCalculator.cs`(static, `TradeCalculator`/`EventCalculator`와 동일 패턴)를
+  만들어 N턴짜리 버프 로직을 전담시키고, 기존 `StatCalculator`/`PlayerStat`에 흩어져 있던 `Volume`(거래량) N턴
+  버프 로직(`VolumeBuffTurnsRemaining` 카운트다운)도 여기로 이관했다. `PlayerStat.DoubtDeclines`는
+  `Dictionary<SkillID, DoubtDeclineBuff>`라 스킬별로 독립적으로 진행된다 — 서로 다른 스킬의 하락은 합산 차감되고,
+  같은 스킬을 재구매하면 그 스킬 항목만 새 값으로 덮어써진다(재사용 시 갱신, `Volume` 버프와 동일 패턴). 처음엔
+  `PlayerStat`에 단일 필드(`DoubtDeclinePerTurn`/`DoubtDeclineTurnsRemaining`) 하나로 구현했다가, 서로 다른 스킬을
+  동시에 사면 하나가 다른 하나를 덮어써버리는 문제가 있어 스킬별 딕셔너리로 다시 짰다. `EffectType`에
+  `DoubtDecline`(13)을 끝에 추가(중간 삽입 금지 관례 유지)하고 여론조작 3개 스킬 .asset의 `effectType`만
+  `DoubtDecrease`(2)→`DoubtDecline`(13)로 교체, `EventEffectFormatter`/`UIFormat`의 라벨·부호 switch에도
+  추가해 스킬 정보 패널에 새 UI 코드 없이 자동 반영되게 했다. 작동 방식/호출 스택 상세는
+  `Issue_DoubtDecline.md` 참고.
+- **완료** : 스킬 가격 일괄 인상(2026-08-07). 전체 스킬 42개의 `baseCost`를 1.5배로 올리고, `로비`
+  스킬만 예외로 2배 인상했다. 코드 변경 없음, 순수 데이터(.asset) 조정 — 재조정 필요 시 `Next_Tesk.md`
+  "밸런스 수치 조정" 참고.

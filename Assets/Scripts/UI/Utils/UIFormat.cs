@@ -22,9 +22,10 @@ public static class UIFormat
     public static string DateDot(DateTime date) => $"{date.Year}.{date.Month:00}.{date.Day:00}";
     public static string DateDash(DateTime date) => $"{date.Year}-{date.Month:00}-{date.Day:00}";
 
-    // StatCalculator.ApplyEffect와 동일한 부호 규칙: 감소형(Decrease)만 부호를 뒤집고 나머지는 값 그대로.
+    // StatCalculator.ApplyEffect와 동일한 부호 규칙: 감소형(Decrease/Decline)만 부호를 뒤집고 나머지는 값 그대로.
     public static float SignedEffectValue(EffectData effect) =>
         effect.effectType is EffectType.DoubtDecrease or EffectType.VolumeDecrease or EffectType.SupplyDecrease
+            or EffectType.DoubtDecline
             ? -effect.value
             : effect.value;
 }

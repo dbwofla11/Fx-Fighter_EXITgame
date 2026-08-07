@@ -33,7 +33,7 @@ public static class EventEffectFormatter
         {
             EffectType.SupportIncrease => "코인 지지도",
             EffectType.GrowthIncrease => "코인 상승률",
-            EffectType.DoubtDecrease or EffectType.DoubtIncrease => "의심도",
+            EffectType.DoubtDecrease or EffectType.DoubtIncrease or EffectType.DoubtDecline => "의심도",
             EffectType.PositiveEventRate => "긍정 이벤트 확률",
             EffectType.NegativeEventRate => "부정 이벤트 확률",
             EffectType.CashBonus => "거래 수익",
