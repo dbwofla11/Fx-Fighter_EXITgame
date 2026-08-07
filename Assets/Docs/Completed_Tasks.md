@@ -655,3 +655,65 @@
   MonoBehaviour가 아니라 `[SerializeField]`를 못 써서, `gameOverSfx`와 동일한 기존 패턴대로 호출부인
   `PriceChartUI`에 `particleBurstSfx` 필드를 추가하고 `HandleMarketUpdated`의 `SpawnBurstOnLast()` 호출
   옆에서 재생하도록 했다(`파티클소리1.wav` 할당). 둘 다 씬 저장 완료, 컴파일 에러 없음.
+- **완료** : 캐릭터 선택 "초기 자금" 표시 버그 수정(2026-08-08). `CharacterSelectScene.unity`의
+  `StartingFundText`가 `CharacterSelectUI.cs`와 전혀 연결 안 된 정적 텍스트로 "초기 자금 : ₩ 10,000,000"을
+  하드코딩하고 있었다 — 실제 시작 자원(`PlayerManager.currentMoney`/`currentCoins` = 10,000/10,000)과
+  전혀 다른 값이었고 코인 수량은 애초에 표시조차 안 됐다. 값을 실제 수치로 고치고 코인 줄도 추가해
+  2줄로("초기 자금 : ₩ 10,000\n보유 코인 : 10,000개") 박스 높이를 40→80으로 늘렸다(아래 "특성" 섹션까지
+  132px 여유가 있어 안 겹침, Play 모드 스크린샷으로 확인). 이 시점까지는 여전히 정적 텍스트였다 — 바로
+  다음 항목("직업별 초기 자금")에서 코드로 연결됨.
+- **완료** : 직업별 초기 자금 차등 적용(2026-08-08). 코인 보유량(10,000)은 전 직업 공통으로 유지하고,
+  시작 자금만 직업별로 다르게 밸런스를 맞췄다. `JobSO`에 `startingMoney`(long, 기본 10000) 필드를
+  추가하고, `JobManager.SelectJob()`이 직업 선택 시 `PlayerManager.Instance.currentMoney = job.startingMoney`로
+  덮어쓰게 했다(1회차 SampleScene 진입 시 `JobManager.Start()`가, 2회차부터는 `CharacterSelectUI.
+  ConfirmSelection()`이 호출 — 두 경로 모두 `PlayerManager.ResetState()` 이후에 실행되므로 항상 이 값으로
+  최종 확정됨). `PlayerManager`엔 `StartingCoins`(10000) 상수를 추가해 코인 쪽 매직넘버가 다시 흩어지지
+  않게 했다. 자금 값은 각 직업의 기존 더미 스탯 효과와 반비례하도록 잡았다(일반인=10,000 기준,
+  기업인=10,000/유튜버=11,000/개발자=11,000/연예인=9,000/정치인=12,000 — 스탯 보너스가 강할수록 자금은
+  적게, 약할수록 자금으로 보완) — 스탯 값 자체는 손대지 않음. `CharacterSelectUI.cs`에 `startingFundText`
+  필드를 추가해 `RefreshDetail(job)`에서 직업별 값을 실시간으로 표시하도록 했다(위 버그 수정 때는 아직
+  정적이었던 걸 여기서 완전히 코드 연결함). Play 모드에서 `execute_code`로 버튼 클릭을 직접 호출해
+  일반인(₩10,000)/정치인(₩12,000) 전환이 정상 반영됨을 스크린샷으로 확인. 값 자체는 여전히 임시
+  밸런스라 실제 플레이/기획 확정 후 재조정 필요(`Next_Tesk.md` "직업(Job) 프로필" 참고).
+- **완료** : 직업별 밸런스 2차 조정 + 시작 코인도 직업별 차등(2026-08-08, 피드백 반영). ① 일반인은
+  "특성 없는 기준 직업"으로 재정의 — 기존 `SupportIncrease 10`/`DoubtDecrease 10` 두 효과를 전부 제거해
+  `effects: []`. ② 기업인은 "자금은 넘치지만 그만큼 눈에 띄는" 컨셉으로 재설계 — `startingMoney`를
+  10,000→1,000,000으로 대폭 인상하고, 대가로 `DoubtIncrease 25`(신규 효과, 기존 `CashBonus 10`은 유지)를
+  추가해 시작부터 의심도 25(체포 엔딩 기준 100 중 1/4)를 안고 시작하게 했다. ③ 시작 코인 수량을
+  `PlayerManager.StartingCoins`(전 직업 공통 10,000) 고정에서 `JobSO.startingCoins`(직업별) 필드로
+  바꿨다 — `MarketManager.ResetState()`가 `Supply = InitialSupply(2000) + currentCoins`로 초기 발행량을
+  잡으므로 코인 수량 차이가 그대로 시작 Supply(현재 `PriceCalculator.MaxSupply=100000` 대비 여유 충분)에도
+  반영된다. 기업인=5,000(현금 위주라 코인 보유는 적게), 개발자=15,000(기술 창업자 컨셉으로 지분성 코인
+  보유 많게), 연예인=12,000, 유튜버=11,000, 정치인=7,000(이해상충 회피 컨셉으로 적게), 일반인=10,000(기준
+  유지). `JobManager.SelectJob()`에 `PlayerManager.Instance.currentCoins = job.startingCoins` 한 줄
+  추가하고 `CharacterSelectUI`의 코인 표시도 고정 상수 대신 `job.startingCoins`를 읽도록 바꿨다. 검증
+  중 `CharacterSelectUI.EffectLabel/EffectIcon`이 `DoubtIncrease`를 처리하는 case가 없어 특성 패널에
+  "DoubtIncrease +25%"로 raw enum 이름이 그대로 노출되는 버그를 발견해 같이 고쳤다(`doubtIcon` +
+  "의심도 증가" 라벨 추가). Play 모드 스크린샷으로 일반인(특성 없음)/기업인(자금 100만·코인 5천·의심도
+  증가 25% 정상 표시) 확인.
+- **완료** : 직업별 밸런스 3차 조정 — 스킬 가격 기준으로 자금 재조정(2026-08-08, 피드백 반영).
+  2차 조정 때 잡은 자금(9,000~12,000원대)이 실제 스킬 가격(`Assets/Profile/스킬_프로파일/`의
+  `baseCost`가 코인설계/시장조작/여론조작은 ₩15,000~180,000, 방어 7종은 ₩750,000~1,500,000, 로비만
+  예외로 ₩120,000)과 비교해보니 가장 싼 스킬(₩15,000)조차 못 사는 수준이라는 지적을 받아 스킬 가격
+  스케일에 맞춰 다시 잡았다. 일반인=40,000/유튜버=45,000/개발자=45,000/연예인=35,000/정치인=50,000
+  (직전 9~12천원대에서 4~5배로 인상, 기존 상대적 우열 순서는 유지 — 저가~중가 스킬 1~2개는 시작부터
+  살 수 있게). 기업인(1,000,000)은 앞선 3차 이전 값 그대로(사용자가 직접 지정한 값이라 유지) — 이미
+  방어 최고가 스킬까지 살 수 있는 수준이라 추가 조정 불필요. 코인 수량은 스킬 구매에 안 쓰이는 값이라
+  (스킬은 `PlayerManager.TrySpend`로 현금만 소비) 이번엔 손대지 않음.
+- **완료** : 버그 수정 2건(2026-08-08, 플레이테스트 피드백).
+  ① 메인 BGM이 한 번 재생되고 안 멈추는 문제 — `AudioManager.PlayBGM()`이 `AudioSource.Play()`만 호출하고
+  `loop`를 세팅한 적이 없어서, `TitleScene`의 `bgmSourceA`/`bgmSourceB` 두 `AudioSource` 모두 Inspector
+  기본값(`Loop: 0`)에 의존하고 있었다 — 둘 다 꺼져있어서 클립이 끝나면 멈췄다. Inspector 값을 고치는
+  대신 `PlayBGM()`에서 `nextSource.loop = true`를 `Play()` 직전에 강제해, 이후 어떤 씬에서 어떤
+  AudioSource를 새로 연결해도 Inspector 설정과 무관하게 항상 루프되도록 근본 수정.
+  ② 스킬 구매 버튼을 누를 때마다(성공할 때마다) 파티클 버스트가 뜨는 게 스팸처럼 느껴진다는 피드백으로
+  `SkillPanelUI.HandlePurchaseSucceeded()`의 `UIBurstParticle.Spawn(...)` 호출을 제거 — 구매 사운드만
+  남기고 파티클 연출은 완전히 뺐다. 더 이상 안 쓰는 `PurchaseBurstIntensity` 상수도 같이 삭제.
+- **완료** : 기업인 자금/코인 미세 조정(2026-08-08). 코인 5,000→4,000(−1,000), 자금 1,000,000→3,000,000
+  (+2,000,000). 순수 데이터(.asset) 조정, 코드 변경 없음.
+- **완료** : 부수 효과로 의심도가 오르는 스킬 12종의 `DoubtIncrease` 수치 전부 절반으로 축소(2026-08-08).
+  대상 : 시장조작 6종(거래량부풀리기/고래계정운용/시세방어/자전거래/펌핑/허수매도벽/허수매수벽 — 이 중
+  거래량부풀리기·시세방어·허수매도벽·허수매수벽은 5→2.5, 고래계정운용·자전거래·펌핑은 10→5),
+  여론조작 4종(SNS선동/댓글부대운영/커뮤니티알바/파트너십발표, 전부 5→2.5), 코인설계 1종(독약조항,
+  5→2.5). `기업인` 직업의 `DoubtIncrease 25`(직업 효과, 스킬 아님)는 이번 범위 밖이라 손대지 않음.
+  순수 데이터(.asset) 조정, 코드 변경 없음.

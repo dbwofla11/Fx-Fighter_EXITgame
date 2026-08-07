@@ -4,9 +4,12 @@ public class PlayerManager : MonoBehaviour
 {
     public static PlayerManager Instance { get; private set; }
 
+    // 직업별로 다른 시작 자금(JobSO.startingMoney)과 달리, 시작 코인 수량은 전 직업 공통이다.
+    public const long StartingCoins = 10000;
+
     [Header("Player Stats")]
-    public long currentMoney = 10000; // 시작 자금
-    public long currentCoins = 10000; // 현재 보유 코인 수량
+    public long currentMoney = 10000; // JobManager.SelectJob이 직업별 시작 자금으로 곧이어 덮어씀
+    public long currentCoins = StartingCoins;
 
     // 지지도, 의심도 등은 나중에 여기에 추가
 
@@ -80,7 +83,7 @@ public class PlayerManager : MonoBehaviour
     // 새 게임 시작 시 CharacterSelectUI가 호출한다 (DontDestroyOnLoad라 두 번째 플레이부터는 Awake가 다시 안 불림).
     public void ResetState()
     {
-        currentMoney = 10000;
-        currentCoins = 10000;
+        currentMoney = 10000; // JobManager.SelectJob이 곧이어 직업별 값으로 덮어씀
+        currentCoins = StartingCoins;
     }
 }

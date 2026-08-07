@@ -59,7 +59,6 @@ public class SkillPanelUI : MonoBehaviour
     private static readonly Color SelectedTabColor = new Color(1f, 0.5255f, 0.5255f);
     private static readonly Color UnselectedTabColor = new Color(1f, 0.8588f, 0.8588f);
     private static readonly Color SelectedIconColor = new Color(1f, 0.68f, 0.68f);
-    private const float PurchaseBurstIntensity = 0.7f; // ponytail: 구매엔 "규모" 개념이 없어 고정값
     // 1회성 스킬은 구매(사용) 전엔 흰색, 구매 후엔 연한 파란색으로 표시해 이미 썼다는 걸 구분한다.
     // 초록 -> 연한 파랑으로 교체 (피드백, 2026-08-05).
     private static readonly Color UsedOneTimeIconColor = new Color(0.55f, 0.75f, 1f);
@@ -133,15 +132,6 @@ public class SkillPanelUI : MonoBehaviour
 
     private void HandlePurchaseSucceeded(SkillID id)
     {
-        if (purchaseBtn != null)
-        {
-            // 구매 직후 닫기 버튼으로 패널을 바로 닫아도 애니메이션이 끊기지 않도록 화면 최상위로 옮긴다
-            // (TradeModalUI와 동일한 이유 — 부모가 비활성화되면 코루틴이 얼어붙어 조각이 남는다).
-            RectTransform burst = UIBurstParticle.Spawn((RectTransform)purchaseBtn.transform, Vector2.zero, SelectedIconColor, PurchaseBurstIntensity);
-            if (burst != null)
-                burst.SetParent(purchaseBtn.transform.root, true);
-        }
-
         if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(confirmSfx);
     }
 

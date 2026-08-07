@@ -16,6 +16,8 @@ MonoBehaviour:
   icon: {fileID: 21300000, guid: d9f374fbaf50683478021be99e8b0f3a, type: 3}
   description: "탄탄한 기술력으로 코인의
     상승 가능성을 높인다."
+  startingMoney: 45000
+  startingCoins: 15000
   effects:
   - effectType: 1
     value: 15

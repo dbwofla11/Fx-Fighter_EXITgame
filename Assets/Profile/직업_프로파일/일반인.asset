@@ -16,8 +16,6 @@ MonoBehaviour:
   icon: {fileID: 21300000, guid: eee8c28aa6aba4e4ab2e6cc8188bd542, type: 3}
   description: "평범한 투자자이다. 처음
     플레이하는 유저한테 추천한다."
-  effects:
-  - effectType: 2
-    value: 10
-  - effectType: 0
-    value: 10
+  startingMoney: 40000
+  startingCoins: 10000
+  effects: []

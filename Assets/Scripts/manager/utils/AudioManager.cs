@@ -66,6 +66,7 @@ public class AudioManager : MonoBehaviour
         // 다음 재생기에 새 음악 세팅 및 재생 (볼륨은 0으로 시작)
         nextSource.clip = newClip;
         nextSource.volume = 0f;
+        nextSource.loop = true; // Inspector의 Loop 설정에 기대지 않고 항상 루프 보장
         nextSource.Play();
 
         // 크로스페이드 코루틴 실행

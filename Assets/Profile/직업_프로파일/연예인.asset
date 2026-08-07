@@ -16,6 +16,8 @@ MonoBehaviour:
   icon: {fileID: 21300000, guid: afcb7f3ce4645ad4c8ab58c31d1631d6, type: 3}
   description: "높은 인지도로 대중의 관심을
     끌어 지지도를 크게 끌어올린다."
+  startingMoney: 35000
+  startingCoins: 12000
   effects:
   - effectType: 0
     value: 20

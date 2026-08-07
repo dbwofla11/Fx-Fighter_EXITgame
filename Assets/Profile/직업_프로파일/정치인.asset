@@ -16,6 +16,8 @@ MonoBehaviour:
   icon: {fileID: 21300000, guid: f816951c313633743a489f3df55e1e61, type: 3}
   description: "규제 관련 영향력으로 의심의
     눈초리를 줄인다."
+  startingMoney: 50000
+  startingCoins: 7000
   effects:
   - effectType: 2
     value: 10

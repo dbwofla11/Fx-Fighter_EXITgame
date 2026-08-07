@@ -16,6 +16,8 @@ MonoBehaviour:
   icon: {fileID: 21300000, guid: ed2b1eefd53c7a24980ae0d74938d5e6, type: 3}
   description: "많은 구독자에게 코인을
     홍보해 지지층을 빠르게 넓힌다."
+  startingMoney: 45000
+  startingCoins: 11000
   effects:
   - effectType: 0
     value: 15

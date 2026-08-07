@@ -16,6 +16,7 @@ public class CharacterSelectUI : MonoBehaviour
     [Header("Detail Panel")]
     [SerializeField] private TextMeshProUGUI nameText;
     [SerializeField] private TextMeshProUGUI descriptionText;
+    [SerializeField] private TextMeshProUGUI startingFundText; // 직업별 시작 자금 + 공통 시작 코인 수량
     [SerializeField] private GameObject[] traitRows;
     [SerializeField] private Image[] traitIcons;
     [SerializeField] private TextMeshProUGUI[] traitTexts;
@@ -67,6 +68,9 @@ public class CharacterSelectUI : MonoBehaviour
     {
         nameText.text = job.jobName;
         descriptionText.text = job.description;
+        if (startingFundText != null)
+            startingFundText.text = "초기 자금 : " + UIFormat.Currency(job.startingMoney) +
+                "\n보유 코인 : " + job.startingCoins.ToString("N0") + "개";
 
         for (int i = 0; i < traitRows.Length; i++)
         {
@@ -84,7 +88,7 @@ public class CharacterSelectUI : MonoBehaviour
     private Sprite EffectIcon(EffectType type) => type switch
     {
         EffectType.GrowthIncrease => growthIcon,
-        EffectType.DoubtDecrease => doubtIcon,
+        EffectType.DoubtDecrease or EffectType.DoubtIncrease => doubtIcon,
         EffectType.CashBonus => cashIcon,
         _ => supportIcon,
     };
@@ -94,6 +98,7 @@ public class CharacterSelectUI : MonoBehaviour
         EffectType.SupportIncrease => "지지도 증가",
         EffectType.GrowthIncrease => "상승도 증가",
         EffectType.DoubtDecrease => "의심도 감소",
+        EffectType.DoubtIncrease => "의심도 증가",
         EffectType.CashBonus => "거래 수익 증가",
         _ => type.ToString(),
     };

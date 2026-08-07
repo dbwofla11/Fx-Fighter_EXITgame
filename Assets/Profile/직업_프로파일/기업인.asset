@@ -16,6 +16,10 @@ MonoBehaviour:
   icon: {fileID: 21300000, guid: cebce7cc19f6bcf4c91ebab654dcf305, type: 3}
   description: "풍부한 자금력으로 거래마다
     더 유리한 조건을 얻는다."
+  startingMoney: 3000000
+  startingCoins: 4000
   effects:
   - effectType: 5
     value: 10
+  - effectType: 9
+    value: 25

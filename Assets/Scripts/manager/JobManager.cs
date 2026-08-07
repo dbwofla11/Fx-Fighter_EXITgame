@@ -53,6 +53,8 @@ public class JobManager : MonoBehaviour
             return;
 
         runtimeJobData.CurrentJob = job;
+        PlayerManager.Instance.currentMoney = job.startingMoney;
+        PlayerManager.Instance.currentCoins = job.startingCoins;
 
         StatCalculator.ApplyJobSelection(MarketManager.Instance.CurrentStat, job);
         // CashBonus/PositiveEventRate/NegativeEventRate/Volume/ExitUnlock은 ApplyJob이 매 턴 다시 계산하는

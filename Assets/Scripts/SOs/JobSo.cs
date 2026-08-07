@@ -14,5 +14,8 @@ public class JobSO : ScriptableObject
     [TextArea]
     public string description;
 
+    public long startingMoney = 10000; // 직업별 시작 자금
+    public long startingCoins = 10000; // 직업별 시작 코인 수량
+
     public List<EffectData> effects;
 }
