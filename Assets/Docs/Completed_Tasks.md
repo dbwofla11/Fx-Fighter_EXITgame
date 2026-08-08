@@ -840,3 +840,27 @@
   2년째 진입 시 1회성 +4는 그대로 유지. 슬로프 값(0.05)은 사용자가 즉석에서 확정. Unity MCP Play 모드
   `execute_code`로 `ApplyDoubtAutoRise()`를 turnCount 730/731/1095/1096/1460/2555에서 직접 호출해 공식대로
   4 → 0.100137 → 0.15 → 0.150137 → 0.2 → 0.35가 나오는 것을 확인했다.
+- **완료** : 재생/정지 버튼 스위치형 통합(2026-08-08). Notion "2차 피드백 정리" A그룹 항목. 기존
+  `TimeUI.cs`가 `pauseButton`/`playButton` 두 개의 별도 버튼(정지 아이콘/재생 아이콘 고정 표시)을 쓰던
+  구조를 하나의 토글 버튼(`playPauseButton`)으로 합쳤다 — 재생 중이면 정지 아이콘(누르면 정지),
+  정지 중이면 재생 아이콘(누르면 1배속 재생)을 보여주는 미디어 플레이어 관례를 따랐다. `Update()`에서
+  기존 `pauseHighlight` 폴링과 동일한 방식으로 `TimeManager.IsPaused`를 매 프레임 확인해 아이콘
+  스프라이트(`pauseIconSprite`/`playIconSprite`)를 교체한다. 씬 작업은 `PauseBtn`/`PlayBtn` 두 오브젝트 중
+  `PlayBtn`을 삭제하고 `PauseBtn`을 `PlayPauseBtn`으로 이름을 바꿔 재사용했다(`PauseHighlight`가 원래
+  `PauseBtn` 자리(-133,-16)에 맞춰져 있어서 그대로 재사용하면 좌표 계산이 필요 없었음). 아이콘은 이미
+  씬에 연결돼 있던 `Assets/Sprites/UI요소_정지.png`/`UI요소_재생.png`를 그대로 재사용(신규 에셋 없음).
+  Unity MCP Play 모드로 `onClick.Invoke()`를 두 번 연달아 호출해 정지→재생 전체 사이클을 검증했다 —
+  단, 이 세션 환경은 Editor 창이 OS 포커스를 안정적으로 못 받아 `Update()`가 실시간으로 안 도는 문제가
+  있어서(`Issue_EventNotification.md`에 기록된 것과 동일한 환경 한계), 리플렉션으로 `Update()`를 직접
+  호출해 상태 전이(아이콘 교체/`pauseHighlight`/`TimeManager.IsPaused`/`Time.timeScale`)가 정확한 것까지
+  확인했다.
+  - **후속 수정 2건(같은 세션, 실사용 피드백)** : ① 정지/배속 버튼 사이 간격이 너무 멀다는 피드백 —
+    병합 직후엔 `PlayPauseBtn`이 옛 `PauseBtn` 자리(-133,-16)에 남아있어 `SpeedBtn`(52,-16)과 125px
+    떨어져 있었다(원래 인접 버튼 간 간격은 32~33px). `PlayPauseBtn`/`PauseHighlight`를 옛 `PlayBtn`
+    자리(-41,-16, `SpeedBtn`과의 간격이 원래도 33px로 가장 가까웠던 자리)로 옮겨서 간격을 원래 수준으로
+    좁혔다. ② 8배속 상태에서 정지 후 재생하면 무조건 1배속으로 리셋되던 버그 — `TimeUI`가 재생 버튼
+    클릭 시 `currentSpeedIndex = 0`으로 직접 초기화하던 게 원인. `TimeManager`에 이미 있던
+    `TogglePause()`(정지 중이면 `currentTimeScale`을 그대로 복원, 아니면 정지)로 교체해 `TimeUI`가 배속
+    상태를 직접 관리하지 않게 했다 — 정지해도 `currentTimeScale` 필드는 그대로 남아있어서 재생 시 정지
+    전 배속으로 정확히 복귀한다. Unity MCP Play 모드에서 배속을 8x까지 올린 뒤 정지→재생을 반복해
+    `Time.timeScale`이 8로 유지되는 것을 확인했다.

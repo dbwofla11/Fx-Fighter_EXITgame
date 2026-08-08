@@ -8,8 +8,10 @@ public class TimeUI : MonoBehaviour
     public TextMeshProUGUI dateText;
 
     [Header("Buttons")]
-    public Button pauseButton;  // 멈춤
-    public Button playButton;   // 진행
+    public Button playPauseButton; // 재생/정지 겸용 토글 버튼
+    public Image playPauseIcon;
+    public Sprite pauseIconSprite; // 재생 중일 때 표시(누르면 정지)
+    public Sprite playIconSprite;  // 정지 중일 때 표시(누르면 재생)
     public Button speedButton;  // 배속 (누를 때마다 순환)
     public TextMeshProUGUI speedButtonText; // 배속 버튼 안의 글자를 바꿔주기 위한 참조
 
@@ -36,19 +38,12 @@ public class TimeUI : MonoBehaviour
 
     private void Start()
     {
-        // 멈춤 버튼: 0배속 시키는 PauseGame 불러잇
-        pauseButton.onClick.AddListener(() =>
+        // 재생/정지 토글 버튼: 정지 중이면 눌렀을 때 정지 전 배속 그대로 재생, 재생 중이면 눌렀을 때 정지.
+        // TimeManager.TogglePause()가 currentTimeScale을 그대로 들고 있다가 복귀시켜준다.
+        playPauseButton.onClick.AddListener(() =>
         {
             PlayClickSfx();
-            TimeManager.Instance.PauseGame();
-        });
-
-        // 진행 버튼: 정지든 배속(2/4/8x) 상태든 항상 1배속으로 되돌린다.
-        playButton.onClick.AddListener(() =>
-        {
-            PlayClickSfx();
-            currentSpeedIndex = 0;
-            ApplySpeed();
+            TimeManager.Instance.TogglePause();
         });
         // 배속 버튼: 누를 때마다 배열(1,2,4,8)의 다음 속도로 넘어가기
         speedButton.onClick.AddListener(() =>
@@ -72,10 +67,15 @@ public class TimeUI : MonoBehaviour
 
     private void Update()
     {
-        if (pauseHighlight != null)
+        bool isPaused = TimeManager.Instance.IsPaused;
+
+        if (pauseHighlight != null && pauseHighlight.activeSelf != isPaused)
+            pauseHighlight.SetActive(isPaused);
+
+        if (playPauseIcon != null)
         {
-            bool isPaused = TimeManager.Instance.IsPaused;
-            if (pauseHighlight.activeSelf != isPaused) pauseHighlight.SetActive(isPaused);
+            Sprite targetIcon = isPaused ? playIconSprite : pauseIconSprite;
+            if (playPauseIcon.sprite != targetIcon) playPauseIcon.sprite = targetIcon;
         }
     }
 
