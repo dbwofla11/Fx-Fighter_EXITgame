@@ -12,7 +12,9 @@ public static class EventEffectFormatter
     public static Color CategoryColor(EventCategory category) =>
         category == EventCategory.Positive ? PositiveColor : NegativeColor;
 
-    public static string BuildEffectsText(List<EffectData> effects)
+    // colorize : 스킬 패널(SkillPanelUI)에서만 켜서 스탯이 플레이어에게 좋은지/나쁜지 색으로 구분한다.
+    // 이벤트 로그/알림(EventLogPanelUI, EventNotificationUI)은 기존처럼 무색 그대로 둔다.
+    public static string BuildEffectsText(List<EffectData> effects, bool colorize = false)
     {
         StringBuilder sb = new StringBuilder();
 
@@ -20,7 +22,13 @@ public static class EventEffectFormatter
         {
             (string label, float delta) = DescribeEffect(effects[i]);
             if (i > 0) sb.Append('\n');
-            sb.Append(label).Append(' ').Append(delta >= 0 ? "+" : "").Append(delta.ToString("0.#"));
+            string line = label + " " + (delta >= 0 ? "+" : "") + delta.ToString("0.#");
+            if (colorize)
+            {
+                string color = IsBeneficial(effects[i].effectType) ? "#009900" : "#CC0000";
+                line = $"<b><color={color}>{line}</color></b>";
+            }
+            sb.Append(line);
         }
 
         return sb.ToString();
@@ -33,7 +41,8 @@ public static class EventEffectFormatter
         {
             EffectType.SupportIncrease => "코인 지지도",
             EffectType.GrowthIncrease => "코인 상승률",
-            EffectType.DoubtDecrease or EffectType.DoubtIncrease or EffectType.DoubtDecline => "의심도",
+            EffectType.DoubtDecrease or EffectType.DoubtIncrease => "의심도(즉시)",
+            EffectType.DoubtDecline => "의심도(200턴에 걸쳐 하락)",
             EffectType.PositiveEventRate => "긍정 이벤트 확률",
             EffectType.NegativeEventRate => "부정 이벤트 확률",
             EffectType.CashBonus => "거래 수익",
@@ -46,4 +55,14 @@ public static class EventEffectFormatter
 
         return (label, UIFormat.SignedEffectValue(effect));
     }
+
+    // 이 효과가 플레이어에게 좋은 효과인지(스탯 색상 구분용). EffectType 이름 자체가 방향을 담고 있으므로
+    // 효과 종류별로 고정 판정한다 — Supply/Volume 쪽은 Game_Formula.md 설명(발행량 증가=희석, 거래량
+    // 증가=영향력 증가) 기준의 추정치라 실제 플레이 감각과 다르면 나중에 조정 필요.
+    private static bool IsBeneficial(EffectType effectType) => effectType switch
+    {
+        EffectType.DoubtIncrease or EffectType.NegativeEventRate
+            or EffectType.VolumeDecrease or EffectType.SupplyIncrease => false,
+        _ => true,
+    };
 }

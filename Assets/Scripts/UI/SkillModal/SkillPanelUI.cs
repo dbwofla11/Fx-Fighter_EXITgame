@@ -14,6 +14,8 @@ public class SkillPanelUI : MonoBehaviour
     {
         public SkillID id;
         public Button button;
+        public Outline border; // 1회성/재사용형 구분 테두리(Outline 이펙트, 선택 사항 — 비워두면 표시 안 함)
+        public TextMeshProUGUI label; // 아이콘 밑에 스킬 이름 + 구매 횟수 표시(선택 사항 — 비워두면 표시 안 함)
     }
 
     [System.Serializable]
@@ -196,7 +198,7 @@ public class SkillPanelUI : MonoBehaviour
         descriptionText.text = (profile.isReusable ? "[재사용형]" : "[1회성]") + "\n" +
             (locked ? "구매 완료" : "비용 : " + UIFormat.Currency(cost)) + "\n" +
             "구매 횟수 : " + purchaseCount + "회" + "\n\n" +
-            EventEffectFormatter.BuildEffectsText(profile.effects) + "\n\n\n" +
+            EventEffectFormatter.BuildEffectsText(profile.effects, colorize: true) + "\n\n\n" +
             profile.description;
         purchaseBtn.gameObject.SetActive(true);
         purchaseBtn.interactable = !locked;
@@ -225,13 +227,25 @@ public class SkillPanelUI : MonoBehaviour
     {
         foreach (IconSlot slot in icons)
         {
+            SkillSO profile = SkillManager.Instance.GetSkillProfile(slot.id);
+
+            // 테두리 색으로 재사용형/1회성 구분 (선택 여부와 무관하게 항상 표시).
+            if (slot.border != null && profile != null)
+                slot.border.effectColor = profile.isReusable ? EventEffectFormatter.PositiveColor : EventEffectFormatter.NegativeColor;
+
+            // 아이콘 밑에 스킬 이름 표시. 재사용형만 이름 옆에 구매 횟수를 괄호로 붙인다
+            // (1회성은 최대 1회라 표시 의미가 없어 생략).
+            if (slot.label != null && profile != null)
+                slot.label.text = profile.isReusable
+                    ? slot.id + " (" + SkillManager.Instance.GetPurchaseCount(slot.id) + "회)"
+                    : slot.id.ToString();
+
             if (slot.id == selected)
             {
                 slot.button.image.color = SelectedIconColor;
                 continue;
             }
 
-            SkillSO profile = SkillManager.Instance.GetSkillProfile(slot.id);
             bool used = profile != null && !profile.isReusable && SkillManager.Instance.IsUnlocked(slot.id);
             slot.button.image.color = used ? UsedOneTimeIconColor : Color.white;
         }

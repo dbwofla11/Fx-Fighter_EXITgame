@@ -735,3 +735,40 @@
   해서 — 자식이면 부모 위에 그려짐). 그래서 `ButtonPressEffect`에 옵션 필드 `linkedShadow`(Transform)를
   추가해 지정돼 있으면 버튼과 같은 배율로 같이 눌리게 했다(비워두면 기존 PauseBtn/SpeedBtn/PlayBtn처럼
   그대로 동작). `PurchaseBtn`의 `linkedShadow`를 `PurchaseBtnShadow`로 연결.
+- **완료** : 여론조작 스킬 설명에 의심도 즉발형/지속형 구분 표시(2026-08-08). `EventEffectFormatter.
+  DescribeEffect`가 `DoubtDecrease`/`DoubtIncrease`/`DoubtDecline` 세 `EffectType`을 전부 "의심도"라는
+  같은 라벨로 묶고 있어 즉시 적용인지 매 턴 나눠서 깎이는지 구분이 안 되던 문제 — 라벨을
+  `DoubtDecrease`/`DoubtIncrease` → "의심도(즉시)", `DoubtDecline`(여론조작 스킬 3종 전용, 총량의 0.5%씩
+  200턴에 걸쳐 분할 차감) → "의심도(200턴에 걸쳐 하락)"으로 분리했다. `DoubtDecline`은 이벤트 프로파일에서
+  안 쓰는 스킬 전용 타입이라 이벤트 로그/알림(`EventLogPanelUI`, `EventNotificationUI`)에는 영향 없음.
+- **완료** : 스킬 설명 스탯에 좋음/나쁨 색상 적용(2026-08-08). `EventEffectFormatter.BuildEffectsText`에
+  `colorize` 파라미터(기본 false)를 추가해, `EffectType`별로 플레이어에게 좋은 효과인지 고정 판정한 뒤
+  TMP `<color=...>` 태그로 감싸도록 했다. 기존 `PositiveColor`(#B1FFB1)/`NegativeColor`(#FFBAB1)를 그대로
+  재사용했고, `SkillPanelUI.RefreshDetail`에서만 `colorize: true`로 호출해 이벤트 로그/알림 쪽 표시는
+  그대로 무색으로 남겨뒀다(요청 범위 밖이라 손대지 않음). Supply/Volume 계열의 좋음/나쁨 판정은
+  `Game_Formula.md` 설명(발행량 증가=희석/나쁨, 거래량 증가=영향력 증가/좋음) 기준의 추정치라 실제 플레이
+  감각과 다르면 추후 재조정 필요.
+- **완료** : 스킬 아이콘 테두리로 1회성/재사용 구분(2026-08-08). `SkillSO.isReusable` 판정을 그대로 써서,
+  `SkillPanelUI.IconSlot.border` 필드를 `Image` 대신 `UnityEngine.UI.Outline`으로 추가했다 — 아이콘 뒤에
+  오프셋 사본을 겹쳐 그리는 이펙트라 새 GameObject나 좌표 계산 없이 컴포넌트 하나로 해결됨
+  (`RefreshSelectionHighlight`에서 `border.effectColor`를 재사용형=`PositiveColor`/1회성=`NegativeColor`로
+  갱신, 선택된 아이콘도 테두리 유지). 씬 작업(스킬 아이콘 44개 전부 `Outline` 컴포넌트 추가 +
+  `SkillPanelUI.icons[]`의 `border` 필드 연결)은 이번 세션에 새로 연결된 Unity MCP로 직접 처리했고,
+  `SampleScene.unity` 저장까지 완료. Play 모드로 열어서 재사용형=초록/1회성=빨강 테두리 정상 표시 확인.
+- **완료** : 스킬 설명 색상 텍스트 굵게 + 진한 색으로 변경(2026-08-08, 2차 피드백 포함). `EventEffectFormatter.
+  BuildEffectsText`의 `colorize` 경로가 만드는 `<color=#B1FFB1/#FFBAB1>` 텍스트가 파스텔톤이라 잘 안 보인다는
+  피드백으로 처음엔 `<b>` 태그만 추가했는데, 굵게만 해도 여전히 밝아서 안 보인다는 재피드백을 받아 색 자체를
+  `#009900`(초록)/`#CC0000`(빨강)로 바꿈. `EventEffectFormatter.PositiveColor`/`NegativeColor`(이벤트 로그
+  카드·스킬 아이콘 테두리에서 공유하는 파스텔 상수)는 그대로 두고, `BuildEffectsText` 내부 색상 문자열만
+  독립적으로 바꿔서 다른 화면에는 영향 없음. 스킬 패널에서만 쓰이는 경로라 이벤트 로그/알림 표시는 영향 없음.
+- **완료** : 스킬 아이콘 밑에 이름 + 구매횟수 표시(2026-08-08). `SkillPanelUI.IconSlot`에 `label`
+  (`TextMeshProUGUI`) 필드를 추가해 아이콘 44개 전부 밑에 라벨을 붙였다. 처음엔 이름+횟수를 2줄로 아이콘
+  바로 밑에 배치했는데, Play 모드 스크린샷으로 확인해보니 실제 그리드 간격(아이콘 하단~다음 줄
+  서브카테고리 라벨 사이)이 20유닛 정도밖에 안 돼서 기존 서브카테고리 라벨("공급 구조" 등)과 겹쳤다.
+  사용자 피드백을 받아 방식을 바꿈 — 1회성 스킬은 이름만 표시(1회성은 최대 1회라 횟수 표시 의미가
+  없음), 재사용형만 이름 옆에 "(N회)"를 한 줄로 붙여 표시(`RefreshSelectionHighlight`에서
+  `profile.isReusable` 분기, `SkillManager.GetPurchaseCount` 재사용). 라벨 `RectTransform`은 높이
+  20(폭 150)으로 좁혀 서브카테고리 라벨과 안 겹치게 했고, TMP `enableAutoSizing`(6~16)으로 스킬 이름
+  길이(예: "거래량부풀리기 (0회)")에 맞춰 폰트가 자동으로 줄어들게 함. 씬 작업(라벨 44개 생성 + 위치/폰트
+  세팅 + `IconSlot.label` 필드 연결)은 이번 세션에 새로 연결된 Unity MCP로 처리했고, `SampleScene.unity`
+  저장까지 완료. Play 모드에서 탭 4개 전부 스크린샷으로 겹침 없이 정상 표시되는 것 확인.
