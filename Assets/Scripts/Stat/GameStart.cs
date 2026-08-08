@@ -1,16 +1,7 @@
 using UnityEngine;
 
+// 메인 BGM 첫 재생은 SuspicionBgmController의 초기값 pull(OnEnable)이 담당한다.
+// 여기서 별도로 PlayBGM을 부르면 시작하자마자 크로스페이드가 두 번 겹친다.
 public class GameStarter : MonoBehaviour
 {
-    [Header("시작할 때 틀 배경음악")]
-    public AudioClip mainBgmClip; // 유니티 인스펙터에서 오디오 파일을 넣을 빈칸
-
-    void Start()
-    {
-        // 게임이 시작되자마자(Start) 오디오 매니저에게 BGM 재생을 명령!
-        if (AudioManager.Instance != null && mainBgmClip != null)
-        {
-            AudioManager.Instance.PlayBGM(mainBgmClip);
-        }
-    }
 }
