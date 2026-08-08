@@ -9,6 +9,7 @@ public class TypewriterText : MonoBehaviour
 {
     public TextMeshProUGUI label;
     public float charInterval = 0.04f;
+    [SerializeField] private AudioClip typeSfx; // 글자 하나 출력할 때마다 재생하는 타이핑음
 
     public bool IsTyping { get; private set; }
     public event Action OnTypingComplete;
@@ -42,6 +43,7 @@ public class TypewriterText : MonoBehaviour
         foreach (char c in fullText)
         {
             label.text += c;
+            if (!char.IsWhiteSpace(c) && AudioManager.Instance != null) AudioManager.Instance.PlaySFX(typeSfx);
             yield return new WaitForSecondsRealtime(charInterval);
         }
 

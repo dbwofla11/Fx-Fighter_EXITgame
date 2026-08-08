@@ -20,7 +20,7 @@ MonoBehaviour:
   icon: {fileID: 21300000, guid: 7c67323401916ac46bb6837b7af752d3, type: 3}
   category: 2
   baseCost: 45000
-  costMultiplier: 1.2
+  costMultiplier: 1.4
   defaultUnlocked: 0
   isReusable: 1
   effects:

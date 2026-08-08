@@ -1073,7 +1073,7 @@ MonoBehaviour:
   backToTitleButton: {fileID: 1234609272}
   clickSfx: {fileID: 8300000, guid: e931d915f986c9944a4621a535a16703, type: 3}
   arrestBgmClip: {fileID: 8300000, guid: 34c63c8f6c981b84c84eb750f1d6dbc1, type: 3}
-  delistingBgmClip: {fileID: 8300000, guid: 34c63c8f6c981b84c84eb750f1d6dbc1, type: 3}
+  delistingBgmClip: {fileID: 8300000, guid: 851f4ff0799ae5b43b244a0406e08c37, type: 3}
 --- !u!114 &1529627214
 MonoBehaviour:
   m_ObjectHideFlags: 0

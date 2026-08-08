@@ -1322,6 +1322,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TypewriterText
   label: {fileID: 693660300}
   charInterval: 0.04
+  typeSfx: {fileID: 8300000, guid: b1a15e7302b6aaa4aba0d2c5b049981a, type: 3}
 --- !u!1 &931599354
 GameObject:
   m_ObjectHideFlags: 0
@@ -2462,7 +2463,8 @@ MonoBehaviour:
   manipulateCountText: {fileID: 122211109}
   backToTitleButton: {fileID: 1234609272}
   clickSfx: {fileID: 8300000, guid: e931d915f986c9944a4621a535a16703, type: 3}
-  bgmClip: {fileID: 0}
+  heroBgmClip: {fileID: 0}
+  exitBgmClip: {fileID: 8300000, guid: 7c330f03b99bc4d478b7f5913f2b758a, type: 3}
 --- !u!114 &1529627219
 MonoBehaviour:
   m_ObjectHideFlags: 0

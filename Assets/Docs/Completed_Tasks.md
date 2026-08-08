@@ -772,3 +772,71 @@
   길이(예: "거래량부풀리기 (0회)")에 맞춰 폰트가 자동으로 줄어들게 함. 씬 작업(라벨 44개 생성 + 위치/폰트
   세팅 + `IconSlot.label` 필드 연결)은 이번 세션에 새로 연결된 Unity MCP로 처리했고, `SampleScene.unity`
   저장까지 완료. Play 모드에서 탭 4개 전부 스크린샷으로 겹침 없이 정상 표시되는 것 확인.
+- **완료** : 의심도 조절 난이도 상향 + 신규/보완 스킬 2종(2026-08-08). "의심도 조절이 너무 쉽다" 피드백
+  반영 — 여론조작 3종(후기마케팅/수상경력홍보/실시간여론관리, `EffectType.DoubtDecline`)이
+  `BuffCalculator.TickDoubtDeclines`에서 동시에 합산 차감되고 로비(즉시 -30)까지 더해지는데
+  `costMultiplier`가 낮아 반복 구매 비용이 거의 안 올라서 생기던 문제.
+  - ① `costMultiplier` 인상 : 실제 값을 확인해보니 스킬군이 두 티어(코인설계/방어 1.15, 시장조작/여론조작
+    1.2)로 나뉘어 있었음 — 사용자가 지정한 "현재 1.2"와 일치하는 시장조작+여론조작 24개 스킬만
+    1.2 → **1.4**로 일괄 변경(코인설계/방어의 1.15는 요청 범위 밖이라 유지, `sed`로 일괄 치환).
+  - ② `로비.asset` : `baseCost` 120,000 → **600,000**(5배), `costMultiplier`도 1.15 → 1.4로 별도 인상
+    (①과 동일 목표치, 사용자가 로비를 ①과 같은 항목으로 지정했기 때문).
+  - ③ 스킬 구매 횟수 상한 신설 : `SkillManager`에 `MaxPurchaseCount = 10` 상수를 추가하고
+    `HandlePurchase()`에서 재사용형(`isReusable`) 스킬이 `PurchaseCount >= 10`이면 구매를 막도록
+    가드 추가(1회성 스킬은 기존 `IsUnlocked` 체크로 이미 재구매가 막혀있어 해당 없음). 직업별로 상한을
+    다르게 주는 건 이번 스코프 밖이라 전역 상수만 두고 `Next_Tesk.md`에 후속 후보로 남김.
+  - ④ `기업인.asset` : `startingMoney` 3,000,000 → 2,000,000, `startingCoins` 4,000 → 3,000(1000개
+    감소) — 초기 자본으로 의심도 하락 스킬을 넉넉히 사던 루트 완화.
+  - ⑤ FOMO유도 신규 효과(`시장조작`, 기존 `effects: []` — 과거 `Issue_SkillBalancePatch.md`에 "일부러
+    가격 하락 후 저점 재매수, 수치 미정"으로 보류됐던 스킬) : 보상 없는 순수 디버프 유틸리티 스킬로
+    확정(과열 진화 등 특수 상황 전용, 사용자 컨펌). `baseCost` 37,500 → 90,000, `effects`에
+    `SupportIncrease -20`, `GrowthIncrease -20` 추가.
+  - ⑥ 인플루언서계약 스탯 보완(`여론조작`, 기존 `effects: []` — 과거 "투자자 +1000" 텍스트만 있고 실제
+    반영 안 됐던 스킬) : 같은 카테고리 baseCost 60,000대 비교군(SNS선동/커뮤니티알바/방송출연/유명인홍보)
+    스케일에 맞춰 `SupportIncrease +10`, `GrowthIncrease +7.5`, `DoubtIncrease +2.5` 추가.
+  - Unity MCP Play 모드(`execute_code`)로 로비/FOMO유도 현재 비용(`GetCurrentCost`), FOMO유도/
+    인플루언서계약 `effects` 값, FOMO유도 11회 연속 구매 시도 후 `PurchaseCount`가 10에서 막히고
+    `IsUnlocked`는 유지되는 것까지 전부 확인. 첫 검증 시도에서는 디스크에 저장한 `.asset` 변경이 Unity에
+    반영 안 된 채(리임포트 전) 옛날 값이 나와서, `refresh_unity(force)`로 강제 리프레시 후 재검증해
+    통과했다 — 스크립트가 아닌 `.asset`(YAML)을 직접 텍스트 편집할 때는 Unity가 자동으로 즉시 인식하지
+    않을 수 있다는 점 확인.
+- **완료** : 여론조작 세부 카테고리별 가격 배율 적용(2026-08-08). 여론조작 15개 스킬이 `SkillID.cs` 주석
+  ("SNS 조작 / 인플루언서 활용 / 언론")과 enum 선언 순서(5개씩 3그룹) 기준 세부 카테고리로 나뉘어 있는데,
+  세 그룹 사이에 가격 배율 차등이 없던 걸 SNS조작을 1배 기준으로 인플루언서 활용 2배, 언론 3배로 조정.
+  - SNS조작(변경 없음) : SNS선동 22,500 / 댓글부대운영 37,500 / 커뮤니티알바 45,000 / 밈생성 15,000 /
+    실시간여론관리 67,500
+  - 인플루언서 활용(×2) : 인플루언서계약 60,000→120,000 / 유명인홍보 112,500→225,000 / 방송출연
+    52,500→105,000 / 인터뷰진행 30,000→60,000 / 후기마케팅 37,500→75,000
+  - 언론(×3) : 파트너십발표 75,000→225,000 / 기사배포 37,500→112,500 / 보도자료배포 22,500→67,500 /
+    수상경력홍보 30,000→90,000 / 언론플레이 60,000→180,000
+  - 그룹 매핑은 세부 서브카테고리 필드가 따로 없어(`SkillSO.category`는 코인설계/시장조작/여론조작/방어
+    4대 카테고리만 구분) `SkillID.cs` enum 선언 순서와 스킬명 의미로 판단했다 — 순서상 정확히 5개씩
+    끊겨 코멘트의 세 항목과 맞아떨어짐을 확인. `costMultiplier`(1.4, 바로 위 항목에서 조정)는 그대로 두고
+    `baseCost`만 조정했다. Unity MCP Play 모드로 15개 전부 `GetCurrentCost` 실제 값을 조회해 의도한
+    배율대로 반영됐는지 확인했다.
+- **완료** : 사운드 4종 추가(2026-08-08). 사용자가 확정한 목록(파일은 전부 기존 `Assets/Audio/`에 있던 것)을
+  화면/액션에 연결했다.
+  1. 엔딩씬 대사 타이핑음(`typing.mp3`) — `TypewriterText.cs`(범용 타이핑 이펙트, 유일한 사용처는
+     `StoryDialogueController`→엑시트/영웅 엔딩 스토리 대사)에 `typeSfx` 필드를 추가해 글자 하나 출력할
+     때마다(공백 제외) `AudioManager.PlaySFX(typeSfx)`를 재생하도록 했다.
+  2. 이벤트 알림 뜰 때(`event_alarm_v2.mp3`) — `EventNotificationUI.cs`에 이미 있던 `closeSfx`(닫을 때 소리)와
+     동일한 패턴으로 `openSfx` 필드를 추가해 `HandleEventTriggered`(알림 패널이 뜨는 시점)에서 재생한다.
+  3. 상장폐지(거지 엔딩) 브금(`failure_sound.wav`) — `EndingSceneUI.cs`의 `delistingBgmClip` 필드(코드
+     변경 없이 원래 준비돼 있던 필드)가 기존에 `police-siren.wav`(체포 엔딩과 동일)를 가리키고 있던 걸
+     발견해 `failure_sound.wav`로 교체(인스펙터 참조만 변경, 체포 엔딩 쪽 `arrestBgmClip`은 그대로 둠).
+  4. 엑시트 엔딩 브금(`true_ending_tension1.mp3`) — `ExitEndingSceneUI.cs`는 원래 영웅/엑시트 엔딩이
+     `bgmClip` 하나를 공유하는 구조였는데, "엑시트 엔딩에서만" 재생하려면 구분이 필요해 `EndingSceneUI`와
+     동일한 패턴으로 `heroBgmClip`/`exitBgmClip`으로 나눴다(`EndingHandoff.Ending`으로 분기). `exitBgmClip`에만
+     연결하고 `heroBgmClip`은 비워둬 기존 "클립 없으면 무음" 관례를 따른다.
+  - Unity MCP Play 모드로 4개 씬(`SampleScene`/`EndingScene`/`ExitEndingScene`) 전부 콘솔 에러 없이 로드되는
+    것과, `SampleScene`에서 `EventHub.RaiseEventTriggered`를 직접 호출해 `openSfx` 재생 경로가 예외 없이
+    도는 것까지 확인했다. 실제 사운드 청취 확인은 에디터 스피커로 사용자가 직접 진행.
+- **완료** : 의심도(Doubt) 자동 상승 가속화(2026-08-08). 직전 밸런스 패치(스킬/로비 가격 인상 등) 이후에도
+  "의심도 조절이 여전히 쉽다"는 재피드백을 받아, 2년(730턴)째 이후 매 턴 고정 +0.1이던 증가량을 경과 연차에
+  비례해 선형으로 커지도록 바꿨다(지수 증가 아님 — "가속도" 자체는 연차당 일정) —
+  `MarketManager.ApplyDoubtAutoRise()`에 `DoubtAutoRiseAccelPerYear`(0.05) 상수를 추가해
+  `increment = 0.1 + 0.05 × yearsElapsed`(`yearsElapsed = (turnCount-730)/365`)로 계산한다. 2~3년차
+  0.10~0.15/턴 → 4~5년차 0.20~0.25/턴 → 6~7년차 0.30~0.35/턴처럼 후반으로 갈수록 관리가 빡빡해진다.
+  2년째 진입 시 1회성 +4는 그대로 유지. 슬로프 값(0.05)은 사용자가 즉석에서 확정. Unity MCP Play 모드
+  `execute_code`로 `ApplyDoubtAutoRise()`를 turnCount 730/731/1095/1096/1460/2555에서 직접 호출해 공식대로
+  4 → 0.100137 → 0.15 → 0.150137 → 0.2 → 0.35가 나오는 것을 확인했다.

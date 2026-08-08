@@ -10,6 +10,7 @@ public class EventNotificationUI : MonoBehaviour
     public GameObject panel;
     public EventCardView cardView;
     public Button closeButton;
+    [SerializeField] private AudioClip openSfx; // 이벤트알림뜨는소리
     [SerializeField] private AudioClip closeSfx; // 이벤트알림끄는소리
 
     private void OnEnable()
@@ -34,6 +35,7 @@ public class EventNotificationUI : MonoBehaviour
         string effects = entry.Profile.effects != null ? EventEffectFormatter.BuildEffectsText(entry.Profile.effects) : "";
 
         if (cardView != null) cardView.Populate(color, entry.Profile.message, UIFormat.DateDot(entry.Date), effects);
+        if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(openSfx);
         ModalPause.Open(panel);
     }
 

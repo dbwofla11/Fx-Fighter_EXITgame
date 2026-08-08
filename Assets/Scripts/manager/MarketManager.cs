@@ -46,11 +46,15 @@ public class MarketManager : MonoBehaviour
     // 게임 시작 시점의 발행량. Supply도 CurrentPrice와 동일하게 턴을 넘어 이월되는 값이라 여기서 한 번만 설정한다.
     private const float InitialSupply = 2000f;
 
-    // Doubt 자동 상승 : 게임 시간 2년(730턴)째 1회 +4, 그 이후로는 매 턴 +0.1씩 계속 증가한다.
+    // Doubt 자동 상승 : 게임 시간 2년(730턴)째 1회 +4, 그 이후로는 매 턴 +0.1을 기본으로 하되 경과 연차에
+    // 비례해 턴당 증가량 자체가 선형으로 커진다(ApplyDoubtAutoRise 참고) — 후반부로 갈수록 의심도 관리가
+    // 점점 빡빡해지라는 2026-08-08 재밸런스 피드백. 지수 증가는 아님(가속도 자체는 연차당 일정).
     // 2026-08-05에 자동 추적 증가율이 너무 빠르다는 피드백으로 기존 수치(20 / 0.5)의 5분의 1로 조정.
     private const int DoubtAutoRiseStartTurn = 730;
     private const float DoubtAutoRiseInitialAmount = 4f;
     private const float DoubtAutoRisePerTurn = 0.1f;
+    private const float DoubtAutoRiseAccelPerYear = 0.05f;
+    private const float TurnsPerYear = 365f;
 
     /// <summary>게임이 이미 끝났는지 여부 (엔딩 확정 후 true).</summary>
     public bool IsGameOver { get; private set; }
@@ -175,13 +179,19 @@ public class MarketManager : MonoBehaviour
         CheckAutomaticEndings();
     }
 
-    // 게임 시간 2년(730턴)째 Doubt +20, 그 이후로는 매 턴 +0.5씩 계속 증가한다. Doubt는 감쇠하지 않으므로 그대로 누적된다.
+    // 게임 시간 2년(730턴)째 Doubt +4, 그 이후로는 매 턴 증가량이 경과 연차에 비례해 선형으로 커진다
+    // (2~3년차 0.1/턴 → 4~5년차 0.2/턴 → 6~7년차 0.3/턴 ...). Doubt는 감쇠하지 않으므로 그대로 누적된다.
     private void ApplyDoubtAutoRise()
     {
         if (turnCount == DoubtAutoRiseStartTurn)
+        {
             CurrentStat.Doubt += DoubtAutoRiseInitialAmount;
+        }
         else if (turnCount > DoubtAutoRiseStartTurn)
-            CurrentStat.Doubt += DoubtAutoRisePerTurn;
+        {
+            float yearsElapsed = (turnCount - DoubtAutoRiseStartTurn) / TurnsPerYear;
+            CurrentStat.Doubt += DoubtAutoRisePerTurn + DoubtAutoRiseAccelPerYear * yearsElapsed;
+        }
     }
 
     // 가격이 상폐 기준 이하로 붙어있으면 연속 턴 수를 늘리고, 벗어나면 리셋한다.

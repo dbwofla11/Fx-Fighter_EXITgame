@@ -33,8 +33,9 @@ public class ExitEndingSceneUI : MonoBehaviour
     public Button backToTitleButton;
     public AudioClip clickSfx;
 
-    [Header("사운드 (없으면 재생하지 않는다 — TitleScreenUI와 같은 패턴)")]
-    public AudioClip bgmClip;
+    [Header("사운드 (EndingType별, 없으면 재생하지 않는다 — EndingSceneUI와 같은 패턴)")]
+    public AudioClip heroBgmClip;
+    public AudioClip exitBgmClip;
 
     private void Start()
     {
@@ -42,6 +43,7 @@ public class ExitEndingSceneUI : MonoBehaviour
         if (statsPanel != null) statsPanel.SetActive(false);
 
         // AudioManager는 DontDestroyOnLoad라 여기서 끄지 않으면 메인 게임 브금이 이 씬까지 계속 들린다.
+        AudioClip bgmClip = EndingHandoff.Ending == EndingType.Hero ? heroBgmClip : exitBgmClip;
         if (AudioManager.Instance != null)
         {
             if (bgmClip != null) AudioManager.Instance.PlayBGM(bgmClip);

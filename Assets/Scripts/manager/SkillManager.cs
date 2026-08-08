@@ -13,6 +13,9 @@ public class SkillManager : MonoBehaviour
     // 거기서 런타임 Active된것만 필터링해서 스킬 적용시킴
     private RuntimeSkillData runtimeSkillData = new();
 
+    // 재사용형 스킬 1개당 구매 가능한 최대 횟수. 1회성 스킬은 IsUnlocked로 이미 재구매가 막혀있어 해당 없음.
+    private const int MaxPurchaseCount = 10;
+
     /// <summary>
     /// 아이콘 클릭으로 선택된 스킬(재사용형 전용). UI가 정보 패널을 그릴 때 참조한다.
     /// </summary>
@@ -97,6 +100,9 @@ public class SkillManager : MonoBehaviour
             return;
 
         if (!skill.Profile.isReusable && skill.IsUnlocked)
+            return;
+
+        if (skill.Profile.isReusable && skill.PurchaseCount >= MaxPurchaseCount)
             return;
 
         long cost = CalculateCost(skill);
