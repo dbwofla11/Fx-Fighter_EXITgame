@@ -30,11 +30,11 @@ public class PlayerStat
     /// 별도 카운트다운으로 관리한다.</summary>
     public int VolumeBuffTurnsRemaining;
 
-    /// <summary>여론조작 스킬(DoubtDecline)별로 진행 중인 "의심도 하락" 버프. 스킬마다 독립적으로 쌓여서
-    /// 매 턴 각자의 PerTurn만큼 Doubt를 깎는다 — 같은 스킬을 다시 사면 그 스킬의 항목만 새 값으로
-    /// 덮어쓰고(재사용 시 갱신), 다른 스킬의 진행 중인 하락은 그대로 유지된다.
+    /// <summary>진행 중인 "의심도 하락"(여론조작 스킬) 버프 목록. 구매할 때마다(같은 스킬 재구매 포함)
+    /// 새 항목이 추가되고, 매 턴 진행 중인 항목 전부의 PerTurn이 합산 차감된다 — 같은 스킬을 여러 번 사면
+    /// 하락이 중복 적용된다(재구매 시 덮어쓰지 않음).
     /// BuffCalculator.StartDoubtDecline/TickDoubtDeclines 참고.</summary>
-    public Dictionary<SkillID, DoubtDeclineBuff> DoubtDeclines = new Dictionary<SkillID, DoubtDeclineBuff>();
+    public List<DoubtDeclineBuff> DoubtDeclines = new List<DoubtDeclineBuff>();
 
     // ==========================
     // UI 표시용 (Job/Skill 기여분만 별도 추적)
@@ -94,7 +94,7 @@ public class PlayerStat
         Supply = 0;
         Volume = 0;
         VolumeBuffTurnsRemaining = 0;
-        DoubtDeclines = new Dictionary<SkillID, DoubtDeclineBuff>();
+        DoubtDeclines = new List<DoubtDeclineBuff>();
 
         JobSkillSupportBonus = 0;
         JobSkillGrowthBonus = 0;
@@ -110,9 +110,10 @@ public class PlayerStat
     }
 }
 
-/// <summary>스킬 하나가 진행 중인 "의심도 하락"의 이번 턴 차감량과 남은 턴 수.</summary>
+/// <summary>진행 중인 "의심도 하락" 한 건의 출처 스킬, 이번 턴 차감량, 남은 턴 수.</summary>
 public class DoubtDeclineBuff
 {
+    public SkillID SkillId;
     public float PerTurn;
     public int TurnsRemaining;
 }

@@ -34,6 +34,8 @@ public class EventOverviewUI : MonoBehaviour
     // 표시돼 있어(예시 수치가 우연히 음수/양수였던 게 아니라 카테고리별 고정 색) 그대로 따랐다.
     private const string CurrentValueColor = "#FF0900";
     private const string BonusValueColor = "#00FF00";
+    // 지지도/상승도/의심도 수치를 눈에 띄게 강조하는 반투명 회색 배경(수치에만, 라벨 텍스트는 제외).
+    private const string StatBackgroundColor = "#33333366";
 
     private void Start()
     {
@@ -48,9 +50,9 @@ public class EventOverviewUI : MonoBehaviour
 
         PlayerStat stat = MarketManager.Instance.CurrentStat;
 
-        if (supportText != null) supportText.text = $"코인 지지도 <color={CurrentValueColor}>{UIFormat.Signed(stat.Support)}</color>";
-        if (growthText != null) growthText.text = $"코인 상승도 <color={CurrentValueColor}>{UIFormat.Signed(stat.Growth)}</color>";
-        if (doubtText != null) doubtText.text = $"의심도 <color={CurrentValueColor}>{UIFormat.Signed(stat.Doubt)}</color>";
+        if (supportText != null) supportText.text = $"코인 지지도 <mark={StatBackgroundColor}><color={CurrentValueColor}>{UIFormat.Signed(stat.Support)}</color></mark>";
+        if (growthText != null) growthText.text = $"코인 상승도 <mark={StatBackgroundColor}><color={CurrentValueColor}>{UIFormat.Signed(stat.Growth)}</color></mark>";
+        if (doubtText != null) doubtText.text = $"의심도 <mark={StatBackgroundColor}><color={CurrentValueColor}>{UIFormat.Signed(stat.Doubt)}</color></mark>";
 
         if (supportBonusText != null) supportBonusText.text = $"코인 지지도 상승률 <color={BonusValueColor}>{UIFormat.Signed(stat.JobSkillSupportBonus)}</color>";
         if (growthBonusText != null) growthBonusText.text = $"코인 상승도 상승률 <color={BonusValueColor}>{UIFormat.Signed(stat.JobSkillGrowthBonus)}</color>";

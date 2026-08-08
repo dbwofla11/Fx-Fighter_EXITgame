@@ -37,8 +37,13 @@ public class PriceChartUI : MonoBehaviour, IScrollHandler, IBeginDragHandler, ID
     [SerializeField] private float gridLineThickness = 2f;
     [SerializeField] private Color gridLineColor = new Color(0.5f, 0.5f, 0.5f, 0.35f);
     [SerializeField] private int gridPriceLabelFontSize = 16;
-    [SerializeField] private Color gridPriceLabelColor = new Color(0.55f, 0.55f, 0.55f);
+    [SerializeField] private Color gridPriceLabelColor = new Color(0f, 0.9f, 0.9f); // 시안색 — 기존 회색이 잘 안 보인다는 피드백으로 변경(2026-08-08)
     [SerializeField] private float gridPriceLabelWidth = 90f;
+
+    [Header("평단가 참조선 (우측)")]
+    [SerializeField] private float avgPriceLineThickness = 2f;
+    [SerializeField] private Color avgPriceLineColor = new Color(0f, 0.9f, 0.9f); // 시안색 — 흰색/회색 계열이 잘 안 보인다는 피드백으로 변경(2026-08-08)
+    [SerializeField] private float avgPriceLabelWidth = 90f;
 
     // 실제 거래 앱에서 흔히 쓰는 일봉 기준 이평선(10/30/60/120일). 캔들은 주/월봉이지만 평균 자체는
     // 원본 일별 PriceHistory로 계산해서 각 캔들이 끝나는 날짜 기준 최근 N일 종가 평균을 그린다.
@@ -65,6 +70,7 @@ public class PriceChartUI : MonoBehaviour, IScrollHandler, IBeginDragHandler, ID
     private PriceChartGrid grid;
     private PriceChartCandles candles;
     private PriceChartMovingAverage movingAverage;
+    private PriceChartAvgPriceLine avgPriceLine;
     private PriceChartTooltip tooltip;
     private PriceChartPeriodToggle periodToggle;
 
@@ -82,7 +88,7 @@ public class PriceChartUI : MonoBehaviour, IScrollHandler, IBeginDragHandler, ID
         if (background != null)
             background.raycastTarget = true;
 
-        // 생성 순서 = 렌더링 순서(나중에 생성된 오브젝트가 위에 그려짐): 격자 → 캔들 → 이동평균선 → 툴팁.
+        // 생성 순서 = 렌더링 순서(나중에 생성된 오브젝트가 위에 그려짐): 격자 → 캔들 → 이동평균선 → 평단가 참조선 → 툴팁.
         grid = new PriceChartGrid(chartArea, gridLineCount, gridLineThickness, gridLineColor,
             gridPriceLabelFontSize, gridPriceLabelColor, gridPriceLabelWidth);
 
@@ -91,6 +97,9 @@ public class PriceChartUI : MonoBehaviour, IScrollHandler, IBeginDragHandler, ID
 
         movingAverage = new PriceChartMovingAverage(chartArea, visibleCandleCount, dateLabelAreaHeight,
             maPeriodDays, maLineColors, maLineThickness);
+
+        avgPriceLine = new PriceChartAvgPriceLine(chartArea, avgPriceLineThickness, avgPriceLineColor,
+            gridPriceLabelFontSize, avgPriceLabelWidth);
 
         tooltip = new PriceChartTooltip(chartArea, tooltipFontSize, tooltipColor);
         candles.Hovered += tooltip.Show;
@@ -158,6 +167,7 @@ public class PriceChartUI : MonoBehaviour, IScrollHandler, IBeginDragHandler, ID
             candles.HideAll();
             grid.Hide();
             movingAverage.HideAll();
+            avgPriceLine.Hide();
             return;
         }
 
@@ -169,6 +179,9 @@ public class PriceChartUI : MonoBehaviour, IScrollHandler, IBeginDragHandler, ID
         float slotWidth = chartWidth / viewport.ZoomCandleCount;
 
         grid.Redraw(min, range, dateLabelAreaHeight, candleAreaHeight, chartWidth);
+
+        float avgPrice = PlayerManager.Instance != null ? PlayerManager.Instance.averageBuyPrice : 0f;
+        avgPriceLine.Redraw(avgPrice, min, range, dateLabelAreaHeight, candleAreaHeight, chartWidth);
 
         for (int i = 0; i < visibleCandleCount; i++)
         {

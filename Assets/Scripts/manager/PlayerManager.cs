@@ -10,6 +10,8 @@ public class PlayerManager : MonoBehaviour
     [Header("Player Stats")]
     public long currentMoney = 10000; // JobManager.SelectJob이 직업별 시작 자금으로 곧이어 덮어씀
     public long currentCoins = StartingCoins;
+    // 코인 평균 매입단가. 매수 시 가중평균으로 갱신되고(매도는 불변), 보유량이 0이 되면 리셋된다.
+    public float averageBuyPrice = 0f;
 
     // 지지도, 의심도 등은 나중에 여기에 추가
 
@@ -38,16 +40,21 @@ public class PlayerManager : MonoBehaviour
         EventHub.OnSellCoin -= HandleSellCoin;
     }
 
-    // 코인 매수 요청 수신 : 현재가로 즉시 체결
+    // 코인 매수 요청 수신 : 현재가로 즉시 체결. 평단가는 (기존 평단가×기존 수량 + 매수가×매수량)/합산 수량으로 갱신한다.
     private void HandleBuyCoin(long amount)
     {
-        long cost = (long)(amount * MarketManager.Instance.CurrentStat.CurrentPrice);
+        float price = MarketManager.Instance.CurrentStat.CurrentPrice;
+        long cost = (long)(amount * price);
+        long newCoins = currentCoins + amount;
+
+        averageBuyPrice = newCoins > 0 ? (averageBuyPrice * currentCoins + price * amount) / newCoins : 0f;
 
         AddMoney(-cost);
         AddCoin(amount);
     }
 
     // 코인 매도 요청 수신 : 현재가로 즉시 체결. CashBonus(%)만큼 수익에 배율이 붙는다.
+    // 매도는 평단가를 바꾸지 않는다(잔여 수량 원가 유지) — 다 팔아 보유량이 0이 되면 리셋한다.
     private void HandleSellCoin(long amount)
     {
         long baseRevenue = (long)(amount * MarketManager.Instance.CurrentStat.CurrentPrice);
@@ -55,6 +62,9 @@ public class PlayerManager : MonoBehaviour
 
         AddMoney(revenue);
         AddCoin(-amount);
+
+        if (currentCoins == 0)
+            averageBuyPrice = 0f;
     }
 
     // 돈을 벌거나 쓸 때 호출할 함수
@@ -86,5 +96,6 @@ public class PlayerManager : MonoBehaviour
     {
         currentMoney = 10000; // JobManager.SelectJob이 곧이어 직업별 값으로 덮어씀
         currentCoins = StartingCoins;
+        averageBuyPrice = 0f;
     }
 }

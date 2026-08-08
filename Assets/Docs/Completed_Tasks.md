@@ -864,3 +864,93 @@
     상태를 직접 관리하지 않게 했다 — 정지해도 `currentTimeScale` 필드는 그대로 남아있어서 재생 시 정지
     전 배속으로 정확히 복귀한다. Unity MCP Play 모드에서 배속을 8x까지 올린 뒤 정지→재생을 반복해
     `Time.timeScale`이 8로 유지되는 것을 확인했다.
+- **완료** : 2차 피드백 UI/디테일 4건(2026-08-08). Notion "2차 피드백 정리" A그룹 나머지. 각 항목 세부사항은
+  구현 전 사용자에게 문구/색상/위치를 컨펌받고 진행했다.
+  1. **의심도 max 경고** : `TradeCalculator.MaxTradeAmountByDoubt`/`MaxSupplyAmountByDoubt`가 이미 Doubt
+     99 근처에서 거래/발행 가능 수량을 0으로 깎고 있어서 새 로직은 추가하지 않았다. `TradeModalUI`/
+     `CoinControlModalUI`에 `doubtWarningText` 필드를 추가해 모달을 열 때 상시 노출 안내 문구("의심도가
+     MAX(99)에 가까워지면 매수/매도가 불가능해집니다"/"...발행이 불가능해집니다")를 표시한다.
+  2. **매수/매도/발행 수치 직접 입력** : `TradeModalUI.tradeAmountText`(읽기전용 TMP)를
+     `tradeAmountInput`(`TMP_InputField`, `ContentType.IntegerNumber`)로 교체했고, `CoinControlModalUI.
+     amountText`도 동일하게 `amountInput`으로 교체했다(원문은 "매수 매도"만 명시했지만 사용자가 발행
+     모달도 같이 적용하기로 결정). `onEndEdit`에서 입력값을 `Clamp(0, GetMaxTradeAmount()/
+     GetMaxAdjustAmount())`로 정리해 기존 슬라이더/버튼과 `SetTextWithoutNotify`로 양방향 동기화한다.
+     씬의 두 TMP 텍스트 오브젝트는 InputField로 교체가 필요해 Inspector 재연결이 필요하다.
+  3. **개요 스탯 배경색** : `EventOverviewUI.cs`의 `supportText`/`growthText`/`doubtText` 값에
+     `<mark=#33333366>` 태그(단일 반투명 회색, 기존 `<color=#FF0900>`와 중첩)를 추가했다. Job+Skill
+     보너스 텍스트(`supportBonusText` 등)는 사용자 결정으로 배경색 미적용.
+  4. **평단가 + 총자산 + 수익률%** : `PlayerManager`에 `averageBuyPrice` 필드를 추가해 매수 시 가중평균
+     (`(oldAvg×oldCoins + price×amount) / (oldCoins+amount)`)으로 갱신하고, 매도는 값을 유지하다가
+     보유량이 0이 되면 리셋한다(`ResetState()`도 리셋). `PriceChartGrid`(좌측 격자+라벨) 패턴을 그대로
+     따라 `PriceChartAvgPriceLine.cs`(신규, 우측 참조선+라벨, 흰색/회색 계열)를 만들어 `PriceChartUI`에
+     격자→캔들→이동평균선→평단가선→툴팁 순서로 연결했다(보유 코인 0이면 자동 숨김). 총자산(현금+보유
+     코인×현재가)/수익률%((현재가-평단가)/평단가×100)는 사용자가 헤더 근처를 선택해 `CoinPriceHeaderUI`에
+     `totalAssetText`/`returnRateText`로 추가했다(수익률 부호에 따라 기존 캔들 상승/하락색과 동일 팔레트로
+     색상 전환).
+  Unity MCP로 스크립트 컴파일까지 확인(콘솔 에러 0건). 씬 쪽 InputField 오브젝트 교체/신규 TMP 필드
+  연결(각 모달 `doubtWarningText`/`tradeAmountInput`/`amountInput`, `CoinPriceHeaderUI`의
+  `totalAssetText`)은 사용자가 직접 Figma 목업대로 배치·연결하는 몫으로 남겨뒀다.
+  (Notion "2차 피드백 정리" A그룹 5건 중 재생/정지 버튼 통합은 이미 위 항목으로 완료됨 — 나머지 5건 중
+  4건이 이번 항목, 엑시트 5억 목표 이유 설명은 튜토리얼/오프닝에서 다루기로 해 범위 제외.)
+  - **후속(같은 날, 실사용 피드백 2건)** : ① 평단가 참조선/좌측 격자 라벨이 회색이라 잘 안 보인다는
+    피드백으로 `PriceChartUI.avgPriceLineColor`/`gridPriceLabelColor`를 시안색(`(0, 0.9, 0.9)`)으로
+    변경. ② "수익률을 어디서 확인하냐"는 질문에 `returnRateText`가 아직 씬에 안 만들어져 안 보이는
+    상태였음을 확인 후, 사용자 요청으로 이번엔 직접 Unity MCP로 `CoinPriceHeader`(SampleScene) 밑에
+    `ReturnRateText`(TMP, PriceText와 동일 폰트/스타일, 헤더 우측 빈 공간 anchoredPosition (520,0)에
+    배치)를 만들어 `CoinPriceHeaderUI.returnRateText`에 연결하고 씬을 저장했다 — Play 모드 스크린샷으로
+    코인 가격 옆에 겹침 없이 표시되는 것까지 확인. `totalAssetText`는 이번 요청 범위 밖이라 미배치.
+    처음 보유한 무료 코인의 평단가 0원 반영 여부도 재확인했는데, `averageBuyPrice`가 필드 기본값/
+    `ResetState()` 양쪽에서 이미 0f로 시작하고 `JobManager.SelectJob`은 `currentCoins`만 덮어쓰고
+    `averageBuyPrice`는 건드리지 않아서, 첫 매수 시 가중평균 공식이 자동으로 무료 보유분을 0원 원가로
+    희석시킨다 — 별도 수정 불필요했음(코드 변경 없음, 확인만).
+- **완료** : "의심도 하락"(DoubtDecline) 재구매 시 중복 적용되도록 수정(2026-08-08). 여론조작 스킬 3종
+  (`실시간여론관리`/`수상경력홍보`/`후기마케팅`, 전부 `isReusable: 1`이라 최대 10회 재구매 가능)이 총량을
+  200턴에 걸쳐 0.5%씩 나눠 깎는 기능인데, `PlayerStat.DoubtDeclines`가 `Dictionary<SkillID,
+  DoubtDeclineBuff>`라 같은 스킬을 재구매해도 기존 진행 중인 항목을 새 값으로 덮어써서 사실상 타이머만
+  리셋되고 하락량은 안 쌓이던 문제를 사용자가 지적해 고쳤다. `List<DoubtDeclineBuff>`로 바꿔
+  `BuffCalculator.StartDoubtDecline`이 매 구매마다 새 항목을 추가하고, `TickDoubtDeclines`도 리스트를
+  순회하며 각 항목을 독립적으로 카운트다운하도록 수정 — 같은 스킬을 여러 번 사면 하락이 중복(합산)
+  적용된다. `DoubtDeclines`를 참조하는 곳이 `BuffCalculator`/`PlayerStat` 외에는 없어(grep으로 확인)
+  다른 코드 영향 없음. Unity MCP 컴파일 확인(콘솔 에러 0건). 상세 동작/호출 스택은
+  `Issue_DoubtDecline.md` 갱신.
+- **완료** : 스킬 아이콘 테두리 색 안내 문구 추가(2026-08-08). `SkillPanelUI.RefreshSelectionHighlight`가
+  이미 아이콘 테두리를 `profile.isReusable`에 따라 빨강(`EventEffectFormatter.NegativeColor`, 1회성)/
+  초록(`PositiveColor`, 재사용형)으로 칠하고 있는데, 그 의미를 설명하는 범례가 없다는 지적으로 추가했다.
+  코드가 아니라 씬 오브젝트만 있으면 되는 정적 텍스트라 Unity MCP `execute_code`로 직접
+  `SkillPanel/SkillLegendText`(TMP, `<color=#FFBAB1>■</color> 1회성   <color=#B1FFB1>■</color>
+  재사용(최대 10회)`, PriceText와 동일 폰트)를 만들어 배치했다. 위치는 실측 좌표 기반 — 탭 4개 줄
+  (`Tab4`/`CloseBtn`, y 425~505)과 아이콘 그리드 박스(`SkillPanelBox`, 우측 끝 x=383.1, 위쪽 끝 y=401.5)
+  사이의 빈 틈(세로 ~24~29px)에 우측 정렬로 끼워 넣어, 탭이나 아이콘과 안 겹치게 했다(`RectTransform.
+  GetWorldCorners()`를 패널 로컬 좌표로 변환해 각 요소의 실제 경계를 먼저 측정한 뒤 배치 — 앵커 기준이
+  서로 달라서(Box는 `(0,0.5)`, Tab/CloseBtn은 `(0.5,0.5)`) `anchoredPosition`만으로는 겹침 여부를 알 수
+  없었음). Play 모드에서 `SkillPanelUI.Open()`을 직접 호출해 스크린샷으로 위치/가독성 확인 후 씬 저장.
+  **후속(같은 날)** : 탭과 박스 사이 틈에 걸쳐있어 흰 배경 밖(핑크 탭 경계)으로 살짝 삐져나와 보인다는
+  피드백으로, `SkillLegendText.anchoredPosition`을 `(383, 424)` → `(375, 393)`로 내려 박스 흰 배경
+  안쪽(위/오른쪽 가장자리에서 각 8px 여백)으로 옮겼다. 첫 아이콘 행(`Icon6` 기준 yMax=349)이나 그룹
+  라벨("공급 구조", x가 좌측이라 x:63~383 범위와 안 겹침)과도 안 겹치는 것까지 좌표로 확인.
+- **완료** : `CoinPriceHeader.ReturnRateText` 위치 버그 수정(2026-08-08). 수익률 텍스트가 코인 가격과 너무
+  멀어 보인다는 피드백으로 좌표를 재보니, 애초에 이 오브젝트를 처음 만들 때 `localScale`이 `(1,1,1)`이
+  아니라 `(1.59,1.59,1.59)`(부모 `Main_Canvas`의 0.63배 스케일을 상쇄해 `lossyScale`이 1.0이 되는 값)로
+  잘못 들어가 있던 게 원인이었다 — 형제 오브젝트(`PriceText`/`CoinIcon`)는 전부 `localScale (1,1,1)`,
+  `lossyScale ≈0.63`인데 이것만 달라서, 같은 `anchoredPosition` 수치라도 실제 렌더링 크기/위치가 1.59배
+  멀리 벌어져 보였다. `localScale`을 `(1,1,1)`로 맞추고, `anchoredPosition`도 `PriceText` 박스 오른쪽
+  끝(로컬 x=484)에서 12px만 띄운 `(496, 0)`으로 다시 계산해 붙였다(`sizeDelta`도 320→220으로 축소).
+  Unity MCP `execute_code`로 직접 수정 후 Play 모드 스크린샷으로 확인, 씬 저장.
+- **완료** : 러쉬막기(매수 폭주 방지, 2026-08-08). Notion "2차 피드백 정리" B그룹, `Next_Tesk.md` 18번 항목.
+  1) **매수 1회 상한(발행량 기준)** — `TradeCalculator.MaxTradeAmountBySupply(currentSupply, currentCoins)`
+     신규(`Max(0, Supply - currentCoins)`, "이미 보유한 만큼 빼고 시장에 남은 유통량까지만 매수 가능"),
+     `TradeModalUI.GetMaxTradeAmount()`의 Long 분기에서 기존 잔고 기준 상한에 `Min`으로 적용(Doubt 캡은
+     기존처럼 마지막). 처음 계획한 "고정 10,000개 + 발행량 기준 중 더 작은 쪽"은, `MarketManager.
+     InitialSupply=2000`이라 발행량 기준이 게임 시작부터 항상 더 타이트해서 고정 상한이 죽은 코드가
+     된다는 걸 확인해 뺐다. Short(매도)는 손 안 댐.
+  2) **지지도 → 발행량 증가속도 로그 연동** — `TradeCalculator.GrowSupply`가 고정값
+     `SupplyGrowthPerTurn=50` 대신, Support(-100~100)를 `Clamp01((Support+100)/200)`로 정규화한 뒤
+     `SupplyGrowthBase(10) + SupplyGrowthLogCoefficient(100) × ln(1+normalizedSupport)`로 계산하도록
+     바꿨다 — Support가 낮을수록 10/턴(하한), 0이면 약 50/턴(기존 고정값과 비슷하게 맞춤), 100이면 약
+     79/턴까지 완만하게 늘어난다(로그라 무한정 커지지 않음). 두 상수 모두 밸런스용 임시값.
+  3) "상폐 상한선 늘리기 5"는 사용자 확인 결과 **폐지(진행 안 함)** — Next_Tesk.md에서도 제외.
+  - 검증 : Unity MCP `execute_code`로 `TradeCalculator.MaxTradeAmountBySupply`/`GrowSupply`를 직접 호출해
+    수치 확인(Support=-100/0/50/100 → 10/50.5/66.0/79.3, `MaxTradeAmountBySupply(2000,3000)=0` 등 클램프
+    포함), Play 모드에서 `PlayerManager.currentMoney`를 100만으로 올려 잔고 상한(100,000)보다 발행량
+    상한(2,000)이 실제로 더 작게 적용되는 것까지 확인. 컴파일 에러 없음. 공식은 `Game_Formula.md` 2장
+    (Supply)/3장(Long) 갱신.

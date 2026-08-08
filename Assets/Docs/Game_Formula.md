@@ -125,11 +125,24 @@ Scarcity = 100 × (1 - Supply / MaxSupply)
   - 플레이어의 "발행량 조작" 액션 (3장 "발행량 조작") — `추가발행권한` 스킬을 구매해야 사용할 수 있다
   - 재사용형 스킬 구매 시 `EffectType.SupplyIncrease`/`SupplyDecrease` 효과 (`StatCalculator.ApplySkillUse`)
 - (설계 수정, 2026-08-04) Supply는 Support/Growth와 반대로 **매 턴 자동으로 늘어난다** (`TradeCalculator.
-  GrowSupply`, `SupplyGrowthPerTurn = 50`, 채굴/인플레이션 개념). 처음엔 Support/Growth와 동일하게 0을 향해
-  감쇠하도록 짰었는데("발행량이 시간이 지나면 줄어든다"), 실제로는 "턴이 지날수록 늘어나야 한다"는 정정을
-  받아 감쇠 대신 매 턴 고정량 증가로 바꿨다 — `TradeCalculator.SupplyDecayRate`는 삭제, `GrowSupply(stat)`가
-  `StatCalculator.Calculate()`에서 `Decay(stat)` 바로 다음에 호출된다. `SupplyGrowthPerTurn`은 밸런스용 임시
-  수치라 플레이해보고 조정이 필요하다.
+  GrowSupply`, 채굴/인플레이션 개념). 처음엔 Support/Growth와 동일하게 0을 향해 감쇠하도록 짰었는데("발행량이
+  시간이 지나면 줄어든다"), 실제로는 "턴이 지날수록 늘어나야 한다"는 정정을 받아 감쇠 대신 매 턴 증가로
+  바꿨다 — `TradeCalculator.SupplyDecayRate`는 삭제, `GrowSupply(stat, suppressionRatio)`가
+  `StatCalculator.Calculate()`에서 `Decay(stat)` 바로 다음에 호출된다.
+- **(2026-08-08) 증가 속도가 Support(지지도)에 로그로 연동된다 — "러쉬막기".** 고정값(`SupplyGrowthPerTurn = 50`)
+  대신, Support(-100~100)를 0~1로 정규화한 뒤 로그를 태워 지지도가 높을수록 발행 속도가 빨라지되 무한정
+  커지지 않고 완만해지는 곡선으로 바꿨다.
+
+  ```
+  normalizedSupport = Clamp01((Support + 100) / 200)
+  growthPerTurn = SupplyGrowthBase + SupplyGrowthLogCoefficient × ln(1 + normalizedSupport)
+  Supply += growthPerTurn × (1 - suppressionRatio)
+  ```
+
+  - `SupplyGrowthBase = 10`, `SupplyGrowthLogCoefficient = 100` (`TradeCalculator`, 둘 다 밸런스용 임시
+    수치라 실제 플레이 후 조정 필요) — Support가 -100 이하(정규화 0)면 10/턴, Support가 0(정규화 0.5)이면
+    약 50/턴(기존 고정값과 비슷하게 맞춤), Support가 100(정규화 1)이면 약 79/턴까지 완만하게 늘어난다.
+  - `suppressionRatio`는 기존과 동일하게 추가발행권한/우회발행권한 스킬이 이 증가폭 자체를 깎는 비율이다.
 - **`MaxSupply = 100000`이 실제 기준값이다.** UI 목업이 "현재 발행량 : 20,000,000개"처럼 더 큰 자릿수를 보여주는
   경우가 있는데, 이는 `TargetAsset`(5장 참고) 때와 동일하게 예시/목업 수치일 뿐 실제 값이 아니다. 이벤트
   `supplyDelta`, 발행량 조작 버튼의 `amount`, 스킬의 `SupplyIncrease`/`SupplyDecrease` 등 Supply를 바꾸는 모든
@@ -248,6 +261,13 @@ PriceChangeThisTurn = CurrentPrice(이번 턴 계산 후) - CurrentPrice(이번 
 - Support 증가
 - Growth 증가
 - Doubt 증가 (거래 자체가 의심을 산다 — 방향과 무관)
+- **매수 1회 상한(러쉬막기, 2026-08-08)** : `TradeModalUI.GetMaxTradeAmount()`가 잔고 기준 상한
+  (`currentMoney / CurrentPrice`)에 발행량 기준 상한을 `Min`으로 추가 적용한다 —
+  `TradeCalculator.MaxTradeAmountBySupply(currentSupply, currentCoins) = Max(0, Supply - currentCoins)`
+  ("이미 보유한 만큼 빼고 시장에 남은 유통량까지만 매수 가능"). 처음엔 "고정 10,000개 + 발행량 기준 중
+  더 작은 쪽"으로 계획했으나, `MarketManager.InitialSupply = 2000`이라 게임 시작 시점부터 발행량 기준
+  상한(2000)이 고정 10,000개보다 항상 타이트해서 고정 상한은 죽은 코드가 되므로 뺐다. Doubt 캡
+  (`MaxTradeAmountByDoubt`)은 기존처럼 마지막에 `Min`으로 적용된다. Short(매도)에는 적용하지 않는다.
 
 ## Short
 
@@ -325,7 +345,8 @@ Growth(t+1) = Growth(t) × decayRate
 - decayRate = 0.995 (매 턴 0.5%씩 감소, 절반이 되는 데 약 138턴)
 - 매 턴(`StatCalculator.Calculate()`, `MarketManager.NextTurn()`에서 호출) 적용된다.
 - 직업(Job)의 Support/Growth 효과도 동일하게 취급한다 — 3-1장 참고.
-- Supply(2장)는 반대로 매 턴 자동으로 늘어난다(감쇠 대상이 아니다, `SupplyGrowthPerTurn = 50`, 2026-08-04 정정).
+- Supply(2장)는 반대로 매 턴 자동으로 늘어난다(감쇠 대상이 아니다, `GrowSupply`가 Support 연동 로그 공식으로
+  증가폭을 계산, 2026-08-04 정정 / 2026-08-08 로그 공식으로 변경).
 - **UI 표시 전용 그림자 값** : `PlayerStat.JobSkillSupportBonus`/`JobSkillGrowthBonus`는 Job 선택·재사용형 Skill
   구매가 준 기여분만 Trade/시사 이벤트를 제외하고 별도로 누적하며, `Support`/`Growth`와 동일한 `decayRate`로
   똑같이 감쇠한다. 게임 계산(가격, 확률 등)에는 전혀 관여하지 않고 오직 개요 화면에 "Job+Skill이 지금

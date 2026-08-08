@@ -30,34 +30,36 @@ public static class BuffCalculator
         stat.VolumeBuffTurnsRemaining = VolumeBuffDurationTurns;
     }
 
-    /// <summary>스킬별로 진행 중인 의심도 하락을 각각 독립적으로 틱한다 — 여러 스킬의 하락이 동시에 진행
-    /// 중이면 각자의 PerTurn이 모두 Doubt에서 차감된다(합산). 만료된(TurnsRemaining이 0이 된) 항목은
-    /// 새 stat으로 옮기지 않아 자연히 사라진다.</summary>
+    /// <summary>진행 중인 의심도 하락 전부를 각각 독립적으로 틱한다 — 같은 스킬을 여러 번 사서 항목이 여러
+    /// 개 쌓여있어도(중복 적용) 각자의 PerTurn이 모두 Doubt에서 차감된다(합산). 만료된(TurnsRemaining이
+    /// 0이 된) 항목은 새 stat으로 옮기지 않아 자연히 사라진다.</summary>
     public static void TickDoubtDeclines(PlayerStat stat, PlayerStat previous)
     {
-        foreach (var entry in previous.DoubtDeclines)
+        foreach (DoubtDeclineBuff entry in previous.DoubtDeclines)
         {
-            if (entry.Value.TurnsRemaining <= 0)
+            if (entry.TurnsRemaining <= 0)
                 continue;
 
             // 스킬로 인한 Doubt 감소는 0 밑으로 안 내려간다(ApplySkillUse의 즉시형 DoubtDecrease와 동일 원칙).
-            stat.Doubt = UnityEngine.Mathf.Max(0f, stat.Doubt - entry.Value.PerTurn);
-            stat.DoubtDeclines[entry.Key] = new DoubtDeclineBuff
+            stat.Doubt = UnityEngine.Mathf.Max(0f, stat.Doubt - entry.PerTurn);
+            stat.DoubtDeclines.Add(new DoubtDeclineBuff
             {
-                PerTurn = entry.Value.PerTurn,
-                TurnsRemaining = entry.Value.TurnsRemaining - 1
-            };
+                SkillId = entry.SkillId,
+                PerTurn = entry.PerTurn,
+                TurnsRemaining = entry.TurnsRemaining - 1
+            });
         }
     }
 
-    /// <summary>이 스킬의 총량(totalAmount) 0.5%씩 200턴에 걸쳐 균등 분할 차감을 시작한다. 같은 스킬을 다시
-    /// 사면 그 스킬의 진행 중인 하락만 새 값으로 덮어쓴다(재사용 시 갱신) — 다른 스킬의 하락은 독립적으로 유지된다.</summary>
+    /// <summary>이 스킬의 총량(totalAmount) 0.5%씩 200턴에 걸쳐 균등 분할 차감하는 항목을 새로 추가한다.
+    /// 같은 스킬을 재구매해도 기존 진행 중인 항목을 덮어쓰지 않고 별도 항목으로 쌓여 중복 적용된다.</summary>
     public static void StartDoubtDecline(PlayerStat stat, SkillID skillId, float totalAmount)
     {
-        stat.DoubtDeclines[skillId] = new DoubtDeclineBuff
+        stat.DoubtDeclines.Add(new DoubtDeclineBuff
         {
+            SkillId = skillId,
             PerTurn = totalAmount * DoubtDeclineRatioPerTurn,
             TurnsRemaining = DoubtDeclineDurationTurns
-        };
+        });
     }
 }

@@ -17,7 +17,7 @@ public class TradeModalUI : MonoBehaviour
     public TextMeshProUGUI titleText;
 
     [Header("Amount")]
-    public TextMeshProUGUI tradeAmountText;
+    public TMP_InputField tradeAmountInput;
     public Button btnPlus1;
     public Button btnPlus10;
     public Button btnPlus100;
@@ -29,6 +29,7 @@ public class TradeModalUI : MonoBehaviour
     [Header("Preview / Confirm")]
     public TextMeshProUGUI previewText;
     public TextMeshProUGUI doubtIncreaseText;
+    public TextMeshProUGUI doubtWarningText; // 상시 노출 안내문. TradeCalculator.MaxTradeAmountByDoubt가 이미 한도를 0까지 깎으므로 문구만 담당한다.
     public Button btnConfirm;
     public Button btnCancel;
 
@@ -72,9 +73,17 @@ public class TradeModalUI : MonoBehaviour
         }
         if (btnConfirm != null) btnConfirm.onClick.AddListener(() => { if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(confirmSfx); OnConfirmClicked(); });
         if (btnCancel != null) btnCancel.onClick.AddListener(() => { PlayClickSfx(); Close(); });
+        if (tradeAmountInput != null)
+        {
+            tradeAmountInput.contentType = TMP_InputField.ContentType.IntegerNumber;
+            tradeAmountInput.onEndEdit.AddListener(OnTradeAmountInputChanged);
+        }
 
         if (!isOpen && panel != null)
             panel.SetActive(false);
+
+        if (doubtWarningText != null)
+            doubtWarningText.text = "의심도가 MAX(99)에 가까워지면 매수/매도가 불가능해집니다.";
     }
 
     private void PlayClickSfx()
@@ -135,8 +144,9 @@ public class TradeModalUI : MonoBehaviour
     }
 
     // 지금 매수/매도 가능한 최대 수치. Long은 현재 현금으로 살 수 있는 최대 수량, Short는 보유 코인 전량.
-    // 여기에 Doubt가 100(체포 엔딩)을 넘지 않는 한도까지 더해 더 작은 쪽을 쓴다 — 한 번의 거래로 Doubt가
-    // 갑자기 100을 넘어 체포당하는 걸 막기 위함. 슬라이더 오른쪽 끝 값과 +MAX 버튼이 이 값을 공유한다.
+    // Long에는 추가로 발행량(Supply) 기준 상한(러쉬막기, TradeCalculator.MaxTradeAmountBySupply)까지 적용한다 —
+    // 이미 보유한 만큼 빼고 시장에 남은 유통량까지만 매수 가능. 마지막으로 Doubt가 100(체포 엔딩)을 넘지
+    // 않는 한도까지 더해 가장 작은 쪽을 쓴다. 슬라이더 오른쪽 끝 값과 +MAX 버튼이 이 값을 공유한다.
     private long GetMaxTradeAmount()
     {
         if (MarketManager.Instance == null || PlayerManager.Instance == null)
@@ -148,6 +158,9 @@ public class TradeModalUI : MonoBehaviour
         {
             float price = MarketManager.Instance.CurrentStat.CurrentPrice;
             maxByBalance = price <= 0f ? 0 : (long)(PlayerManager.Instance.currentMoney / price);
+
+            long maxBySupply = TradeCalculator.MaxTradeAmountBySupply(MarketManager.Instance.CurrentStat.Supply, PlayerManager.Instance.currentCoins);
+            maxByBalance = System.Math.Min(maxByBalance, maxBySupply);
         }
         else
         {
@@ -285,10 +298,20 @@ public class TradeModalUI : MonoBehaviour
     // skipSlider: 슬라이더 드래그가 값을 바꾼 경우, 그 값으로 다시 슬라이더를 덮어써서 튀는 것을 막는다.
     private void RefreshTradeAmountText(bool skipSlider = false)
     {
-        if (tradeAmountText != null)
-            tradeAmountText.text = tradeAmount.ToString("N0");
+        if (tradeAmountInput != null)
+            tradeAmountInput.SetTextWithoutNotify(tradeAmount.ToString());
 
         if (!skipSlider && tradeAmountSlider != null)
             tradeAmountSlider.SetValueWithoutNotify(tradeAmount);
+    }
+
+    // 직접 입력 확정(포커스 아웃/Enter) 시 기존 슬라이더/버튼과 동일한 한도로 Clamp한다.
+    private void OnTradeAmountInputChanged(string text)
+    {
+        if (!long.TryParse(text, out long value))
+            value = 0;
+
+        tradeAmount = System.Math.Min(GetMaxTradeAmount(), System.Math.Max(0L, value));
+        RefreshTradeAmountText();
     }
 }

@@ -23,8 +23,11 @@ public static class TradeCalculator
     private const float GrowthDecayRate = 0.995f;
 
     // 발행량은 Support/Growth와 반대로 시간이 지날수록(매 턴) 자동으로 늘어난다 — 채굴/인플레이션 개념.
+    // Support(-100~100)가 높을수록(코인 지지 여론이 강할수록) 발행 속도가 빨라지되, 로그를 태워 무한정
+    // 커지지 않고 완만해지게 한다 (GrowSupply 참고).
     // ponytail: 밸런스용 임시 수치, 실제 플레이해보고 조정 필요.
-    private const float SupplyGrowthPerTurn = 50f;
+    private const float SupplyGrowthBase = 10f;
+    private const float SupplyGrowthLogCoefficient = 100f;
 
     // Long : 구매 -> Support/Growth 증가. 거래 자체가 시장에 눈에 띄는 움직임이라 방향과 무관하게 Doubt도
     // 수량에 비례해 조금씩 오른다 (감쇠 없이 그대로 누적, ManipulateSupply와 동일한 설계).
@@ -71,6 +74,14 @@ public static class TradeCalculator
         return headroom <= 0f ? 0L : (long)(headroom / DoubtWeightPerSupplyUnit);
     }
 
+    // 매수(Long) 1회 상한(러쉬막기) : 이미 보유한 만큼을 빼고, 시장에 남아있는 유통량까지만 살 수 있다.
+    // 고정 상한 없이 발행량(Supply) 기준만 적용 — 게임 시작 시점부터 이 값이 항상 더 타이트해서 별도
+    // 고정 캡을 두면 죽은 코드가 된다 (Next_Tesk.md "러쉬막기" 참고).
+    public static long MaxTradeAmountBySupply(float currentSupply, long currentCoins)
+    {
+        return (long)Math.Max(0f, currentSupply - currentCoins);
+    }
+
     // 발행량 조작 : 발행량 증가(희석) -> Support/Growth 감소, 발행량 감소(소각) -> Support/Growth 증가.
     // 늘리든 줄이든 조작 자체가 의심을 키우므로 Doubt는 수량의 절대값에 비례해 증가한다 (감쇠 없이 그대로 누적).
     public static void ManipulateSupply(PlayerStat stat, long amount)
@@ -94,8 +105,12 @@ public static class TradeCalculator
     // 매 턴 자동으로 발행량이 늘어난다 (인플레이션). 발행량 조작/이벤트/스킬로 늘고 주는 것과는 별개로 항상 적용.
     // suppressionRatio(0~1)는 추가발행권한/우회발행권한 같은 스킬이 이 증가율 자체를 얼마나 깎는지 — Scarcity
     // 공식(비율 기반)과 같은 방식으로, 고정값을 빼는 게 아니라 증가폭에 곱해서 마이너스로 넘어가지 않게 한다.
+    // 증가 속도 자체는 Support(-100~100, 코인 지지 여론)에 연동된다 — 0~1로 정규화한 뒤 로그를 태워 지지도가
+    // 높을수록 발행이 빨라지되 무한정 커지지 않고 완만해지게 한다.
     public static void GrowSupply(PlayerStat stat, float suppressionRatio)
     {
-        stat.Supply += SupplyGrowthPerTurn * (1f - Mathf.Clamp01(suppressionRatio));
+        float normalizedSupport = Mathf.Clamp01((stat.Support + 100f) / 200f);
+        float growthPerTurn = SupplyGrowthBase + SupplyGrowthLogCoefficient * Mathf.Log(1f + normalizedSupport);
+        stat.Supply += growthPerTurn * (1f - Mathf.Clamp01(suppressionRatio));
     }
 }
