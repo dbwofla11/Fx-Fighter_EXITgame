@@ -26,3 +26,5 @@ MonoBehaviour:
     value: -20
   - effectType: 1
     value: -20
+  - effectType: 9
+    value: 5

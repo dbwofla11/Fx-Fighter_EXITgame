@@ -954,3 +954,31 @@
     포함), Play 모드에서 `PlayerManager.currentMoney`를 100만으로 올려 잔고 상한(100,000)보다 발행량
     상한(2,000)이 실제로 더 작게 적용되는 것까지 확인. 컴파일 에러 없음. 공식은 `Game_Formula.md` 2장
     (Supply)/3장(Long) 갱신.
+- **완료** : 의심도(Doubt) 3단계 메인 BGM 전환(2026-08-09). `Next_Tesk.md` 18번 항목. 신규
+  `SuspicionBgmController.cs`(`Assets/Scripts/manager/utils/`)가 `StatGaugeUI`와 동일한 패턴으로
+  `EventHub.OnMarketUpdated` 구독 + `OnEnable`에서 `MarketManager.Instance.CurrentStat` 초기값 pull.
+  Doubt 55/60 경계(상수로 분리)로 티어(Low/Mid/High)를 계산해 55 미만은 `Chiptuna_Sandwich.wav`, 55~60은
+  `StopBGM()`(무음), 60 이상은 `leberch-suspense-511168.mp3`를 재생하되, 티어가 바뀔 때만
+  `PlayBGM`/`StopBGM`을 호출하도록 `currentTier` 캐싱(매턴 이벤트마다 부르면 크로스페이드가 겹치는 문제
+  방지). `GameStarter.Start()`가 씬 시작 시 `happy-tropical.wav`를 직접 재생하던 코드는 제거했다 — 그대로
+  뒀으면 새 컨트롤러의 초기값 pull과 겹쳐 시작하자마자 크로스페이드가 두 번 도는 문제가 있었음(이제 새
+  컨트롤러의 초기값 pull이 첫 BGM 재생을 담당). Unity Editor MCP로 `SampleScene`의 `/GameStarter`
+  오브젝트에 컴포넌트를 붙이고 클립 2개를 연결, 씬 저장까지 완료. (`Issue_SuspicionBgm.md` 참고)
+  - 검증 : 컴파일 에러/경고 없음 확인. **Play 모드로 실제 턴을 진행시켜 55/60 경계 전환의 체감(타이밍/볼륨)은
+    아직 확인 안 함** — 사용자가 직접 플레이하며 들어봐야 함.
+- **완료** : 의심도 55~100 구간 중간 효과음(2026-08-09). `Next_Tesk.md` 19번 항목. `SuspicionBgmController`와
+  별개로 신규 `DoubtMidSfxController.cs`(`Assets/Scripts/manager/utils/`)를 추가했다 — Doubt가 55 이상인
+  동안 3~6개월(턴, `TurnsPerMonth=365/12` 기준 91~183턴 랜덤) 간격마다 `Assets/Audio/DouptSFX/`의
+  `clockdown`/`end-clocksound`/`heartsound` 중 하나를 랜덤으로 골라 앞 3초만 재생한다.
+  `AudioManager.PlaySFX()`는 공용 `sfxSource`에 `PlayOneShot`으로 얹는 방식이라 특정 클립만 3초 뒤 끊을 수
+  없어서, 이 컨트롤러가 전용 `AudioSource`(Awake에서 `GetComponent`/없으면 `AddComponent`)를 직접
+  `Play()`→3초 뒤 코루틴에서 `Stop()`한다. 볼륨은 `AudioManager.Instance.sfxVolume`을 참고한다. 간격
+  카운트는 `EventHub.OnDayChanged`(턴)로, Doubt 값은 `SuspicionBgmController`와 동일하게
+  `EventHub.OnMarketUpdated`(+`OnEnable`에서 `MarketManager.Instance.CurrentStat` 초기값 pull) 구독으로
+  캐싱한다 — Doubt가 55 미만인 턴은 카운트를 멈추되 리셋하지는 않는다(미정이던 항목, 가장 무난한 쪽으로
+  결정). `OnDisable`에서 구독 해제 + 진행 중 코루틴 정리. Unity Editor MCP로 `SampleScene`의
+  `/GameStarter` 오브젝트(`SuspicionBgmController`와 동일 위치)에 컴포넌트를 붙이고 클립 3개를 연결, 씬
+  저장까지 완료.
+  - 검증 : 컴파일 에러 없음 확인. **Play 모드로 실제 55 이상 구간을 오래 유지해 재생/3초 컷/랜덤 선택
+    체감은 아직 확인 안 함** — 사용자가 직접 플레이하며 들어봐야 함. 사운드 선택 방식(현재: 매번 순수
+    랜덤, 직전과 같은 클립이 연속될 수 있음)도 피드백 받으면 조정 필요.
