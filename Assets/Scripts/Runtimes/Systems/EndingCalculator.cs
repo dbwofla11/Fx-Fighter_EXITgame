@@ -30,6 +30,6 @@ public static class EndingCalculator
     /// </summary>
     public static EndingType CheckExit(PlayerStat stat)
     {
-        return stat.Doubt <= 50f && stat.Support >= 80f ? EndingType.Hero : EndingType.Exit;
+        return EndingType.Exit;
     }
 }

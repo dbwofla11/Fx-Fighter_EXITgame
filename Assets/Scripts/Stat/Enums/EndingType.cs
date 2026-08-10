@@ -8,10 +8,6 @@ public enum EndingType
 
     /// <summary>엑시트 엔딩 (Neutral Ending) : 목표 자산 달성 후 엑시트, Hero 조건 미충족</summary>
     Exit,
-
-    /// <summary>영웅 엔딩 (True Ending) : 목표 자산 달성 + Doubt 낮음 + Support 높음</summary>
-    Hero,
-
     /// <summary>거지 엔딩 : 현금 0 + 코인 0</summary>
     Broke
 }

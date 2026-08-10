@@ -5,13 +5,8 @@ using TMPro;
 public class CoinPriceHeaderUI : MonoBehaviour
 {
     [SerializeField] private TextMeshProUGUI priceText;
-    [SerializeField] private TextMeshProUGUI totalAssetText;
-    [SerializeField] private TextMeshProUGUI returnRateText;
+    [SerializeField] private TextMeshProUGUI myAssetTotalText;
     [SerializeField] private string coinName = "BitBitCoin(BBIT)";
-
-    // PriceChartUI의 upColor/downColor(BtnLong/BtnShort)와 동일 팔레트.
-    private static readonly Color ProfitColor = new Color(0.2941176f, 0.4117647f, 0.1843137f);
-    private static readonly Color LossColor = new Color(0.6745098f, 0.1960784f, 0.1960784f);
 
     private void OnEnable()
     {
@@ -34,29 +29,21 @@ public class CoinPriceHeaderUI : MonoBehaviour
         float currentPrice = MarketManager.Instance.CurrentStat.CurrentPrice;
         priceText.text = $"{coinName}  {UIFormat.CurrencyTight(currentPrice)}";
 
-        if (PlayerManager.Instance == null)
+        if (PlayerManager.Instance == null || myAssetTotalText == null)
             return;
 
-        if (totalAssetText != null)
+        long coinValue = (long)(PlayerManager.Instance.currentCoins * currentPrice);
+
+        // 보유 코인 평가손익에 CashBonus(%, 거래수익+X% 직업 스탯)를 반영해 총자산에 얹는다 — 매도 전에도 보너스가 보이도록.
+        float avgPrice = PlayerManager.Instance.averageBuyPrice;
+        long bonusProfit = 0;
+        if (avgPrice > 0f)
         {
-            long totalAsset = PlayerManager.Instance.currentMoney + (long)(PlayerManager.Instance.currentCoins * currentPrice);
-            totalAssetText.text = "총자산 " + UIFormat.Currency(totalAsset);
+            float profit = (currentPrice - avgPrice) * PlayerManager.Instance.currentCoins;
+            bonusProfit = (long)(profit * MarketManager.Instance.CurrentStat.CashBonus / 100f);
         }
 
-        if (returnRateText != null)
-        {
-            float avgPrice = PlayerManager.Instance.averageBuyPrice;
-            if (avgPrice > 0f)
-            {
-                float rate = (currentPrice - avgPrice) / avgPrice * 100f;
-                returnRateText.text = "수익률 " + UIFormat.SignedPercent(rate);
-                returnRateText.color = rate >= 0f ? ProfitColor : LossColor;
-            }
-            else
-            {
-                returnRateText.text = "수익률 -";
-                returnRateText.color = Color.white;
-            }
-        }
+        long totalAsset = PlayerManager.Instance.currentMoney + coinValue + bonusProfit;
+        myAssetTotalText.text = "내 자산 합계 " + UIFormat.Currency(totalAsset);
     }
 }

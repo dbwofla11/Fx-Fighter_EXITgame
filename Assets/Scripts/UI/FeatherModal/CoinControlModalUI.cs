@@ -14,7 +14,7 @@ public class CoinControlModalUI : MonoBehaviour
 
     [Header("모달 (평소 숨김)")]
     public GameObject panel;
-    public TMP_InputField amountInput;
+    public TextMeshProUGUI amountText;
     public Button btnPlusMinus;
     public Image btnPlusMinusImage;
     public Slider amountSlider;
@@ -70,11 +70,6 @@ public class CoinControlModalUI : MonoBehaviour
         }
         if (btnConfirm != null) btnConfirm.onClick.AddListener(() => { if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(confirmSfx); OnConfirmClicked(); });
         if (btnCancel != null) btnCancel.onClick.AddListener(() => { PlayClickSfx(); Close(); });
-        if (amountInput != null)
-        {
-            amountInput.contentType = TMP_InputField.ContentType.IntegerNumber;
-            amountInput.onEndEdit.AddListener(OnAmountInputChanged);
-        }
 
         panel.SetActive(false);
         RefreshSliderRange();
@@ -175,21 +170,11 @@ public class CoinControlModalUI : MonoBehaviour
     // skipSlider: 슬라이더 드래그가 값을 바꾼 경우, 그 값으로 다시 슬라이더를 덮어써서 튀는 것을 막는다.
     private void RefreshAmountText(bool skipSlider = false)
     {
-        if (amountInput != null)
-            amountInput.SetTextWithoutNotify(amount.ToString());
+        if (amountText != null)
+            amountText.text = "+" + amount.ToString("N0");
 
         if (!skipSlider && amountSlider != null)
             amountSlider.SetValueWithoutNotify(amount);
-    }
-
-    // 직접 입력 확정(포커스 아웃/Enter) 시 기존 슬라이더/버튼과 동일한 한도로 Clamp한다.
-    private void OnAmountInputChanged(string text)
-    {
-        if (!long.TryParse(text, out long value))
-            value = 0;
-
-        amount = System.Math.Min(GetMaxAdjustAmount(), System.Math.Max(0L, value));
-        RefreshAmountText();
     }
 
     // 확정 전 "조정 후 예상 발행량" 미리보기 + Before/After 발행량 텍스트를 계산한다.
