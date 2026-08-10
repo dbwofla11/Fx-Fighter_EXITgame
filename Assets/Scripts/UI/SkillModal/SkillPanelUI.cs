@@ -189,27 +189,29 @@ public class SkillPanelUI : MonoBehaviour
         }
 
         SkillSO profile = SkillManager.Instance.GetSkillProfile(selected.Value);
-        long cost = SkillManager.Instance.GetCurrentCost(selected.Value);
+        SkillButtonState.State state = SkillButtonState.Evaluate(selected.Value);
         int purchaseCount = SkillManager.Instance.GetPurchaseCount(selected.Value);
-        // 1회성 스킬은 구매 후 다시 살 수 없다 (재사용형은 계속 재구매 가능).
-        bool locked = !profile.isReusable && SkillManager.Instance.IsUnlocked(selected.Value);
+
+        string statusLine = state.Used ? "구매 완료"
+            : state.MaxedOut ? "최대 구매 횟수 도달"
+            : "비용 : " + UIFormat.Currency(state.Cost);
 
         nameText.text = selected.Value.ToString();
         descriptionText.text = (profile.isReusable ? "[재사용형]" : "[1회성]") + "\n" +
-            (locked ? "구매 완료" : "비용 : " + UIFormat.Currency(cost)) + "\n" +
+            statusLine + "\n" +
             "구매 횟수 : " + purchaseCount + "회" + "\n\n" +
             EventEffectFormatter.BuildEffectsText(profile.effects, colorize: true) + "\n\n\n" +
             profile.description;
         purchaseBtn.gameObject.SetActive(true);
-        purchaseBtn.interactable = !locked;
-        if (purchaseBtnShadow != null) purchaseBtnShadow.SetActive(!locked);
+        purchaseBtn.interactable = state.Purchasable;
+        if (purchaseBtnShadow != null) purchaseBtnShadow.SetActive(state.Purchasable);
 
         if (!purchaseBtnDefaultColorCaptured)
         {
             purchaseBtnDefaultColor = purchaseBtn.image.color;
             purchaseBtnDefaultColorCaptured = true;
         }
-        purchaseBtn.image.color = locked ? PurchasedButtonColor : purchaseBtnDefaultColor;
+        purchaseBtn.image.color = state.Purchasable ? purchaseBtnDefaultColor : PurchasedButtonColor;
     }
 
     // 우측 상단 보유 현금/코인 실시간 표시.
@@ -222,7 +224,8 @@ public class SkillPanelUI : MonoBehaviour
     }
 
     // 선택된 아이콘은 그리드에서 살짝 하이라이트 + 미리보기 박스에 크게 표시한다.
-    // 1회성 스킬은 이미 구매(사용)했으면 회색으로, 아직 안 샀으면 흰색으로 표시한다.
+    // 지금 살 수 없는 스킬(1회성 구매 완료 / 잔액 부족 / 재사용형 최대 구매 도달)은 SkillButtonState로 판정해
+    // 회색 처리한다(구매 완료는 별도로 연한 파랑).
     private void RefreshSelectionHighlight(SkillID? selected)
     {
         foreach (IconSlot slot in icons)
@@ -246,8 +249,14 @@ public class SkillPanelUI : MonoBehaviour
                 continue;
             }
 
-            bool used = profile != null && !profile.isReusable && SkillManager.Instance.IsUnlocked(slot.id);
-            slot.button.image.color = used ? UsedOneTimeIconColor : Color.white;
+            Color color = Color.white;
+            if (profile != null)
+            {
+                SkillButtonState.State state = SkillButtonState.Evaluate(slot.id);
+                // 이미 구매(사용)한 1회성은 연한 파랑, 그 외 지금 살 수 없는 상태(잔액 부족/최대 구매 도달)는 회색.
+                color = state.Used ? UsedOneTimeIconColor : !state.Purchasable ? PurchasedButtonColor : Color.white;
+            }
+            slot.button.image.color = color;
         }
 
         if (previewIcon != null)

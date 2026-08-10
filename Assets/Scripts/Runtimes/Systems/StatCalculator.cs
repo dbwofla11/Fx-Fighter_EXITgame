@@ -44,20 +44,23 @@ public static class StatCalculator
         return stat;
     }
 
+    // Doubt 하한. 0이 아니라 -10인 이유 : 정치인 직업의 초기 Doubt -10 효과(현재 직업 밸런스 중 가장 큰
+    // 음수 효과)가 0 하한에서는 선택 직후 바로 잘려 무효화되기 때문 — 이 값까지는 허용해 그 효과가 보이게 한다.
+    private const float DoubtFloor = -10f;
+
     /// <summary>
-    /// Support/Growth/Doubt(모두 -100~100)가 거래·이벤트·스킬 등으로 문서 범위를 벗어나지 않도록 강제하고,
-    /// Supply가 보유 코인수량 밑으로 내려가지 않도록 막는다(발행량 조작/이벤트/스킬로 소각하다가 마이너스가
-    /// 되는 버그가 있었다 — 플레이어가 들고 있는 코인보다 발행량이 적을 수는 없다는 게 최소 전제).
+    /// Support/Growth(-100~100)/Doubt(DoubtFloor~100)가 거래·이벤트·스킬 등으로 문서 범위를 벗어나지 않도록
+    /// 강제하고, Supply가 보유 코인수량 밑으로 내려가지 않도록 막는다(발행량 조작/이벤트/스킬로 소각하다가
+    /// 마이너스가 되는 버그가 있었다 — 플레이어가 들고 있는 코인보다 발행량이 적을 수는 없다는 게 최소 전제).
     /// 매 턴/시사 이벤트 수동 트리거가 끝나고 EventHub.OnMarketUpdated를 발행하기 직전에 호출한다.
-    /// Doubt 하한을 0이 아니라 -100으로 둔 이유 : 하한이 0이면 "일반인" 직업의 초기 -10% 감소 효과가 기본값
-    /// 0에서 즉시 0으로 다시 잘려 사실상 무효화됐다. Support/Growth와 동일한 하한으로 맞춰 그 효과가 실제로
-    /// 보이게 했다.
+    /// Doubt는 DoubtFloor 밑으로 내려가지 않는다(2026-08-09 버그 수정 — 기존엔 -100까지 허용해 이벤트로 깎일
+    /// 때 한없이 마이너스로 내려가는 문제가 있었다).
     /// </summary>
     public static void ClampStat(PlayerStat stat)
     {
         stat.Support = Mathf.Clamp(stat.Support, -100f, 100f);
         stat.Growth = Mathf.Clamp(stat.Growth, -100f, 100f);
-        stat.Doubt = Mathf.Clamp(stat.Doubt, -100f, 100f);
+        stat.Doubt = Mathf.Clamp(stat.Doubt, DoubtFloor, 100f);
         stat.Supply = Mathf.Max(stat.Supply, PlayerManager.Instance.currentCoins);
     }
 

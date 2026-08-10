@@ -175,6 +175,13 @@ public class SkillManager : MonoBehaviour
         return skill == null ? 0 : CalculateCost(skill);
     }
 
+    // 스킬 정보 패널용 : 재사용형 스킬이 최대 구매 횟수(MaxPurchaseCount)에 도달했는지 조회.
+    public bool IsMaxedOut(SkillID id)
+    {
+        SkillRuntimeInfo skill = GetSkill(id);
+        return skill != null && skill.Profile.isReusable && skill.PurchaseCount >= MaxPurchaseCount;
+    }
+
     // 스킬 정보 패널용 : 해당 스킬을 몇 번 구매했는지 조회한다.
     public int GetPurchaseCount(SkillID id)
     {

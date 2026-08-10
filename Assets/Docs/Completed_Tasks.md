@@ -982,3 +982,23 @@
   - 검증 : 컴파일 에러 없음 확인. **Play 모드로 실제 55 이상 구간을 오래 유지해 재생/3초 컷/랜덤 선택
     체감은 아직 확인 안 함** — 사용자가 직접 플레이하며 들어봐야 함. 사운드 선택 방식(현재: 매번 순수
     랜덤, 직전과 같은 클립이 연속될 수 있음)도 피드백 받으면 조정 필요.
+- **완료** : 스킬 구매 가능 여부에 따른 UI 상태 표시(`Next_Tesk.md` 22번). 신규
+  `Assets/Scripts/UI/SkillModal/SkillButtonState.cs`(전용 스크립트, 요청대로 상태 계산만 분리) —
+  `Evaluate(id)`가 `Used`(1회성 구매 완료)/`MaxedOut`(재사용형 최대 구매 횟수 도달)/`Affordable`(보유 금액
+  >= 현재 비용)을 판정해 `Locked`/`Purchasable` 파생값을 반환한다. `SkillManager.IsMaxedOut(id)`을 새로
+  추가했고(기존 `MaxPurchaseCount` 10회 도달 시 UI 표시가 전혀 없던 부수 버그를 같은 김에 수정),
+  `SkillPanelUI.RefreshDetail()`(구매 버튼)/`RefreshSelectionHighlight()`(그리드 아이콘)가 이 결과로
+  회색+비활성 처리한다. 보유 금액 변경 감지용 이벤트나 폴링은 추가하지 않았다 — 스킬 패널이 열려있는 동안은
+  `ModalPause`로 거래가 막혀 있어 돈이 바뀌는 유일한 경로가 스킬 구매뿐이고, 구매는 이미
+  `EventHub.OnSkillPurchased → RefreshDetail()`로 전체 재계산을 트리거하기 때문에 별도 배선 없이 충분함을
+  확인했다.
+  - **후속 요청(같은 세션)** : "의심도에 걸려서 구매 못하는 스킬"도 잔액 부족과 동일하게 처리해달라는 요청 —
+    확인해보니 기존 코드엔 그런 조건이 아예 없어서(그런 게 있는 줄 알았던 오해) 사용자에게 정확한 조건을
+    물어봤고, "이번 구매로 의심도가 100(체포 엔딩 문턱, `EndingCalculator`)을 넘게 되면 막기"로 확정했다.
+    `SkillButtonState.State`에 `DoubtSafe` 필드를 추가해 `Purchasable = !Locked && Affordable && DoubtSafe`로
+    묶었다 — `PredictDoubtDelta()`가 `StatCalculator.ApplySkillUse`와 동일한 대상(즉시 반영되는
+    `DoubtIncrease`/`DoubtDecrease`만, 200턴에 걸쳐 서서히 깎이는 `DoubtDecline`은 제외)을 합산해
+    `MarketManager.Instance.CurrentStat.Doubt + delta`가 100 미만인지로 판정한다. 잔액 부족과 완전히 같은
+    시각 처리(회색+비활성)를 공유하고 별도 상태 문구는 추가하지 않았다(요청 그대로 "잔액 부족과 똑같이").
+  - 검증 : Unity Editor MCP로 컴파일 에러 없음 확인. **Play 모드로 잔액 부족/최대 구매 도달/의심도 초과 시
+    실제 회색 전환 체감은 아직 확인 안 함** — 사용자가 직접 플레이하며 확인 필요.
