@@ -1023,3 +1023,36 @@
     순수 구조 이관이라 게임 동작은 이전과 동일하다. 작업 도중 사용자가 스크립트 폴더를
     `Assets/Scripts/UI/EndingScene/` → `StoryScene/`으로 직접 리네임함(Editor 네이티브 리네임이라 `.meta`
     GUID 보존, 참조 안 깨짐). 상세 작동 방식/호출 스택은 `Issue_StoryBeatSO.md` 참고.
+- **완료** : 튜토리얼 UI(2026-08-11, `Next_Tesk.md` 15번 — 17번 "엑시트 5억 목표 이유 설명"도 여기서 같이 처리,
+  21번 오프닝 대화 UI와는 별개). Notion "튜토리얼UI"/"2차 피드백 정리" 문서와 사용자가 준 실제 인게임
+  스크린샷 목업 3장을 기준으로 진행했다.
+  - **방향 확정** : 노출 시점은 직업 선택 후 메인 게임(`SampleScene`) 진입 직후, 게임 플레이 시작 전(자동
+    표시, 스킵 없음 — 끝까지 클릭해서 넘겨야 종료). UI 형태는 전용 씬이 아니라 `Main_Canvas` 하위 오버레이
+    패널(기존 `TradeModalUI`/`CoinControlModalUI`와 동일한 모달 계열). 17번(목표금액 설명)은 별도 문구 없이
+    "개요" 말풍선이 가리키는 기존 `EventOverviewUI`(우측 목표금액/현재금액/남은금액 표시)로 커버됨을
+    확인해 추가 작업 불필요. 매수/매도 버튼·발행량·스탯 슬라이더 설명은 사용자가 "따로 만들 것"이라고
+    확정해 이번 범위에서 제외.
+  - 신규 `Assets/Scripts/UI/Tutorial/TutorialUI.cs` : 사용자가 준 초안(딤 패널+말풍선 배열, 클릭 시
+    `OnClickNext()`로 순차 노출, 마지막 말풍선 이후 종료) 구조는 그대로 두고, pause/resume만 `TimeManager.
+    TogglePause()` 직접 호출 대신 기존 6개 모달과 동일한 `ModalPause.Open()/Close()`(→ `EventHub.
+    RaiseGamePaused/RaiseGameResumed`)로 교체했다 — 초안이 `TimeManager.isManuallyPaused`(스페이스바/P
+    수동정지 전용 플래그, 모달 정지와 명시적으로 분리되어 있음, `TimeManager.cs` 주석 참고)를 건드리는
+    구조라 "UI는 EventHub.Raise*()만 호출" 경계와 충돌해 사용자에게 확인 후 EventHub 경로로 교체하기로
+    함. 클릭 연결도 `EventLogButton.cs`와 동일하게 `Start()`에서 `GetComponent<Button>().onClick.
+    AddListener(OnClickNext)`로 코드 배선해 Inspector 수동 연결이 필요 없게 했다.
+  - 씬 오브젝트(`Main_Canvas/TutorialPanel` — `DimBackground`(검정 alpha 165) + `SpeechBubble1/2/3`)를
+    Unity Editor MCP로 생성했다. 말풍선 3개는 목업 스크린샷의 실제 문구/강조색을 그대로 반영했고, 위치는
+    각 대상 UI(`EventLogBtn`/`DoubtScorePanel`/`SkillBtn`)의 실제 RectTransform 좌표를 읽어 그 옆에
+    배치했다 — "개요, 이벤트 로그, EXIT 버튼(노랑 강조)를 볼 수 있음"(`EventLogBtn` 옆), "의심도가
+    100(빨강 강조)이 되면 게임오버"(`DoubtScorePanel` 위), "스킬(빨강 강조)을 구매하러 가는 버튼"(`SkillBtn`
+    옆). 말풍선 배경은 사용자 확인 후 꼬리 없는 각진 회색 박스 플레이스홀더로 유지하기로 함(둥근
+    테두리+꼬리 스프라이트 에셋이 프로젝트에 아직 없음).
+  - **MCP 작업 중 발견한 이슈** : `create_gameobjects`로 `Main_Canvas`(스케일 0.634) 하위에 새
+    RectTransform을 `add_component`로 추가할 때마다 로컬 스케일이 1.577로 자동 보정되는데, 기존 형제
+    오브젝트(`EventLogBtn` 등)는 전부 스케일 [1,1,1]이라 매번 `set_transform`으로 다시 [1,1,1]로
+    맞춰줘야 했다.
+  - 검증 : 컴파일 에러 없음, `TutorialUI`/`ModalPause`/`EventHub` 관련 새 콘솔 에러 없음 확인. **`SampleScene`을
+    단독으로 Play 모드 진입시키면(Title→CharacterSelect 정상 플로우를 안 거쳐서) HUD 자체가 아무것도 안
+    그려져 튜토리얼 패널을 껐다 켜도 스크린샷상 차이가 없었다(기존부터 그런 상태, 이번 작업과 무관 —
+    TutorialPanel 비활성 상태에서도 동일하게 빈 화면 재현해 확인함). 정상 플로우(Title부터 시작)로 실제
+    화면 배치/텍스트 가독성 확인은 사용자가 직접 해야 함.**
