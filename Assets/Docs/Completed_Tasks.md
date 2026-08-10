@@ -1002,3 +1002,24 @@
     시각 처리(회색+비활성)를 공유하고 별도 상태 문구는 추가하지 않았다(요청 그대로 "잔액 부족과 똑같이").
   - 검증 : Unity Editor MCP로 컴파일 에러 없음 확인. **Play 모드로 잔액 부족/최대 구매 도달/의심도 초과 시
     실제 회색 전환 체감은 아직 확인 안 함** — 사용자가 직접 플레이하며 확인 필요.
+- **완료** : 대사/스토리 데이터 SO 리팩토링(2026-08-11, `Next_Tesk.md` 22번). 21번(오프닝 대화 UI) 착수
+  전에 먼저 한 구조 정리 — 대사 데이터가 씬 컴포넌트 인스턴스나 코드에 하드코딩돼 재사용 불가능했던 문제.
+  - `JobSO`(`Assets/Scripts/SOs/JobSo.cs`)에 `List<StoryBeat> openingBeats` 필드 추가 — 새 SO 타입을
+    만드는 대신, 이미 직업 선택이 `JobSO` 인스턴스 하나를 고르는 구조라 오프닝 데이터도 "선택된 직업의
+    프로필 데이터"로 자연스럽게 편입시켰다(`SkillSO`/`EventSO`와 동일한 "직업별 프로필에 여러 필드" 관례).
+    21번에서 `StoryDialogueController`가 `JobManager.CurrentJob.openingBeats`를 읽도록 붙이면 됨(아직
+    내용은 비어있음 — 6직업×6컷 콘텐츠는 21번에서 목업 받은 뒤 채움).
+  - 신규 `StoryBeatSetSO`(`Assets/Scripts/SOs/StoryBeatSetSO.cs`) : `List<StoryBeat> beats`만 갖는
+    재사용 가능한 에셋 타입. `StoryDialogueController.beats`(씬에 직접 박혀있던 `List<StoryBeat>`)를
+    `StoryBeatSetSO storySet` 참조로 교체해 엑시트/영웅 엔딩 대사가 씬 파일이 아니라 에셋으로 관리되게
+    했다. `EndingSceneUI`의 체포/거지 엔딩 문구(`Start()`에 하드코딩된 두 문자열)도 `arrestStory`/
+    `delistingStory`(`StoryBeatSetSO`) 필드로 교체하고 `beats[0].line`만 사용한다 — 배경 스프라이트는
+    기존 `arrestBgSprite`/`delistingBgSprite` 필드가 이미 데이터 기반이라 그대로 두고 손대지 않았다
+    (이 두 에셋은 `background` 필드를 안 씀).
+  - `Assets/Profile/엔딩_스토리/`에 에셋 3개를 만들어 기존 씬 데이터를 그대로 이관했다 — `체포.asset`/
+    `거지.asset`(각 1비트, 기존 하드코딩 문자열 그대로), `엑시트_영웅.asset`(기존 `StoryDialogueController.
+    beats` 2개, 배경 스프라이트 GUID까지 동일하게 포팅). Unity Editor MCP로 씬(`ExitEndingScene.unity`/
+    `EndingScene.unity`)의 컴포넌트 필드를 새 에셋으로 재연결하고 저장까지 완료 — 콘텐츠 변화 없이
+    순수 구조 이관이라 게임 동작은 이전과 동일하다. 작업 도중 사용자가 스크립트 폴더를
+    `Assets/Scripts/UI/EndingScene/` → `StoryScene/`으로 직접 리네임함(Editor 네이티브 리네임이라 `.meta`
+    GUID 보존, 참조 안 깨짐). 상세 작동 방식/호출 스택은 `Issue_StoryBeatSO.md` 참고.

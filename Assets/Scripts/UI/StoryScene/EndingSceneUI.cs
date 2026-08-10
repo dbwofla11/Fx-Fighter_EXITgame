@@ -16,9 +16,11 @@ public class EndingSceneUI : MonoBehaviour
     public Sprite arrestBgSprite;
     public Sprite delistingBgSprite;
 
-    [Header("문구")]
+    [Header("문구 (EndingType별 대사, StoryBeatSetSO의 beats[0].line만 사용)")]
     public TextMeshProUGUI gameOverText;
     public TextMeshProUGUI endingText;
+    public StoryBeatSetSO arrestStory;
+    public StoryBeatSetSO delistingStory;
 
     [Header("암전")]
     public CanvasGroup blackOverlay;
@@ -42,9 +44,10 @@ public class EndingSceneUI : MonoBehaviour
 
         if (gameOverText != null) gameOverText.text = "Game Over";
         if (endingText != null)
-            endingText.text = ending == EndingType.Arrest
-                ? "결국 금감원에 걸려버렸다....."
-                : "코인이 상장폐지 당했다.......";
+        {
+            StoryBeatSetSO story = ending == EndingType.Arrest ? arrestStory : delistingStory;
+            endingText.text = story.beats[0].line;
+        }
 
         if (blackOverlay != null) blackOverlay.alpha = 0f;
 

@@ -1067,6 +1067,8 @@ MonoBehaviour:
   delistingBgSprite: {fileID: 6966322507325694668, guid: 7915b9642483503479e5bbd7a16201b9, type: 3}
   gameOverText: {fileID: 28326172}
   endingText: {fileID: 693660300}
+  arrestStory: {fileID: 11400000, guid: 28fcc977f449ab24c8701608dbab9828, type: 2}
+  delistingStory: {fileID: 11400000, guid: 665f96ecdb994464098fb78691a4a602, type: 2}
   blackOverlay: {fileID: 1075698796}
   blackDelay: 1
   blackFadeDuration: 1

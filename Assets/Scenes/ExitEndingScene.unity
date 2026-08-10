@@ -2480,11 +2480,7 @@ MonoBehaviour:
   bgImage: {fileID: 1057719290}
   typewriter: {fileID: 693660303}
   continueButton: {fileID: 1474366917}
-  beats:
-  - background: {fileID: -5378312814899725498, guid: 12885ec0c5de68f488f491e7c49eca95, type: 3}
-    line: "\uBAA8\uB4E0 \uCF54\uC778\uC744 \uB9E4\uB3C4\uD588\uB2E4."
-  - background: {fileID: -4019077254634129938, guid: 5542b2e4df864e94a9bf2e36b4140687, type: 3}
-    line: "\uC0C8\uB85C\uC6B4 \uC0B6\uC774 \uC2DC\uC791\uB41C\uB2E4."
+  storySet: {fileID: 11400000, guid: 378078bc11bf8954c98c006d4b83485f, type: 2}
 --- !u!1 &1962204394
 GameObject:
   m_ObjectHideFlags: 0
