@@ -25,7 +25,7 @@ public static class EventEffectFormatter
             string line = label + " " + (delta >= 0 ? "+" : "") + delta.ToString("0.#");
             if (colorize)
             {
-                string color = IsBeneficial(effects[i].effectType) ? "#009900" : "#CC0000";
+                string color = IsBeneficial(effects[i]) ? "#009900" : "#CC0000";
                 line = $"<b><color={color}>{line}</color></b>";
             }
             sb.Append(line);
@@ -50,6 +50,7 @@ public static class EventEffectFormatter
             EffectType.ExitUnlock => "엑시트 조건",
             EffectType.SupplyIncrease or EffectType.SupplyDecrease => "발행량",
             EffectType.SupplyGrowthSuppress => "발행량 증가 억제",
+            EffectType.PriceShockPercent => "코인 가격(즉시 %)",
             _ => effect.effectType.ToString(),
         };
 
@@ -59,10 +60,13 @@ public static class EventEffectFormatter
     // 이 효과가 플레이어에게 좋은 효과인지(스탯 색상 구분용). EffectType 이름 자체가 방향을 담고 있으므로
     // 효과 종류별로 고정 판정한다 — Supply/Volume 쪽은 Game_Formula.md 설명(발행량 증가=희석, 거래량
     // 증가=영향력 증가) 기준의 추정치라 실제 플레이 감각과 다르면 나중에 조정 필요.
-    private static bool IsBeneficial(EffectType effectType) => effectType switch
+    // SupportIncrease/GrowthIncrease/PriceShockPercent는 예외 — 같은 EffectType으로 증가(+)/감소(-) 둘 다
+    // 표현하므로(예: FOMO유도의 Support -30) 값 부호로 판정한다.
+    private static bool IsBeneficial(EffectData effect) => effect.effectType switch
     {
         EffectType.DoubtIncrease or EffectType.NegativeEventRate
             or EffectType.VolumeDecrease or EffectType.SupplyIncrease => false,
+        EffectType.SupportIncrease or EffectType.GrowthIncrease or EffectType.PriceShockPercent => effect.value >= 0,
         _ => true,
     };
 }

@@ -96,5 +96,11 @@ public enum EffectType
     /// 의심도 하락 (여론조작 스킬 전용). DoubtDecrease처럼 즉시 깎지 않고, 총량의 0.5%씩 200턴에 걸쳐
     /// 분할 차감된다 — BuffCalculator.StartDoubtDecline/TickDoubtDeclines 참고.
     /// </summary>
-    DoubtDecline
+    DoubtDecline,
+
+    /// <summary>
+    /// 코인 가격 즉시 변동 (%, 시장조작 전용). 구매 즉시 CurrentPrice에 (1 + value/100)을 곱해 반영한다.
+    /// value가 음수면 즉시 폭락. StatCalculator.ApplySkillUse 참고.
+    /// </summary>
+    PriceShockPercent
 }

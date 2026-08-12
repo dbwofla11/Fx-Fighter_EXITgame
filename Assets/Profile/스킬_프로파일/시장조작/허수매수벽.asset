@@ -13,18 +13,19 @@ MonoBehaviour:
   m_Name: "\uD5C8\uC218\uB9E4\uC218\uBCBD"
   m_EditorClassIdentifier: Assembly-CSharp::SkillSO
   id: 14
-  description: "\uB300\uB7C9\uC758 \uAC00\uC9DC \uB9E4\uC218 \uC8FC\uBB38\uC744 \uAC78\uC5B4
-    \uAC00\uACA9 \uD558\uB77D\uC744 \uC5B5\uC81C\uD55C\uB2E4."
+  description: \uB300\uB7C9\uC758 \uAC00\uC9DC \uB9E4\uC218 \uC8FC\uBB38\uC744 \uAC78\uC5B4 \uAC00\uACA9 \uD558\uB77D\uC744 \uC5B5\uC81C\uD558\uACE0, \uC989\uC2DC \uC18C\uD3ED \uB04C\uC5B4\uC62C\uB9B0\uB2E4.
   icon: {fileID: 21300000, guid: 65649286ae79ff546828d325f653ac4a, type: 3}
   category: 1
-  baseCost: 52500
+  baseCost: 100000
   costMultiplier: 1.4
   defaultUnlocked: 0
   isReusable: 1
   effects:
   - effectType: 0
-    value: 2.5
+    value: 5
   - effectType: 1
-    value: 7.5
+    value: 12.5
   - effectType: 9
-    value: 2.5
+    value: 7.5
+  - effectType: 14
+    value: 10

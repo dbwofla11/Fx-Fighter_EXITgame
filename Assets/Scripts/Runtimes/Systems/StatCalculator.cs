@@ -182,7 +182,8 @@ public static class StatCalculator
                 || effect.effectType == EffectType.DoubtDecline
                 || effect.effectType == EffectType.SupplyIncrease || effect.effectType == EffectType.SupplyDecrease
                 || effect.effectType == EffectType.SupplyGrowthSuppress
-                || effect.effectType == EffectType.VolumeIncrease || effect.effectType == EffectType.VolumeDecrease)
+                || effect.effectType == EffectType.VolumeIncrease || effect.effectType == EffectType.VolumeDecrease
+                || effect.effectType == EffectType.PriceShockPercent)
                 continue;
 
             ApplyEffect(stat, effect);
@@ -252,6 +253,12 @@ public static class StatCalculator
                 // 여론조작 스킬 전용 — 총량(effect.value)을 즉시 깎지 않고 200턴에 걸쳐 0.5%씩 분할 차감 시작.
                 // 스킬별로 독립적이라(BuffCalculator.StartDoubtDecline) 다른 스킬의 진행 중인 하락과 합산된다.
                 BuffCalculator.StartDoubtDecline(stat, skill.id, effect.value);
+            else if (effect.effectType == EffectType.PriceShockPercent)
+            {
+                // 시장조작 전용 — 구매 즉시 가격을 %만큼 그대로 흔든다(감쇠 없음, 이후 가격은 그 값에서 이어서 계산됨).
+                stat.CurrentPrice *= 1f + effect.value / 100f;
+                PriceCalculator.ClampPrice(stat);
+            }
         }
     }
 
@@ -320,6 +327,10 @@ public static class StatCalculator
 
             case EffectType.DoubtDecline:
                 // stat 직접 반영 없음 — ApplySkillUse가 BuffCalculator.StartDoubtDecline으로 시작을 전담한다.
+                break;
+
+            case EffectType.PriceShockPercent:
+                // stat 직접 반영 없음 — ApplySkillUse가 구매 시점에 직접 처리한다(1회성이라 매 턴 재적용 대상에서 제외).
                 break;
 
             default:
