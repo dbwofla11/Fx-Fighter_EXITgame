@@ -16,8 +16,8 @@ public static class TradeCalculator
     private const float TradeGrowthWeightPerCoin = 0.005f;
     // 매도 시 지지도/상승률(그리고 UpProbability를 통해 가격도)이 매수보다 더 크게 떨어져야 한다는
     // 3차 피드백으로, 매도(Short)에만 곱하는 페널티 배율. 매수(Long)는 기존 가중치 그대로 유지.
-    // ponytail: 밸런스용 임시 수치, 실제 플레이 후 조정 필요.
-    private const float SellPenaltyMultiplier = 1.5f;
+    // 1.5배가 매도 손해를 과하게 키운다는 4차 피드백으로 1.25배로 낮춤(2026-08-13).
+    private const float SellPenaltyMultiplier = 1.25f;
     // 발행량 조작 시 의심도가 너무 빨리 오른다는 피드백으로 10분의 1로 낮췄다가(2026-08-05),
     // 다시 1.5배로 올림(2026-08-05).
     private const float DoubtWeightPerSupplyUnit = 0.015f;

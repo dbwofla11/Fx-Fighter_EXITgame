@@ -17,12 +17,12 @@ MonoBehaviour:
     \uAE09\uB77D\uD558\uB294 \uAC83\uC744 \uBC29\uC5B4\uD55C\uB2E4."
   icon: {fileID: 21300000, guid: 0cafc0d3044f31b4da5e0571f9b8ddcc, type: 3}
   category: 1
-  baseCost: 110000
+  baseCost: 495000
   costMultiplier: 1.4
   defaultUnlocked: 0
   isReusable: 1
   effects:
   - effectType: 0
-    value: 20
+    value: 10
   - effectType: 9
     value: 7.5

@@ -23,6 +23,10 @@ public class SkillSO : ScriptableObject
 
     public float costMultiplier = 1.15f;
 
+    // 재사용형 스킬 1개당 구매 가능한 최대 횟수. 대부분 10(SkillManager 기존 전역값과 동일),
+    // 가격 즉시변동(PriceShockPercent) 스킬처럼 더 강하게 제한해야 하는 경우만 개별로 낮춘다.
+    public int maxPurchaseCount = 10;
+
     [Header("State")]
     public bool defaultUnlocked;
 
