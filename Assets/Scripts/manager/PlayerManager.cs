@@ -91,6 +91,20 @@ public class PlayerManager : MonoBehaviour
         GameStatsTracker.Instance?.NotifyCoinsChanged(currentCoins);
     }
 
+    // 현금 + 보유 코인 평가액(현재가 기준, CashBonus% 포함)의 합. 지금 전부 매도했을 때 받을 금액과 같은
+    // 공식이다(HandleSellCoin 참고 — CashBonus는 평가손익분이 아니라 코인 평가액 전체에 곱해진다).
+    // 헤더의 "내 자산 합계" 표시 전용 — 엑시트 조건(MarketManager.CanExit)은 현금만 보고 별도로 판정한다.
+    public long GetTotalAsset()
+    {
+        if (MarketManager.Instance == null)
+            return currentMoney;
+
+        long coinValue = (long)(currentCoins * MarketManager.Instance.CurrentStat.CurrentPrice
+            * (1f + MarketManager.Instance.CurrentStat.CashBonus / 100f));
+
+        return currentMoney + coinValue;
+    }
+
     // 새 게임 시작 시 CharacterSelectUI가 호출한다 (DontDestroyOnLoad라 두 번째 플레이부터는 Awake가 다시 안 불림).
     public void ResetState()
     {

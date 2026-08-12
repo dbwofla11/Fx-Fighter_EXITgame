@@ -7,6 +7,14 @@ public class CoinPriceHeaderUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI priceText;
     [SerializeField] private TextMeshProUGUI myAssetTotalText;
     [SerializeField] private string coinName = "BitBitCoin(BBIT)";
+    [SerializeField] private Color achievedColor = Color.yellow; // 목표금액 달성 시 강조색 (목업 기준으로 조정)
+
+    private Color defaultColor;
+
+    private void Awake()
+    {
+        if (myAssetTotalText != null) defaultColor = myAssetTotalText.color;
+    }
 
     private void OnEnable()
     {
@@ -32,18 +40,8 @@ public class CoinPriceHeaderUI : MonoBehaviour
         if (PlayerManager.Instance == null || myAssetTotalText == null)
             return;
 
-        long coinValue = (long)(PlayerManager.Instance.currentCoins * currentPrice);
-
-        // 보유 코인 평가손익에 CashBonus(%, 거래수익+X% 직업 스탯)를 반영해 총자산에 얹는다 — 매도 전에도 보너스가 보이도록.
-        float avgPrice = PlayerManager.Instance.averageBuyPrice;
-        long bonusProfit = 0;
-        if (avgPrice > 0f)
-        {
-            float profit = (currentPrice - avgPrice) * PlayerManager.Instance.currentCoins;
-            bonusProfit = (long)(profit * MarketManager.Instance.CurrentStat.CashBonus / 100f);
-        }
-
-        long totalAsset = PlayerManager.Instance.currentMoney + coinValue + bonusProfit;
+        long totalAsset = PlayerManager.Instance.GetTotalAsset();
         myAssetTotalText.text = "내 자산 합계 " + UIFormat.Currency(totalAsset);
+        myAssetTotalText.color = MarketManager.Instance.CanExit ? achievedColor : defaultColor;
     }
 }

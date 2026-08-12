@@ -20,9 +20,9 @@ public static class EventEffectFormatter
 
         for (int i = 0; i < effects.Count; i++)
         {
-            (string label, float delta) = DescribeEffect(effects[i]);
+            (string label, float delta, string suffix) = DescribeEffect(effects[i]);
             if (i > 0) sb.Append('\n');
-            string line = label + " " + (delta >= 0 ? "+" : "") + delta.ToString("0.#");
+            string line = label + " " + (delta >= 0 ? "+" : "") + delta.ToString("0.#") + suffix;
             if (colorize)
             {
                 string color = IsBeneficial(effects[i]) ? "#009900" : "#CC0000";
@@ -34,8 +34,8 @@ public static class EventEffectFormatter
         return sb.ToString();
     }
 
-    // 부호(+ = 증가, - = 감소)는 UIFormat.SignedEffectValue가 판정한다. 여기서는 라벨만 고른다.
-    private static (string label, float delta) DescribeEffect(EffectData effect)
+    // 부호(+ = 증가, - = 감소)는 UIFormat.SignedEffectValue가 판정한다. 여기서는 라벨/단위만 고른다.
+    private static (string label, float delta, string suffix) DescribeEffect(EffectData effect)
     {
         string label = effect.effectType switch
         {
@@ -50,11 +50,14 @@ public static class EventEffectFormatter
             EffectType.ExitUnlock => "엑시트 조건",
             EffectType.SupplyIncrease or EffectType.SupplyDecrease => "발행량",
             EffectType.SupplyGrowthSuppress => "발행량 증가 억제",
-            EffectType.PriceShockPercent => "코인 가격(즉시 %)",
+            EffectType.PriceShockPercent => "코인 가격",
             _ => effect.effectType.ToString(),
         };
 
-        return (label, UIFormat.SignedEffectValue(effect));
+        // "코인 가격(즉시 %) +25" → "코인 가격 +25%"로 표기하기 위한 숫자 뒤 단위(3차 피드백).
+        string suffix = effect.effectType == EffectType.PriceShockPercent ? "%" : "";
+
+        return (label, UIFormat.SignedEffectValue(effect), suffix);
     }
 
     // 이 효과가 플레이어에게 좋은 효과인지(스탯 색상 구분용). EffectType 이름 자체가 방향을 담고 있으므로

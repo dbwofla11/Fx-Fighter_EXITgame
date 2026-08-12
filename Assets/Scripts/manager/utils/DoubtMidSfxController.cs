@@ -94,9 +94,12 @@ public class DoubtMidSfxController : MonoBehaviour
         stopCoroutine = StartCoroutine(StopAfterDuration());
     }
 
+    // 모달이 열려 timeScale=0이거나 배속(>1x) 중이어도 항상 실제 3초에 끊기도록 unscaled time을 쓴다
+    // (모달 중엔 timeScale=0이라 scaled WaitForSeconds가 안 끝나 전체 파일이 재생되고,
+    //  배속 중엔 timeScale>1이라 3초가 실제로는 그보다 짧게 지나가는 문제가 있었음).
     private IEnumerator StopAfterDuration()
     {
-        yield return new WaitForSeconds(PlayDuration);
+        yield return new WaitForSecondsRealtime(PlayDuration);
         audioSource.Stop();
     }
 }

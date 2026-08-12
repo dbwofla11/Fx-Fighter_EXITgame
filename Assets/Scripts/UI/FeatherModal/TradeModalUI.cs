@@ -28,6 +28,7 @@ public class TradeModalUI : MonoBehaviour
 
     [Header("Preview / Confirm")]
     public TextMeshProUGUI previewText;
+    public TextMeshProUGUI tradeCoinCountText; // 예상 지출(수입) 왼쪽에 거래되는 코인 수를 표시 (3차 피드백)
     public TextMeshProUGUI doubtIncreaseText;
     public TextMeshProUGUI doubtWarningText; // 상시 노출 안내문. TradeCalculator.MaxTradeAmountByDoubt가 이미 한도를 0까지 깎으므로 문구만 담당한다.
     public Button btnConfirm;
@@ -225,6 +226,9 @@ public class TradeModalUI : MonoBehaviour
 
         if (doubtIncreaseText != null)
             doubtIncreaseText.text = "의심도 +" + TradeCalculator.PreviewTradeDoubtIncrease(tradeAmount).ToString("N2");
+
+        if (tradeCoinCountText != null)
+            tradeCoinCountText.text = "코인 수: " + tradeAmount.ToString("N0") + "개";
 
         if (mode == TradeMode.Long)
         {

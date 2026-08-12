@@ -1056,3 +1056,23 @@
     그려져 튜토리얼 패널을 껐다 켜도 스크린샷상 차이가 없었다(기존부터 그런 상태, 이번 작업과 무관 —
     TutorialPanel 비활성 상태에서도 동일하게 빈 화면 재현해 확인함). 정상 플로우(Title부터 시작)로 실제
     화면 배치/텍스트 가독성 확인은 사용자가 직접 해야 함.**
+- **완료** : 2차 피드백(빨간 글씨 항목) ①③ (2026-08-12, 옛 `Next_Tesk.md` 22번). Notion ["2차 피드백
+  정리"](https://app.notion.com/p/3b694f5130278048a560d0b4232e7bfe) 기준, ②(엑시트 당위성/빚 스토리)는
+  20/21번과 겹쳐 3차 피드백(23번)으로 이관 — 이 항목은 완료분 ①③만 기록.
+  - ① 시장조작 스킬 9종 전면 개편(`Issue_PriceShockSkills.md` 참고) — 신규 스킬을 만들지 않고 **기존
+    9종을 전부 개편**하는 방향으로 작업함(1차 시도였던 신규 스킬 2종은 되돌림). `baseCost` 전체 인상(구
+    22,500~90,000 → 신규 50,000~200,000, 여론조작 카테고리보다 비싼 축으로), Doubt 대체로 2배 이상,
+    Support/Growth/Volume도 1.3~1.6배로 올려 하이리스크·하이리턴화. `펌핑`(+25%)·`허수매수벽`(+10%)·
+    `허수매도벽`(-20%) 3종에 신규 `EffectType.PriceShockPercent`를 얹어 "가격 즉시 변동"을 기존 스킬
+    확장으로 구현. 추가 피드백으로 `펌핑`을 `허수매수벽`의 상위호환(Support/Growth/Price 전부 웃돌되
+    baseCost 180,000으로 더 비쌈)으로 재조정, `EventEffectFormatter.IsBeneficial`이 SupportIncrease/
+    GrowthIncrease도 값 부호로 판정하도록 수정(FOMO유도 -30/-30이 초록으로 잘못 표시되던 버그 수정).
+    **스킬 패널 UI 쪽은 손대지 않음** — 기존 9개 아이콘 버튼 재사용, 수치만 바뀌고 화면엔 자동 반영됨.
+  - ③ 지지도/상승률/발행량 호버 툴팁 — `SupportPanel`/`IncreaseScorePanel`/`CoinControlPanel/
+    TotalSupplyText`(항상 표시되는 발행량 텍스트)에 추가. 신규 `StatTooltipUI`(공용 싱글턴, CanvasGroup.
+    alpha로 show/hide)+`HoverTooltipTrigger`(`IPointerEnterHandler`/`IPointerExitHandler`, 인스펙터에
+    문구만 채우면 재사용 가능) 두 스크립트로 구현, 툴팁 박스는 튜토리얼 말풍선과 동일 스타일(배경
+    `0.2,0.2,0.2,0.92`, 흰 텍스트, 같은 폰트). 의심도(DoubtScorePanel) 게이지는 이 시점엔 범위에서
+    제외했다가 3차 피드백 세션(2026-08-12)에서 동일 패턴으로 추가 완료. Play 모드에서 스크립트 직접
+    호출로 3개 다 정상 동작 확인했으나, `SampleScene`을 바로 Play하면 부트스트랩 싱글턴이 없어 화면이
+    안 그려지는 기존 환경 이슈로 스크린샷 육안 확인은 못 함.

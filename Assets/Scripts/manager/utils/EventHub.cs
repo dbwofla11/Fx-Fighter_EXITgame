@@ -62,6 +62,10 @@ public static class EventHub
     public static event Action<EventLogEntry> OnEventTriggered;
     public static void RaiseEventTriggered(EventLogEntry entry) => OnEventTriggered?.Invoke(entry);
 
+    // 엑시트 조건(MarketManager.CanExit)이 처음 충족된 순간(false→true) 1회만 발행 (AssetGoalNotifier).
+    public static event Action OnAssetGoalAchieved;
+    public static void RaiseAssetGoalAchieved() => OnAssetGoalAchieved?.Invoke();
+
     // ==========================
     // System
     // ==========================
