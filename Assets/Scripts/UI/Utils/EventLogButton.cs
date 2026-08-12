@@ -19,10 +19,10 @@ public class EventLogButton : MonoBehaviour
     [SerializeField] private Color achievedParticleColor = Color.yellow;
     [SerializeField] private float particleIntervalSeconds = 2f;
 
-    // 폭죽처럼 버튼 주변 여러 지점에서 시차를 두고 터지도록 하는 설정 (UIBurstParticle 자체는 한 점에서만 방사).
+    // 폭죽처럼 화면 여러 지점에서 시차를 두고 터지도록 하는 설정 (UIBurstParticle 자체는 한 점에서만 방사).
     [SerializeField] private int fireworksBurstCount = 4;
-    [SerializeField] private float fireworksSpreadRadius = 70f;
     [SerializeField] private float fireworksStaggerSeconds = 0.08f;
+    [SerializeField] private float fireworksSpreadRadius = 70f; // ScreenShaker 미배치 시(버튼 주변으로 축소) 폴백용 반경
 
     private Image icon;
     private float particleTimer;
@@ -56,16 +56,22 @@ public class EventLogButton : MonoBehaviour
         StartCoroutine(FireworksBurst());
     }
 
-    // 버튼 주변 랜덤 위치에 UIBurstParticle을 여러 번, 살짝 시차를 두고 스폰해 폭죽처럼 여기저기서 터지게 한다.
+    // 화면 전체 랜덤 위치에 UIBurstParticle을 여러 번, 살짝 시차를 두고 스폰해 폭죽처럼 여기저기서 터지게
+    // 한다. ScreenShaker(ScreenShaker.cs 참고)가 항상 Main_Canvas 자신에 붙는 싱글턴이라 그 RectTransform을
+    // "화면 전체" 기준으로 재사용한다 — 씬에 아직 없으면 버튼 주변(fireworksSpreadRadius)으로 폴백.
     // ModalPause로 timeScale=0인 동안(달성 알림 배너가 뜨는 순간)에도 재생돼야 하므로 unscaled time을 쓴다.
     private IEnumerator FireworksBurst()
     {
-        RectTransform rect = (RectTransform)transform;
+        RectTransform screen = ScreenShaker.Instance != null ? (RectTransform)ScreenShaker.Instance.transform : null;
+        RectTransform area = screen != null ? screen : (RectTransform)transform;
+        Rect bounds = screen != null ? screen.rect : default;
 
         for (int i = 0; i < fireworksBurstCount; i++)
         {
-            Vector2 offset = Random.insideUnitCircle * fireworksSpreadRadius;
-            UIBurstParticle.Spawn(rect, offset, achievedParticleColor, 0.6f);
+            Vector2 pos = screen != null
+                ? new Vector2(Random.Range(bounds.xMin, bounds.xMax), Random.Range(bounds.yMin, bounds.yMax))
+                : Random.insideUnitCircle * fireworksSpreadRadius;
+            UIBurstParticle.Spawn(area, pos, achievedParticleColor, 0.6f);
             yield return new WaitForSecondsRealtime(fireworksStaggerSeconds);
         }
     }
