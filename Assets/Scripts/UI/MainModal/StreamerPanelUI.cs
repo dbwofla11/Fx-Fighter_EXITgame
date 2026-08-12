@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -15,7 +16,7 @@ public class StreamerPanelUI : MonoBehaviour
     [SerializeField] private Sprite surgeSprite;
 
     [SerializeField] private SpeechBubbleUI speechBubble;
-    [SerializeField] private string streamerName = "시아";
+    [SerializeField] private string streamerName = "루나";
 
     private StreamerReactionState previousReaction;
 
@@ -27,6 +28,12 @@ public class StreamerPanelUI : MonoBehaviour
     // 바로 오버플로해 음수가 되고, 그 뒤로 쿨타임 조건을 몇십억 턴 동안 못 넘기는 버그가 있었다).
     private int turnsSinceLastBubble = MaxBubbleCooldownTurns;
     private int bubbleCooldownTarget = MinBubbleCooldownTurns;
+
+    // 스트리머 카페 댓글창(StreamerChatPanelUI)이 그대로 그릴 누적 댓글 목록. 말풍선과 동일한 타이밍(반응
+    // 단계 변화 + 쿨타임 통과)에 1~3개씩 쌓인다. 무한정 쌓이지 않게 오래된 것부터 잘라낸다.
+    private const int MaxChatLogEntries = 40;
+    private readonly List<StreamerComment> chatLog = new();
+    public IReadOnlyList<StreamerComment> ChatLog => chatLog;
 
     private const float ShakeDuration = 0.3f;
     private const float ShakeMagnitude = 10f;
@@ -72,9 +79,17 @@ public class StreamerPanelUI : MonoBehaviour
         turnsSinceLastBubble++;
 
         // 반응 단계가 바뀌었어도 쿨타임이 아직 안 지났으면 참는다.
-        if (speechBubble != null && stat.StreamerReaction != previousReaction && turnsSinceLastBubble >= bubbleCooldownTarget)
+        if (stat.StreamerReaction != previousReaction && turnsSinceLastBubble >= bubbleCooldownTarget)
         {
-            speechBubble.Show(streamerName, StreamerLines.GetRandom(stat.StreamerReaction));
+            if (speechBubble != null)
+                speechBubble.Show(streamerName, StreamerLines.GetRandom(stat.StreamerReaction));
+
+            int commentCount = Random.Range(1, 4);
+            for (int i = 0; i < commentCount; i++)
+                chatLog.Add(StreamerComments.GetRandom(stat.StreamerReaction));
+            while (chatLog.Count > MaxChatLogEntries)
+                chatLog.RemoveAt(0);
+
             turnsSinceLastBubble = 0;
             bubbleCooldownTarget = Random.Range(MinBubbleCooldownTurns, MaxBubbleCooldownTurns + 1);
         }

@@ -26,6 +26,10 @@ public class EventLogPanelUI : MonoBehaviour
     public RectTransform cardListParent;
     public EventCardView cardTemplate;
 
+    [Header("Streamer Chat")]
+    public StreamerChatPanelUI chatPanelUI;
+    public StreamerPanelUI streamerPanelUI;
+
     [Header("SFX")]
     [SerializeField] private AudioClip clickSfx; // 클릭소리
 
@@ -69,6 +73,7 @@ public class EventLogPanelUI : MonoBehaviour
     private void ShowOverview()
     {
         if (eventPanelBox != null) eventPanelBox.SetActive(false);
+        if (chatPanelUI != null) chatPanelUI.gameObject.SetActive(false);
         if (overviewContent != null) overviewContent.SetActive(true);
         if (overviewUI != null) overviewUI.Refresh();
         SetTabSelected(overviewTab, communityTab);
@@ -78,8 +83,10 @@ public class EventLogPanelUI : MonoBehaviour
     {
         if (overviewContent != null) overviewContent.SetActive(false);
         if (eventPanelBox != null) eventPanelBox.SetActive(true);
+        if (chatPanelUI != null) chatPanelUI.gameObject.SetActive(true);
         SetTabSelected(communityTab, overviewTab);
         RefreshLog();
+        RefreshChat();
     }
 
     private void SetTabSelected(Button selected, Button unselected)
@@ -114,4 +121,10 @@ public class EventLogPanelUI : MonoBehaviour
     }
 
     #endregion
+
+    private void RefreshChat()
+    {
+        if (chatPanelUI != null && streamerPanelUI != null)
+            chatPanelUI.SetMessages(streamerPanelUI.ChatLog);
+    }
 }

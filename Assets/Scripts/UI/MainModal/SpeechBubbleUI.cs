@@ -2,8 +2,9 @@ using System.Collections;
 using TMPro;
 using UnityEngine;
 
-// RightPanel의 스트리머 말풍선. StreamerPanel 옆에 배치. Show()/Hide()로 외부에서 제어.
-// 표시할 멘트 텍스트/트리거 로직은 별도 작업 범위 — 이 컴포넌트는 UI 컨테이너만 담당한다.
+// Main_Canvas 직속 스트리머 말풍선(EventNotification 바로 뒤 sibling — TradeModal 등 팝업보다는 아래,
+// ChartPanel보다는 위). Show()/Hide()로 외부에서 제어하는 순수 UI 컨테이너 — 언제/무슨 말을 보여줄지는
+// StreamerPanelUI + StreamerLines가 결정해서 넘겨준다.
 public class SpeechBubbleUI : MonoBehaviour
 {
     [SerializeField] private TMP_Text nameText;
