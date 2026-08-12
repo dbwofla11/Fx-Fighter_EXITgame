@@ -1,5 +1,5 @@
 /// <summary>
-/// 엔딩 판정(체포/거지/영웅/엑시트)을 상태 변경 없이 순수하게 결정한다.
+/// 엔딩 판정(체포/거지/엑시트)을 상태 변경 없이 순수하게 결정한다.
 /// 실제 게임 종료 처리(IsGameOver, PauseGame, OnGameEnded 발행)는 MarketManager가 담당한다.
 /// </summary>
 public static class EndingCalculator
@@ -25,10 +25,10 @@ public static class EndingCalculator
     }
 
     /// <summary>
-    /// 엑시트 버튼 클릭 시점의 Doubt/Support로 영웅(Hero) 또는 엑시트(Exit) 엔딩을 판정한다.
-    /// 호출 전에 CanExit(목표 자산 달성 여부)을 확인해야 한다.
+    /// 엑시트 버튼 클릭 시 호출한다. 과거엔 Doubt/Support로 영웅/엑시트를 갈랐지만 그 구분은 폐지돼
+    /// 항상 엑시트 엔딩으로 종료한다. 호출 전에 CanExit(목표 자산 달성 여부)을 확인해야 한다.
     /// </summary>
-    public static EndingType CheckExit(PlayerStat stat)
+    public static EndingType CheckExit()
     {
         return EndingType.Exit;
     }

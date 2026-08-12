@@ -3,7 +3,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-// 엔딩씬(ExitEndingScene) 전용. 영웅/엑시트 엔딩(EndingHandoff.Ending) 공용 : 스토리 2비트
+// 엔딩씬(ExitEndingScene) 전용. 엑시트 엔딩(EndingHandoff.Ending) : 스토리 2비트
 // (StoryDialogueController가 진행) → 통계 요약 화면(크레딧처럼 스크롤) 순서로 넘어간다.
 // 체포/거지 배드엔딩(EndingSceneUI, EndingScene)과는 완전히 별도 씬으로 관리한다.
 // MarketManager.EndGame()이 TimeManager.PauseGame()으로 Time.timeScale을 0으로 만든 채 이 씬에
@@ -12,6 +12,7 @@ public class ExitEndingSceneUI : MonoBehaviour
 {
     [Header("스토리 (비트1~2)")]
     public StoryDialogueController storyController;
+    public GameObject dialoguePanel; // 대사창(배경+텍스트). 통계 화면으로 넘어가면 꺼준다.
 
     [Header("암전 (인트로 연출)")]
     public CanvasGroup blackOverlay;
@@ -88,6 +89,8 @@ public class ExitEndingSceneUI : MonoBehaviour
 
     private void ShowStatsScreen()
     {
+        if (dialoguePanel != null) dialoguePanel.SetActive(false);
+        if (storyController != null && storyController.continueButton != null) storyController.continueButton.gameObject.SetActive(false);
         if (statsPanel != null) statsPanel.SetActive(true);
 
         GameStatsTracker stats = GameStatsTracker.Instance;

@@ -37,7 +37,7 @@ public class MarketManager : MonoBehaviour
     /// <summary>지금까지 지난 턴들의 가격 캔들 기록 (캔들 차트 UI가 읽어서 그린다). 1턴 = 캔들 1개.</summary>
     public IReadOnlyList<PricePoint> PriceHistory => runtimePriceHistory.Points;
 
-    // 엑시트/영웅 엔딩 조건인 목표 자산. 코인 보유량과 무관하게 현금만 본다.
+    // 엑시트 엔딩 조건인 목표 자산. 코인 보유량과 무관하게 현금만 본다.
     public const long TargetAsset = 500_000_000L;
 
     // 게임 시작 시점의 코인 가격. CurrentPrice는 매 턴 이월되는 값이라 여기서 한 번만 설정하면 된다.
@@ -269,14 +269,13 @@ public class MarketManager : MonoBehaviour
             EndGame(ending.Value);
     }
 
-    // 엑시트 버튼 클릭 요청 수신 : 목표 자산에 못 미치면 무시한다. 조건을 만족하면 EndingCalculator가
-    // Doubt/Support 기준으로 영웅 엔딩(True) 또는 엑시트 엔딩(Neutral)을 판정한다.
+    // 엑시트 버튼 클릭 요청 수신 : 목표 자산에 못 미치면 무시한다. 조건을 만족하면 엑시트 엔딩으로 종료한다.
     private void HandleExitRequested()
     {
         if (IsGameOver || PlayerManager.Instance.currentMoney < TargetAsset)
             return;
 
-        EndGame(EndingCalculator.CheckExit(CurrentStat));
+        EndGame(EndingCalculator.CheckExit());
     }
 
     // 엔딩을 확정하고 게임을 정지시킨다. 체포/거지 엔딩은 자산을 몰수하지 않는다 (수치는 그대로 둔다).
