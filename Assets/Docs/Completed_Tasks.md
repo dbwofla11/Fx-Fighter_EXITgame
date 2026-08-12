@@ -1076,3 +1076,36 @@
     제외했다가 3차 피드백 세션(2026-08-12)에서 동일 패턴으로 추가 완료. Play 모드에서 스크립트 직접
     호출로 3개 다 정상 동작 확인했으나, `SampleScene`을 바로 Play하면 부트스트랩 싱글턴이 없어 화면이
     안 그려지는 기존 환경 이슈로 스크린샷 육안 확인은 못 함.
+- **완료** : 3차 피드백 및 버그수정 완료분 (2026-08-12, 옛 `Next_Tesk.md` 23번). Notion ["3차 피드백 및
+  버그수정"](https://app.notion.com/p/3ba94f51302780c49627e562ce883275) 기준, 완료 항목은 페이지에 취소선(~~)
+  표시해둠. 미완료 항목(초기 설명/엑시트 당위성, 추가사항, 빌드 연구)은 `Next_Tesk.md` 23번에 계속 남아있음.
+  - **튜토리얼 및 정보 전달** — 의심도(`DoubtScorePanel`)에도 `HoverTooltipTrigger` 추가(+Image
+    `raycastTarget` on)해 지지도/상승률/발행량과 동일한 4개 스탯 호버 툴팁 완성.
+  - **버그사항 3건** — ① `DoubtMidSfxController.StopAfterDuration`이 `WaitForSeconds`(scaled)를 써서 모달
+    중(timeScale=0)엔 SFX 전체 재생, 배속 중(timeScale>1)엔 3초보다 일찍 끊기던 문제를
+    `WaitForSecondsRealtime`으로 수정. ② `ButtonPressEffect`가 눌림 시 `localScale`을 줄이는 바람에 클릭
+    판정용 히트박스도 같이 줄어 가장자리 클릭이 무시되던 문제 — `Graphic.raycastPadding`을 축소 비율만큼
+    음수로 넣어 보정, `extraHitboxPadding`(기본 10) 여유분도 추가해 시각 크기보다 히트박스가 항상 더 크게
+    잡히게 함(공유 컴포넌트라 다른 버튼들도 같이 개선됨). ③ `CoinPriceHeaderUI` 총자산 계산이 CashBonus%를
+    평가손익(profit)분에만 곱해 실제 매도(`PlayerManager.HandleSellCoin`, 코인 평가액 전체에 곱함)
+    결과보다 작게 표시되던 문제 — 매도 공식과 동일하게 통일.
+  - **밸런스 개선** — `TradeCalculator.Short`에 매도 전용 `SellPenaltyMultiplier`(1.5x)를 추가해 매도 시
+    지지도/상승률이 매수보다 더 크게 떨어지게 함(매수 `Long`은 그대로 유지). Support/Growth는
+    `ProbabilityCalculator.UpProbability`에 직결되므로 가격 하락 확률도 같이 늘어남 — 별도 가격 로직은
+    손대지 않음. 1.5x는 체감 없이 잡은 임시값, `Next_Tesk.md` 7번(밸런스 수치 조정) 재검토 대상에 포함.
+  - **UI개선3 3건** — ① `EventEffectFormatter.DescribeEffect`가 `PriceShockPercent` 라벨을
+    "코인 가격(즉시 %)"에서 "코인 가격"으로 바꾸고 숫자 뒤에 suffix("%")를 붙여 "코인 가격 +25%" 형태로
+    표시. ② 목표금액 달성 표시(`Issue_AssetGoalOverlay.md` 참고) — 사용자가 준 이미지 목업 기준, 엑시트
+    조건(`MarketManager.CanExit`, 현금 5억)이 처음 충족되는 순간을 `AssetGoalNotifier`가 감지해
+    `EventHub.OnAssetGoalAchieved`를 1회 발행하고, `AssetGoalNotificationUI`가 배너를 띄운다(X로 닫기,
+    재표시 안 함). `CoinPriceHeaderUI`의 "내 자산 합계" 텍스트는 달성 후 계속 강조색으로 표시되고,
+    `EventLogButton`은 `Outline` 상시 표시 + `UIBurstParticle` 기반 폭죽 연출(`FireworksBurst()`, 버튼
+    주변 랜덤 위치에 시차를 두고 4연발)이 달성 순간과 이후 주기적으로 재생된다. 판정 기준은 처음엔
+    총자산(현금+코인평가액) 기준으로 만들었다가 사용자 요청으로 기존 `CanExit`(현금만 봄, EXIT 버튼과 동일
+    조건) 재사용으로 정정함. 배너/버튼 GameObject 배치와 SerializeField 연결은 목업 기준으로 사용자가 직접
+    진행할 예정 — 아직 씬 미배치, Play 모드 검증 전. ③ 처음엔 "PreviewText 왼쪽에 DoubtIncreaseText를
+    재배치"로 잘못 이해해 정렬/위치를 바꿨었으나, 사용자 정정으로 되돌리고(`PreviewText` Center 정렬 복구,
+    `DoubtIncreaseText` Center 정렬 + x=460 위치 복구) 대신 새 `TradeCoinCountText`(TextMeshProUGUI)를
+    `PreviewText` 박스 바로 왼쪽(x=-460, size 340x50, 폰트 20)에 추가 — `TradeModalUI.tradeCoinCountText`
+    필드로 연결, `RefreshPreviewAndConfirmState()`에서 "코인 수: N개"로 갱신. Play 모드 밖에서는 Canvas가
+    렌더링 안 되는 환경 문제로 스크린샷 확인은 못 했음 — 실제 플레이 확인 필요.
