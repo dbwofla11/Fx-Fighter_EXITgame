@@ -17,6 +17,10 @@ public static class StatCalculator
         // PlayerStat이 매 턴 새로 생성되므로, PriceCalculator가 이어서 계산할 수 있도록 이전 턴 가격을 이월한다.
         stat.CurrentPrice = previous.CurrentPrice;
 
+        // StreamerIndex도 매 턴 완만하게 누적되는 값이라 이월이 필요하다 — 안 그러면 매 턴 Reset()의 기본값
+        // (50)에서 다시 시작해 완충 효과가 무의미해진다.
+        stat.StreamerIndex = previous.StreamerIndex;
+
         // Support/Growth/Supply는 거래·직업 선택·시사 이벤트로 그 순간 직접 반영되는 값이라, 매 턴 새로 계산하지 않고
         // 이전 값을 그대로 이어받는다 (CurrentPrice와 동일한 이월 패턴). Support/Growth는 매 턴 감쇠하고,
         // Supply는 반대로 매 턴 자동으로 늘어난다(인플레이션, `TradeCalculator.GrowSupply`).

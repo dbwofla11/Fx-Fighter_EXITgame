@@ -46,6 +46,9 @@ public class MarketManager : MonoBehaviour
     // 게임 시작 시점의 발행량. Supply도 CurrentPrice와 동일하게 턴을 넘어 이월되는 값이라 여기서 한 번만 설정한다.
     private const float InitialSupply = 2000f;
 
+    // 게임 시작 시점의 스트리머 지수(중립 50). CurrentPrice와 동일하게 턴을 넘어 이월되는 값이라 여기서 한 번만 설정한다.
+    private const float InitialStreamerIndex = 50f;
+
     // Doubt 자동 상승 : 게임 시간 2년(730턴)째 1회 +4, 그 이후로는 매 턴 +0.1을 기본으로 하되 경과 연차에
     // 비례해 턴당 증가량 자체가 선형으로 커진다(ApplyDoubtAutoRise 참고) — 후반부로 갈수록 의심도 관리가
     // 점점 빡빡해지라는 2026-08-08 재밸런스 피드백. 지수 증가는 아님(가속도 자체는 연차당 일정).
@@ -76,6 +79,7 @@ public class MarketManager : MonoBehaviour
             CurrentStat = new PlayerStat();
             CurrentStat.CurrentPrice = InitialPrice;
             CurrentStat.Supply = InitialSupply;
+            CurrentStat.StreamerIndex = InitialStreamerIndex;
         }
         else
         {
@@ -103,6 +107,7 @@ public class MarketManager : MonoBehaviour
         CurrentStat = new PlayerStat();
         CurrentStat.CurrentPrice = InitialPrice;
         CurrentStat.Supply = InitialSupply + PlayerManager.Instance.currentCoins;
+        CurrentStat.StreamerIndex = InitialStreamerIndex;
 
         turnCount = 0;
         priceFloorStreak = 0;
@@ -302,13 +307,21 @@ public class MarketManager : MonoBehaviour
 
     #region 스트리머 반응
 
-    // 이번 턴의 가격 변화량을 계산해 스트리머 반응 상태로 변환한다.
+    // StreamerIndex가 한 턴에 움직일 수 있는 최대 폭. 가격이 아무리 크게 흔들려도 이 값 이상 못 움직이게
+    // 막아서, 한 번의 큰 변동만으로 반응이 바로 튀지 않고 여러 턴 같은 방향이 이어져야 구간(20점)을 넘게 한다.
+    private const float StreamerIndexMaxStepPerTurn = 6f;
+    private const float StreamerIndexSensitivity = 0.15f;
+
+    // 이번 턴의 가격 변화량을 StreamerIndex에 완만하게 누적하고, 그 구간으로 스트리머 반응 상태를 정한다.
     private void UpdateStreamerReaction(float priceBefore)
     {
         float priceChange = CurrentStat.CurrentPrice - priceBefore;
-
         CurrentStat.PriceChangeThisTurn = priceChange;
-        CurrentStat.StreamerReaction = StreamerReactionCalculator.Calculate(priceChange);
+
+        float step = Mathf.Clamp(priceChange * StreamerIndexSensitivity, -StreamerIndexMaxStepPerTurn, StreamerIndexMaxStepPerTurn);
+        CurrentStat.StreamerIndex = Mathf.Clamp(CurrentStat.StreamerIndex + step, 0f, 100f);
+
+        CurrentStat.StreamerReaction = StreamerReactionCalculator.Calculate(CurrentStat.StreamerIndex);
     }
 
     #endregion

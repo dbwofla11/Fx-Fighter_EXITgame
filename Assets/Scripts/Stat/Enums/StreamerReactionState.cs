@@ -1,5 +1,6 @@
 /// <summary>
-/// 스트리머 패널이 이번 턴 가격 변화량(PlayerStat.PriceChangeThisTurn)에 따라 보일 반응 단계.
+/// 스트리머 패널이 보일 반응 단계. PlayerStat.StreamerIndex(0~100, 가격 변화를 완만하게 누적한 완충값)의
+/// 구간으로 결정된다(StreamerReactionCalculator 참고).
 /// 값이 클수록(양의 방향) 더 크게 기뻐하는 반응, 작을수록(음의 방향) 더 크게 실망하는 반응이다.
 /// </summary>
 public enum StreamerReactionState

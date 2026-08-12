@@ -78,6 +78,11 @@ public class PlayerStat
     /// <summary>PriceChangeThisTurn을 기준으로 한 스트리머 패널 반응 단계. UI가 이 값을 읽어 스프라이트/멘트를 표시한다.</summary>
     public StreamerReactionState StreamerReaction;
 
+    /// <summary>화면에 노출되지 않는 스트리머 감정 지수(0~100, 중립 50 시작). 가격이 크게 흔들려도 매 턴
+    /// StreamerReaction이 바로 튀지 않도록, 가격 변화를 완만하게 누적해 반영하는 완충값이다(MarketManager.
+    /// UpdateStreamerReaction 참고). 20점 구간별로 StreamerReaction이 정해진다(StreamerReactionCalculator).</summary>
+    public float StreamerIndex;
+
     // ==========================
     // ETC
     // ==========================
@@ -105,6 +110,8 @@ public class PlayerStat
 
         UpProbability = 0.5f;
         DownProbability = 0.5f;
+
+        StreamerIndex = 50f;
 
         ExitUnlocked = false;
     }
