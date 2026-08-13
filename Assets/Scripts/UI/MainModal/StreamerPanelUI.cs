@@ -4,21 +4,31 @@ using UnityEngine;
 using UnityEngine.UI;
 
 // RightPanel의 스트리머 캐릭터 패널. EventHub.OnMarketUpdated를 구독해 PlayerStat.StreamerReaction
-// (StreamerReactionState 5단계)에 맞는 표정 스프라이트로 교체한다. StatGaugeUI/CoinPriceHeaderUI와 동일 패턴.
+// (StreamerReactionState 5단계)에 맞는 표정 프레임 애니메이션을 재생한다. StatGaugeUI/CoinPriceHeaderUI와 동일 패턴.
 // 거래 확정(OnBuyCoin/OnSellCoin) 시 살짝 흔들려서 반응하는 연출을 더한다.
 public class StreamerPanelUI : MonoBehaviour
 {
     [SerializeField] private Image streamerImage;
-    [SerializeField] private Sprite crashSprite;
-    [SerializeField] private Sprite downSprite;
-    [SerializeField] private Sprite neutralSprite;
-    [SerializeField] private Sprite upSprite;
-    [SerializeField] private Sprite surgeSprite;
+    [SerializeField] private Sprite[] crashFrames;
+    [SerializeField] private Sprite[] downFrames;
+    [SerializeField] private Sprite[] neutralFrames;
+    [SerializeField] private Sprite[] upFrames;
+    [SerializeField] private Sprite[] surgeFrames;
 
     [SerializeField] private SpeechBubbleUI speechBubble;
     [SerializeField] private string streamerName = "루나";
 
+    // 도트 애니메이션 재생 속도.
+    [SerializeField] private float frameInterval = 1f / 6f;
+
+    // Neutral은 계속 반복하지 않고 이 주기(초)마다 한 번씩만 재생하고 나머지 시간은 첫 프레임에서 쉰다.
+    [SerializeField] private float neutralCycleInterval = 5f;
+
     private StreamerReactionState previousReaction;
+    private Coroutine frameRoutine;
+
+    // Neutral만 1→2→3→4→3→2(→반복) 핑퐁으로 재생한다. neutralFrames를 늘어난 순서로 한 번만 펼쳐서 캐싱.
+    private Sprite[] neutralPingPongFrames;
 
     // 말풍선은 반응 단계가 바뀌어도 최소 이 턴 수(30~50 랜덤)가 지나야 다시 뜬다 (너무 자주 뜨는 것 방지).
     private const int MinBubbleCooldownTurns = 30;
@@ -54,6 +64,9 @@ public class StreamerPanelUI : MonoBehaviour
             imageBasePos = imageRect.anchoredPosition;
         }
 
+        if (neutralPingPongFrames == null)
+            neutralPingPongFrames = BuildPingPong(neutralFrames);
+
         if (MarketManager.Instance != null)
             HandleMarketUpdated(MarketManager.Instance.CurrentStat);
     }
@@ -63,18 +76,81 @@ public class StreamerPanelUI : MonoBehaviour
         EventHub.OnMarketUpdated -= HandleMarketUpdated;
         EventHub.OnBuyCoin -= HandleTrade;
         EventHub.OnSellCoin -= HandleTrade;
+
+        // OnDisable 시 코루틴은 자동으로 멈추지만, 재활성화 때 새로 시작되도록 참조는 비워둔다.
+        frameRoutine = null;
+    }
+
+    // 반응 단계별 프레임을 frameInterval 간격으로 순환 재생한다. 흔들림 연출(ShakeRoutine)은
+    // anchoredPosition만 건드리므로 sprite 교체와 동시에 돌아도 서로 부딪히지 않는다.
+    private IEnumerator FrameRoutine(Sprite[] frames)
+    {
+        int index = 0;
+        while (true)
+        {
+            streamerImage.sprite = frames[index % frames.Length];
+            index++;
+            yield return new WaitForSecondsRealtime(frameInterval);
+        }
+    }
+
+    // Neutral 전용: 핑퐁 시퀀스를 한 번 재생한 뒤 첫 프레임(쉬는 자세)에서 대기하다가
+    // neutralCycleInterval마다 다시 재생한다.
+    private IEnumerator NeutralFrameRoutine()
+    {
+        float playDuration = neutralPingPongFrames.Length * frameInterval;
+        while (true)
+        {
+            foreach (var frame in neutralPingPongFrames)
+            {
+                streamerImage.sprite = frame;
+                yield return new WaitForSecondsRealtime(frameInterval);
+            }
+
+            streamerImage.sprite = neutralFrames[0];
+            float idle = neutralCycleInterval - playDuration;
+            if (idle > 0f)
+                yield return new WaitForSecondsRealtime(idle);
+        }
+    }
+
+    // [1,2,3,4] -> [1,2,3,4,3,2] (앞뒤 끝 프레임은 겹치지 않게 중간만 뒤집어 붙인다). 순방향으로 그대로
+    // 순환 재생하면 1,2,3,4,3,2,1,2,3,4,3,2,... 왕복 애니메이션이 된다.
+    private static Sprite[] BuildPingPong(Sprite[] frames)
+    {
+        if (frames.Length <= 2)
+            return frames;
+
+        var result = new Sprite[frames.Length * 2 - 2];
+        frames.CopyTo(result, 0);
+        for (int i = 1; i < frames.Length - 1; i++)
+            result[frames.Length + i - 1] = frames[frames.Length - 1 - i];
+        return result;
     }
 
     private void HandleMarketUpdated(PlayerStat stat)
     {
-        streamerImage.sprite = stat.StreamerReaction switch
+        if (stat.StreamerReaction != previousReaction || frameRoutine == null)
         {
-            StreamerReactionState.Crash => crashSprite,
-            StreamerReactionState.Down => downSprite,
-            StreamerReactionState.Up => upSprite,
-            StreamerReactionState.Surge => surgeSprite,
-            _ => neutralSprite,
-        };
+            if (frameRoutine != null)
+                StopCoroutine(frameRoutine);
+
+            if (stat.StreamerReaction == StreamerReactionState.Neutral)
+            {
+                frameRoutine = StartCoroutine(NeutralFrameRoutine());
+            }
+            else
+            {
+                Sprite[] frames = stat.StreamerReaction switch
+                {
+                    StreamerReactionState.Crash => crashFrames,
+                    StreamerReactionState.Down => downFrames,
+                    StreamerReactionState.Up => upFrames,
+                    _ => surgeFrames,
+                };
+                frameRoutine = StartCoroutine(FrameRoutine(frames));
+            }
+        }
 
         turnsSinceLastBubble++;
 

@@ -116,13 +116,13 @@ TextureImporter:
       name: sad_1_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 724
-        width: 362
-        height: 362
+        x: 18
+        y: 742
+        width: 326
+        height: 326
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
+      border: {x: 0, y: 10, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
@@ -138,13 +138,13 @@ TextureImporter:
       name: sad_1_1
       rect:
         serializedVersion: 2
-        x: 362
-        y: 724
-        width: 362
-        height: 362
+        x: 380
+        y: 742
+        width: 326
+        height: 326
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
+      border: {x: 0, y: 10, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
@@ -160,13 +160,13 @@ TextureImporter:
       name: sad_1_2
       rect:
         serializedVersion: 2
-        x: 724
-        y: 724
-        width: 362
-        height: 362
+        x: 742
+        y: 742
+        width: 326
+        height: 326
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
+      border: {x: 0, y: 10, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
@@ -182,13 +182,13 @@ TextureImporter:
       name: sad_1_3
       rect:
         serializedVersion: 2
-        x: 1086
-        y: 724
-        width: 362
-        height: 362
+        x: 1104
+        y: 742
+        width: 326
+        height: 326
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
+      border: {x: 0, y: 10, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
@@ -204,13 +204,13 @@ TextureImporter:
       name: sad_1_4
       rect:
         serializedVersion: 2
-        x: 0
-        y: 362
-        width: 362
-        height: 362
+        x: 18
+        y: 380
+        width: 326
+        height: 326
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
+      border: {x: 0, y: 10, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
@@ -226,13 +226,13 @@ TextureImporter:
       name: sad_1_5
       rect:
         serializedVersion: 2
-        x: 362
-        y: 362
-        width: 362
-        height: 362
+        x: 380
+        y: 380
+        width: 326
+        height: 326
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
+      border: {x: 0, y: 10, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
@@ -248,13 +248,13 @@ TextureImporter:
       name: sad_1_6
       rect:
         serializedVersion: 2
-        x: 724
-        y: 362
-        width: 362
-        height: 362
+        x: 742
+        y: 380
+        width: 326
+        height: 326
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
+      border: {x: 0, y: 10, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
@@ -270,13 +270,13 @@ TextureImporter:
       name: sad_1_7
       rect:
         serializedVersion: 2
-        x: 1086
-        y: 362
-        width: 362
-        height: 362
+        x: 1104
+        y: 380
+        width: 326
+        height: 326
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
+      border: {x: 0, y: 10, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
@@ -292,13 +292,13 @@ TextureImporter:
       name: sad_1_8
       rect:
         serializedVersion: 2
-        x: 0
-        y: 0
-        width: 362
-        height: 362
+        x: 18
+        y: 18
+        width: 326
+        height: 326
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
+      border: {x: 0, y: 10, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
@@ -314,13 +314,13 @@ TextureImporter:
       name: sad_1_9
       rect:
         serializedVersion: 2
-        x: 362
-        y: 0
-        width: 362
-        height: 362
+        x: 380
+        y: 18
+        width: 326
+        height: 326
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
+      border: {x: 0, y: 10, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
@@ -336,13 +336,13 @@ TextureImporter:
       name: sad_1_10
       rect:
         serializedVersion: 2
-        x: 724
-        y: 0
-        width: 362
-        height: 362
+        x: 742
+        y: 19
+        width: 326
+        height: 326
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
+      border: {x: 0, y: 10, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
@@ -358,13 +358,13 @@ TextureImporter:
       name: sad_1_11
       rect:
         serializedVersion: 2
-        x: 1086
-        y: 0
-        width: 362
-        height: 362
+        x: 1104
+        y: 19
+        width: 326
+        height: 326
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
+      border: {x: 0, y: 10, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []

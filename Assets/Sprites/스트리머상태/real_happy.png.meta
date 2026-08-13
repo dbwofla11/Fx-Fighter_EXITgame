@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 659303949c69d3d439084ac4b8c0caba
+guid: 7ab772ab332f6e04a83f9306378f8f43
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 5608525314852195654
-    second: happy_1_0
+      213: 4536772770451142341
+    second: real_happy_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: happy_1_0
+      name: real_happy_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 749
-        width: 350
-        height: 374
+        x: 18
+        y: 742
+        width: 326
+        height: 326
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,20 +128,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 64d0d810f0c75dd40800000000000000
-      internalID: 5608525314852195654
+      spriteID: 5c6b7614ccad5fe30800000000000000
+      internalID: 4536772770451142341
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: happy_1_1
+      name: real_happy_1
       rect:
         serializedVersion: 2
-        x: 350
-        y: 749
-        width: 350
-        height: 374
+        x: 380
+        y: 742
+        width: 326
+        height: 326
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -150,20 +150,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 7666d4670ba07774ab2c02a5d47d8290
-      internalID: -457737732
+      spriteID: 962d3fdbc969309488aa3973fb0e0f1e
+      internalID: -1820370266
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: happy_1_2
+      name: real_happy_2
       rect:
         serializedVersion: 2
-        x: 700
-        y: 749
-        width: 350
-        height: 374
+        x: 742
+        y: 742
+        width: 326
+        height: 326
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -172,20 +172,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: f0e12a29f84315447883fdcb0986b5a9
-      internalID: -1839185905
+      spriteID: 5b94908794ca7cb42924d864b06876e6
+      internalID: -2089257847
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: happy_1_3
+      name: real_happy_3
       rect:
         serializedVersion: 2
-        x: 1050
-        y: 749
-        width: 350
-        height: 374
+        x: 1104
+        y: 742
+        width: 326
+        height: 326
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -194,20 +194,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 12db1466d256c824aa359c67f82cf54b
-      internalID: -219162835
+      spriteID: 43a805ec0b0ed614aad0c11389564ed0
+      internalID: -477133746
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: happy_1_4
+      name: real_happy_4
       rect:
         serializedVersion: 2
-        x: 0
-        y: 375
-        width: 350
-        height: 374
+        x: 18
+        y: 380
+        width: 326
+        height: 326
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -216,20 +216,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: c0f558a45f9522a40986f92b4da80ff2
-      internalID: 743961557
+      spriteID: 6d89e81de684b8f4a825273f8538cfd7
+      internalID: 371942762
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: happy_1_5
+      name: real_happy_5
       rect:
         serializedVersion: 2
-        x: 350
-        y: 375
-        width: 350
-        height: 374
+        x: 380
+        y: 380
+        width: 326
+        height: 326
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -238,20 +238,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 11fcc0c833f100740a76ef60c04b99bd
-      internalID: -993087822
+      spriteID: b97bf3fbc05af7a4e965e2bd4927bfbc
+      internalID: 880950529
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: happy_1_6
+      name: real_happy_6
       rect:
         serializedVersion: 2
-        x: 700
-        y: 375
-        width: 350
-        height: 374
+        x: 742
+        y: 380
+        width: 326
+        height: 326
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -260,20 +260,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: e3e77b2e6530079429470e0225223c11
-      internalID: -153033496
+      spriteID: 3823ded217e0aea4986b4f13afc38eeb
+      internalID: -1020327023
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: happy_1_7
+      name: real_happy_7
       rect:
         serializedVersion: 2
-        x: 1050
-        y: 375
-        width: 350
-        height: 374
+        x: 1104
+        y: 380
+        width: 326
+        height: 326
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -282,20 +282,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 0a19c7eaeabe5ef468dc0cabc5cc0a2a
-      internalID: 1423433644
+      spriteID: 4193e4032007afd429ae032ccd756c67
+      internalID: -1838225424
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: happy_1_8
+      name: real_happy_8
       rect:
         serializedVersion: 2
-        x: 0
-        y: 1
-        width: 350
-        height: 374
+        x: 18
+        y: 18
+        width: 326
+        height: 326
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -304,20 +304,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: e5bb277bb61129d4884be6e1264976b9
-      internalID: -1547837393
+      spriteID: ecfe40baac9372b40b6a27f8e308f5e7
+      internalID: -1688800974
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: happy_1_9
+      name: real_happy_9
       rect:
         serializedVersion: 2
-        x: 350
-        y: 1
-        width: 350
-        height: 374
+        x: 380
+        y: 18
+        width: 326
+        height: 326
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -326,20 +326,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 14cc1c7a980467044919092502ee390f
-      internalID: 1732484416
+      spriteID: b49f02db130feac48b976ca1c0173e3e
+      internalID: -941607862
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: happy_1_10
+      name: real_happy_10
       rect:
         serializedVersion: 2
-        x: 700
-        y: 1
-        width: 350
-        height: 374
+        x: 742
+        y: 18
+        width: 326
+        height: 326
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -348,20 +348,20 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 265d9e8fcc280d8449bca97a6d75f384
-      internalID: -1075580684
+      spriteID: b61c49cd29eb544418de3ee74cc16f8c
+      internalID: 626730172
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: happy_1_11
+      name: real_happy_11
       rect:
         serializedVersion: 2
-        x: 1050
-        y: 1
-        width: 350
-        height: 374
+        x: 1104
+        y: 18
+        width: 326
+        height: 326
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -370,8 +370,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 20ad9f1e2afdaee45a77768602f95f29
-      internalID: -2114580615
+      spriteID: 619de37a2c6df7a439436fbca50ebfb9
+      internalID: 658667113
       vertices: []
       indices: 
       edges: []
@@ -380,7 +380,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: dc9602fba305acd408683a635e299df3
+    spriteID: 5e97eb03825dee720800000000000000
     internalID: 0
     vertices: []
     indices: 
@@ -390,20 +390,20 @@ TextureImporter:
     spriteCustomMetadata:
       entries:
       - key: SpriteEditor.SliceSettings
-        value: '{"sliceOnImport":false,"gridCellCount":{"x":4.0,"y":3.0},"gridSpriteSize":{"x":350.0,"y":374.0},"gridSpriteOffset":{"x":0.0,"y":0.0},"gridSpritePadding":{"x":0.0,"y":0.0},"pivot":{"x":0.5,"y":0.5},"pivotPixels":{"x":0.0,"y":0.0},"autoSlicingMethod":0,"spriteAlignment":0,"pivotUnitMode":0,"slicingType":2,"keepEmptyRects":false,"isAlternate":false}'
+        value: '{"sliceOnImport":false,"gridCellCount":{"x":4.0,"y":3.0},"gridSpriteSize":{"x":362.0,"y":362.0},"gridSpriteOffset":{"x":0.0,"y":0.0},"gridSpritePadding":{"x":0.0,"y":0.0},"pivot":{"x":0.5,"y":0.5},"pivotPixels":{"x":0.0,"y":0.0},"autoSlicingMethod":0,"spriteAlignment":0,"pivotUnitMode":0,"slicingType":2,"keepEmptyRects":false,"isAlternate":false}'
     nameFileIdTable:
-      happy_1_0: 5608525314852195654
-      happy_1_1: -457737732
-      happy_1_10: -1075580684
-      happy_1_11: -2114580615
-      happy_1_2: -1839185905
-      happy_1_3: -219162835
-      happy_1_4: 743961557
-      happy_1_5: -993087822
-      happy_1_6: -153033496
-      happy_1_7: 1423433644
-      happy_1_8: -1547837393
-      happy_1_9: 1732484416
+      real_happy_0: 4536772770451142341
+      real_happy_1: -1820370266
+      real_happy_10: 626730172
+      real_happy_11: 658667113
+      real_happy_2: -2089257847
+      real_happy_3: -477133746
+      real_happy_4: 371942762
+      real_happy_5: 880950529
+      real_happy_6: -1020327023
+      real_happy_7: -1838225424
+      real_happy_8: -1688800974
+      real_happy_9: -941607862
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
