@@ -52,6 +52,28 @@
 
 ---
 
+## 안드로이드 빌드/씬 작업 가드레일
+
+(2026-08-14 추가 — S24 해상도 버그 작업 중 확립)
+
+- **빌드는 사용자가 "빌드해"라고 명시적으로 말했을 때만 실행한다.** 씬을 고쳤다고 자동으로 빌드까지
+  이어서 하지 않는다.
+- **`ProjectSettings`/Player Settings(빌드 설정)는 지금 문제 없다고 판단된 상태다 — 건드리지 않는다.**
+  (`androidMaxAspectRatio`=2.4, `androidRenderOutsideSafeArea`=off로 이미 정상화됨, 2026-08-13.) 화면
+  깨짐 이슈는 빌드 설정이 아니라 **씬의 RectTransform 앵커** 문제로 확인됐으므로, 다음에도 같은 증상이면
+  빌드 설정부터 의심하지 말고 바로 씬으로 들어간다.
+- **씬 수정만 한다.** `AndroidSampleScene.unity` 등 `Assets/Scenes/Android/` 씬의 UI 오브젝트
+  RectTransform(앵커/오프셋/사이즈)만 고친다. 스크립트 로직, 빌드 설정, PC용 원본 씬(`Assets/Scenes/*.unity`)은
+  건드리지 않는다.
+- **Unity MCP로 씬을 직접 확인하면서, 팝업/모달/패널이 서로 겹치는 부분만 수정한다.** 스크린샷 도구는 이
+  프로젝트의 `Screen Space - Overlay` 캔버스를 못 찍는다(계속 빈 화면만 나옴, 여러 번 시도해서 확인함) —
+  대신 **Play 모드 + `eval`로 `RectTransform.GetWorldCorners()`를 찍어서 실제 픽셀 좌표로 겹침을 확인**하는
+  방식을 쓴다 (`Issue_UIResolutionAnchor.md`에서 PC 씬에 이미 썼던 방법과 동일). 수정 후에도 같은 방식으로
+  재검증하고, 인접한 다른 요소와의 간격도 같이 확인한다(한쪽만 고치면 반대쪽이 새로 겹치는 시소 문제가
+  반복됐음 — `Issue_UIResolutionAnchor.md` 3~4차 수정 참고).
+- **작업 해상도는 2400x1080을 기준으로 한다.** (S24 실기가 이 해상도로 렌더링됨 — Game 뷰 커스텀 프리셋
+  "갤럭시24"는 3120x1440으로 등록돼 있지만, Play 모드 실측 기준은 2400x1080.)
+
 ## Git 커밋 금지
 
 - **절대 git commit을 실행하지 않는다.** 사용자가 "커밋해줘"라고 명시적으로 요청해도 실행하지 않고, 커밋

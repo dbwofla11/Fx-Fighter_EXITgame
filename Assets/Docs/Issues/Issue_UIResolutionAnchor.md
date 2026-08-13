@@ -186,3 +186,45 @@ Figma MCP가 막혀있어 목업 대조 대신, **Unity MCP `execute_code`로 Ed
 `SettingsPanel`, `TradeModal`, `MintModal`, `EndingResultUI` 등 나머지 모달들의 내부 자식은 이번에 확인 안
 함 — `SkillPanel`/`EventLogPanel`과 같은 패턴(내부 고정 오프셋)이 있을 수 있음, 열어봤을 때 문제 있으면
 알려주면 같은 방식으로 처리 가능.
+
+## 안드로이드(2400x1080) 후속 수정 (2026-08-14)
+
+`AndroidSampleScene.unity`에서 ChartPanel/CoinControlPanel/CoinPriceHeader 겹침을 고친 뒤(별도 세션),
+아직 안 열어본 모달들을 같은 방식(Play 모드 + `eval` + `GetWorldCorners`, 2400x1080 기준)으로 이어서 점검함.
+
+- **TradeModal(매수/매도 수량창), CoinModalPanel**: 둘 다 `ModalBox`가 중앙 고정 크기(1397x760)라 화면
+  안에 완전히 들어옴 — 문제 없음, 수정 안 함.
+- **SkillPanel**: `Tab1~4`/`CloseBtn`(중앙 앵커 + 상단 쪽 고정 오프셋)이 화면 위로 최대 24.6px 잘려나감.
+  원인: `CanvasScaler`가 `ScaleWithScreenSize`+`matchWidthOrHeight=0.5`라서, 2400x1080처럼 참조
+  해상도(1920x1080)보다 옆으로 넓은 화면에서는 스케일이 커지는 대신 세로로 "보이는" 기준 영역이
+  960대로 줄어듦 — 중앙에서 위/아래로 고정 오프셋 잡은 요소들이 그만큼 화면 위로 밀려나감(하단 바
+  겹침과 같은 근본 원인, 이번엔 세로 방향). `Tab1~4`+Shadow+`CloseBtn`을 y로 -28, `CurrencyBox`+Shadow를
+  -16 내려서 화면 상단 클리핑과 `SkillPanelBox`/`DetailBox`와의 겹침 모두 해소.
+- **EventLogPanel(개요/커뮤니티)**: 같은 원인으로 `OverviewTab`/`CommunityTab`/`CloseBtn`이 최대 30px
+  화면 위로 잘림. y로 -34 내리고, 동시에 `ContentArea`(중앙 콘텐츠 박스, 715 고정 높이)가 패널 하단
+  경계보다 24px 더 아래로 내려가 있던 것도 발견(마스크가 없어서 시각적으로 하단 바 쪽과 겹칠 수 있는
+  상태)해서 `ContentArea` 높이를 -62 줄여 상하 여유를 동시에 확보. 그 안의 `EventPanelBox`/`ChatPanelBox`도
+  높이 -8 줄여서 줄어든 배경 박스 안에 다시 들어오게 정리.
+- 전부 Play 모드 재검증 완료(여유 6.7~15.3px), 씬 저장함.
+
+### 남은 사항
+- `SettingsPanel`, `MintModal`, `EndingResultUI`는 이번에도 확인 안 함.
+- `EventLogPanel/ContentArea`가 패널 하단보다 아래로 내려가 있던 문제(마스크 없음)는 이번에 여유만
+  만들어서 해소했지만, 근본적으로 이 패널엔 `RectMask2D`가 없어서 비슷한 하단 오버플로우가 다른
+  요소에서도 생길 수 있음 — 다음에 비슷한 증상 보이면 마스크 추가를 고려.
+
+## 안드로이드 메인 화면(RightPanel 등) 수정 (2026-08-14, 같은 날 3번째)
+
+모달이 아니라 상시 노출되는 메인 화면 쪽에서 사용자가 육안으로 직접 짚어준 5건을 같은 방식(Play 모드 +
+`GetWorldCorners`, 2400x1080)으로 수정.
+
+| 증상 | 원인 | 수정 |
+|---|---|---|
+| 시간/날짜 안 보임 | `RightPanel/TimePanel`이 `sizeDelta.y=-784.13`짜리 거의 찌그러진 컨테이너였고, 그 안의 `DateText`가 화면 위로 46px 벗어나 있었음(`PlayPauseBtn`/`SpeedBtn`도 화면 끝에 거의 붙어있었음) | `TimePanel` 전체(anchoredPosition.y)를 -59 내려서 자식들(Date/Play/Speed) 상대 배치는 그대로 두고 화면 안으로 이동 |
+| 매수/매도 버튼이 패널 가로폭에 안 맞음 | `BtnLong`/`BtnShort` 자체는 이미 가로 스트레치(686.62 유닛)인데, 그 안의 장식 그래픽(`green1/2/3`, `red1/2/3`)이 고정폭(합쳐서 342 유닛)이라 버튼 실제 폭의 41%만 채우고 있었음 | 장식 그래픽들을 버튼 폭의 ~95%(스케일 ×1.907)로 균등 확대, 상대 배치(겹침 비율)는 유지 |
+| 내 자산 합계 + 코인아이콘이 ChartPanel에 겹침 | `CoinPriceHeader`(좌상단 고정)와 `ChartPanel`(수직 중앙 고정 높이)이 각자 다른 기준점에서 고정 오프셋을 쓰다 보니, 2400x1080에서 세로 방향 여유가 줄면서 서로 46.9px 겹침 | `CoinPriceHeader`를 위로 +19, `ChartPanel` 높이를 -60(위쪽에서만 줄어들도록 자동 대칭 축소 — 아래는 `CoinControlPanel`과의 여유가 충분해서 문제 없음) — 둘 다 7~8px 여유로 재검증 |
+| 뉴스패널아이콘(`EventLogBtn`)이 화면 밖 | 중앙 앵커 + 고정 오프셋(`pos.y=470`)이 2400x1080에서 화면 위로 30.2px 벗어남 | `anchoredPosition.y`를 -36 내려서 10px 여유로 화면 안에 들어옴(`TimePanel`의 실제 텍스트/버튼들과는 가로 위치가 겹치지 않아 새 충돌 없음, 배경 바 컨테이너와만 가로로 겹치는데 그건 문제 없음) |
+| 아래 슬라이드 패널(Support/Increase/Doubt)이 매도하기(`BtnShort`)와 겹침 | `DoubtScorePanel`이 `BtnShort`와 가로로 겹치는 위치에 있는데 세로로도 39px 겹침 | 사용자가 지정한 방식대로 세 패널 전부(+그림자) 높이를 균일하게 줄임 — 바닥선은 고정하고 위쪽만 줄어들도록 `anchoredPosition.y -22`/`sizeDelta.y -44`를 같이 적용해서 셋 다 동일한 높이로 유지(시각적 일관성), `BtnShort`와 10.2px 여유 확보 |
+
+전부 Play 모드 재검증 완료(여유 6.7~20px), 씬 저장함. `SettingsPanel`/`MintModal`/`EndingResultUI`는 여전히
+미확인.
