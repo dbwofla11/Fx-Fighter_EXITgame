@@ -10,11 +10,13 @@ public static class GameSceneManager
 {
     public const string TitleScene = "TitleScene";
     public const string CharacterSelectScene = "CharacterSelectScene";
+    public const string OpeningScene = "OpeningScene";
     public const string MainScene = "SampleScene";
     public const string EndingScene = "EndingScene";
     public const string ExitEndingScene = "ExitEndingScene";
 
     public static void LoadCharacterSelect() => SceneManager.LoadScene(ResolveSceneName(CharacterSelectScene));
+    public static void LoadOpening() => SceneManager.LoadScene(ResolveSceneName(OpeningScene));
     public static void LoadMainGame() => SceneManager.LoadScene(ResolveSceneName(MainScene));
     public static void LoadTitle() => SceneManager.LoadScene(ResolveSceneName(TitleScene));
     public static void LoadEnding() => SceneManager.LoadScene(ResolveSceneName(EndingScene));

@@ -21,20 +21,23 @@ MonoBehaviour:
   m_OverrideGlobalSceneList: 1
   m_Scenes:
   - m_enabled: 1
-    m_path: Assets/Scenes/TitleScene.unity
-    m_guid: 15c3a14199c52054b86b6626bf52c150
+    m_path: Assets/Scenes/Android/AndroidTitleScene.unity
+    m_guid: 62937ccc14009774984660006e74981d
   - m_enabled: 1
-    m_path: Assets/Scenes/CharacterSelectScene.unity
-    m_guid: 24ff666241af4c644864bbc2fdd1ba29
+    m_path: Assets/Scenes/Android/AndroidCharacterSelectScene.unity
+    m_guid: 2fd9dd13688adda46a58673e20901e76
   - m_enabled: 1
-    m_path: Assets/Scenes/SampleScene.unity
-    m_guid: 8c9cfa26abfee488c85f1582747f6a02
+    m_path: Assets/Scenes/Android/AndroidOpeningScene.unity
+    m_guid: 8d5b7206d0cefe244b8b210e70ce3643
   - m_enabled: 1
-    m_path: Assets/Scenes/EndingScene.unity
-    m_guid: 4723823595f4d404b8c869086bcbe12e
+    m_path: Assets/Scenes/Android/AndroidSampleScene.unity
+    m_guid: da88e498054ef4741b40a61efb344026
   - m_enabled: 1
-    m_path: Assets/Scenes/ExitEndingScene.unity
-    m_guid: 7f71e0d1cf350ac4bbb5c5671d0b110d
+    m_path: Assets/Scenes/Android/AndroidEndingScene.unity
+    m_guid: 5e9130776c346884182444f060b1e564
+  - m_enabled: 1
+    m_path: Assets/Scenes/Android/AndroidExitEndingScene.unity
+    m_guid: 90986e0b380199a428728b57c209f87e
   m_HasScriptingDefines: 0
   m_ScriptingDefines: []
   m_PlayerSettingsYaml:

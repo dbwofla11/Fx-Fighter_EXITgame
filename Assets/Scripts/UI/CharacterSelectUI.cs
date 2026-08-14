@@ -124,6 +124,6 @@ public class CharacterSelectUI : MonoBehaviour
         }
 
         JobSelectionHandoff.SelectedJob = jobs[selectedIndex];
-        GameSceneManager.LoadMainGame();
+        GameSceneManager.LoadOpening();
     }
 }

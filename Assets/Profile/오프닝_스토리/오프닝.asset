@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e156c6d0f00000342bfe5645c848b686, type: 3}
+  m_Name: "\uC624\uD504\uB2DD"
+  m_EditorClassIdentifier: Assembly-CSharp::StoryBeatSetSO
+  beats:
+  - background: {fileID: 21300000, guid: 679def768ce2eb84c886e4d13ef2da15, type: 3}
+    speaker: "\"\uC8FC\uC778\uACF5\""
+    line: "\"\uC6B0\uB9AC \uC5C4\uB9C8\uB294 \uD3C9\uC0DD \uB0A8\uC744 \uC18D\uC778
+      \uC801 \uC5C6\uB294 \uCC29\uD558\uACE0 \uC131\uC2E4\uD55C \uC0AC\uB78C\uC774\uC5C8\uB2E4.\""
+  - background: {fileID: 21300000, guid: 679def768ce2eb84c886e4d13ef2da15, type: 3}
+    speaker: "\"\uC8FC\uC778\uACF5\""
+    line: "\"\uADF8\uB9AC\uACE0 \uADF8 \uB300\uAC00\uB85C \uC0AC\uAE30\uAFBC\uC5D0\uAC8C
+      \uC18D\uC544 5\uC5B5\uC758 \uBE5A\uC744 \uB5A0\uC548\uC558\uB2E4.\""
+  - background: {fileID: 21300000, guid: 2a3cfe7d2d5faf944931d9090afdf0c9, type: 3}
+    speaker: "\"\uC8FC\uC778\uACF5\""
+    line: "\"...\uC774 \uBBF8\uCCD0 \uB3CC\uC544\uAC00\uB294 \uC2DC\uC7A5\uC5D0\uC11C\uB294
+      \uD638\uAD6C\uB4E4\uB9CC \uC798 \uAF2C\uC2DC\uBA74 5\uC5B5\uC740 \uCDA9\uBD84\uD574.\""
+  - background: {fileID: 21300000, guid: e699327f4693253479b1876147ec60b6, type: 3}
+    speaker: "\"\uC8FC\uC778\uACF5\""
+    line: "\"\uB0B4\uAC00 \uC0AC\uAE30\uB97C \uB2F9\uD588\uB2E4\uBA74 \uC774\uC81C\uB294
+      \uB0B4\uAC00 \uC0AC\uAE30\uB97C \uCE58\uB294\uAC70\uC57C\""
+  - background: {fileID: 21300000, guid: c6025c2e9ba391142bf1c2ae5704df43, type: 3}
+    speaker: "\"\uC8FC\uC778\uACF5\""
+    line: "\"\uBAA9\uD45C \uAE08\uC561\uC740 \uB531 5\uC5B5. \uC0AC\uCC44\uC5C5\uC790\uC640
+      \uACBD\uCC30\uC758 \uCD94\uC801\uC744 \uB530\uB3CC\uB9AC\uACE0 \uC774 \uC9C0\uC625\uC5D0\uC11C
+      \uD0C8\uCD9C\uD558\uC790\""
