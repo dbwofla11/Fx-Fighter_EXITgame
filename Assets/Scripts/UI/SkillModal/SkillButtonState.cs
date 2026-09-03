@@ -9,20 +9,22 @@ public static class SkillButtonState
     {
         public readonly bool Used;        // 1회성 스킬 구매 완료
         public readonly bool MaxedOut;    // 재사용형 스킬 최대 구매 횟수 도달
+        public readonly bool OnCooldown;  // 재사용형 스킬 구매 후 다음 턴까지
         public readonly bool Affordable;  // 보유 금액 >= 현재 비용
         public readonly bool DoubtSafe;   // 구매해도 의심도가 체포 문턱을 넘지 않음
         public readonly long Cost;
 
-        public State(bool used, bool maxedOut, bool affordable, bool doubtSafe, long cost)
+        public State(bool used, bool maxedOut, bool onCooldown, bool affordable, bool doubtSafe, long cost)
         {
             Used = used;
             MaxedOut = maxedOut;
+            OnCooldown = onCooldown;
             Affordable = affordable;
             DoubtSafe = doubtSafe;
             Cost = cost;
         }
 
-        public bool Locked => Used || MaxedOut; // 돈과 무관하게 구매 자체가 막힌 상태
+        public bool Locked => Used || MaxedOut || OnCooldown; // 돈과 무관하게 구매 자체가 막힌 상태
         public bool Purchasable => !Locked && Affordable && DoubtSafe;
     }
 
@@ -30,17 +32,18 @@ public static class SkillButtonState
     {
         SkillSO profile = SkillManager.Instance.GetSkillProfile(id);
         if (profile == null)
-            return new State(false, true, false, true, 0);
+            return new State(false, true, false, false, true, 0);
 
         bool used = !profile.isReusable && SkillManager.Instance.IsUnlocked(id);
         bool maxedOut = SkillManager.Instance.IsMaxedOut(id);
+        bool onCooldown = SkillManager.Instance.IsOnCooldown(id);
         long cost = SkillManager.Instance.GetCurrentCost(id);
         bool affordable = PlayerManager.Instance.currentMoney >= cost;
 
         float predictedDoubt = MarketManager.Instance.CurrentStat.Doubt + PredictDoubtDelta(profile);
         bool doubtSafe = predictedDoubt < DoubtArrestThreshold;
 
-        return new State(used, maxedOut, affordable, doubtSafe, cost);
+        return new State(used, maxedOut, onCooldown, affordable, doubtSafe, cost);
     }
 
     // 구매 즉시 반영되는 DoubtIncrease/DoubtDecrease만 계산한다 (StatCalculator.ApplySkillUse와 동일 대상).

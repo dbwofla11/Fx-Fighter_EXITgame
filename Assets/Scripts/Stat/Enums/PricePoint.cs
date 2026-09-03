@@ -17,4 +17,8 @@ public class PricePoint
     public float High;
 
     public float Low;
+
+    /// <summary>해당 기간의 거래량 지수. 일봉은 기본 100에 Volume 효과·가격 변동·실제 거래량을 반영하고,
+    /// 주봉/월봉은 포함된 일봉 거래량을 합산한다.</summary>
+    public float Volume;
 }

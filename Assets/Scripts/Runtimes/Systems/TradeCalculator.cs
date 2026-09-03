@@ -56,11 +56,11 @@ public static class TradeCalculator
         return Math.Abs(amount) * DoubtWeightPerTradeCoin;
     }
 
-    // 이번 거래로 Doubt가 99(체포 엔딩 기준 100 바로 아래)를 넘지 않는 한도 내에서 최대로 거래 가능한 수량.
+    // 이번 거래로 Doubt가 99.9(체포 엔딩 기준 100 바로 아래)를 넘지 않는 한도 내에서 최대로 거래 가능한 수량.
     // 거래 모달의 슬라이더/+MAX 버튼이 잔고 기준 최대치와 이 값 중 더 작은 쪽을 쓴다.
     public static long MaxTradeAmountByDoubt(float currentDoubt)
     {
-        float headroom = 99f - currentDoubt;
+        float headroom = 99.9f - currentDoubt;
         return headroom <= 0f ? 0L : (long)(headroom / DoubtWeightPerTradeCoin);
     }
 

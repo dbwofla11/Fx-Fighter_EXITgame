@@ -119,7 +119,8 @@ public class PriceChartCandles
         }
     }
 
-    public void Update(int i, PricePoint p, float slotWidth, float candleAreaHeight, float min, float range, bool isLast)
+    public void Update(int i, PricePoint p, float slotWidth, float priceAreaBottom, float candleAreaHeight,
+        float min, float range, bool isLast)
     {
         RectTransform rect = pool[i];
         TextMeshProUGUI label = dateLabels[i];
@@ -129,8 +130,8 @@ public class PriceChartCandles
         float bodyTop = Mathf.Max(p.Open, p.Close);
         float bodyBottom = Mathf.Min(p.Open, p.Close);
 
-        float yBottom = dateLabelAreaHeight + (bodyBottom - min) / range * candleAreaHeight;
-        float yTop = dateLabelAreaHeight + (bodyTop - min) / range * candleAreaHeight;
+        float yBottom = priceAreaBottom + (bodyBottom - min) / range * candleAreaHeight;
+        float yTop = priceAreaBottom + (bodyTop - min) / range * candleAreaHeight;
         float height = Mathf.Max(yTop - yBottom, minCandleHeight);
 
         float x = slotWidth * i + slotWidth * 0.5f;
@@ -145,8 +146,8 @@ public class PriceChartCandles
 
         // 일봉 단위(High/Low가 Open/Close 밖으로 안 나감)에서는 심지가 몸통과 겹쳐 안 보인다 — 주/월봉일 때만 눈에 띈다.
         RectTransform wickRect = wickPool[i];
-        float wickBottomY = dateLabelAreaHeight + (p.Low - min) / range * candleAreaHeight;
-        float wickTopY = dateLabelAreaHeight + (p.High - min) / range * candleAreaHeight;
+        float wickBottomY = priceAreaBottom + (p.Low - min) / range * candleAreaHeight;
+        float wickTopY = priceAreaBottom + (p.High - min) / range * candleAreaHeight;
         wickRect.gameObject.SetActive(true);
         wickRect.anchoredPosition = new Vector2(x, wickBottomY);
         wickRect.sizeDelta = new Vector2(candleWidth * WickWidthRatio, Mathf.Max(wickTopY - wickBottomY, 1f));

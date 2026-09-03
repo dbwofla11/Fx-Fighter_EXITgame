@@ -6,6 +6,11 @@ public class HoverTooltipTrigger : MonoBehaviour, IPointerEnterHandler, IPointer
 {
     [TextArea] [SerializeField] private string tooltipText;
 
+    public void SetTooltipText(string message)
+    {
+        tooltipText = message;
+    }
+
     public void OnPointerEnter(PointerEventData eventData)
     {
         StatTooltipUI.Instance.Show(tooltipText, (RectTransform)transform);

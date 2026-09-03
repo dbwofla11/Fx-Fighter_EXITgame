@@ -1,21 +1,13 @@
-using System.Collections;
 using UnityEngine;
-using UnityEngine.UI;
 
-// 현금이 목표 금액(엑시트 조건)에 처음 도달했을 때 이벤트 로그 버튼 옆에 뜨는 알림 배너(목업 기준). 오브젝트는 항상
-// 활성 상태를 유지하고 EventHub.OnAssetGoalAchieved를 상시 구독하며, panel만 켜고 끈다
-// (EventNotificationUI와 동일한 관례). X 버튼으로 닫으면 끝 — 달성 순간 1회성 알림이라 다시 뜨지 않는다.
-// 뜬 지 AutoOpenDelay초가 지나면 자동으로 닫히고 이벤트 로그 패널로 넘어간다(닫기 버튼으로 먼저 닫으면 취소).
+// 현금이 목표 금액(엑시트 조건)에 처음 도달했을 때, 시간을 수동 정지하고 EventLogPanel의 개요 탭으로
+// 즉시 이동시킨다. 개요 탭에는 활성화된 엑시트 버튼이 있으므로 달성 직후 다음 행동이 분명해진다.
 public class AssetGoalNotificationUI : MonoBehaviour
 {
-    private const float AutoOpenDelay = 2f;
-
+    // 이전 목표 달성 배너. 씬 참조 호환성을 위해 남겨두되, 이제 즉시 EventLogPanel로 이동하므로 표시하지 않는다.
     [SerializeField] private GameObject panel;
-    [SerializeField] private Button closeButton;
     [SerializeField] private EventLogPanelUI eventLogPanel;
     [SerializeField] private AudioClip openSfx;
-
-    private Coroutine autoOpenRoutine;
 
     private void OnEnable()
     {
@@ -29,33 +21,19 @@ public class AssetGoalNotificationUI : MonoBehaviour
 
     private void Start()
     {
-        if (closeButton != null) closeButton.onClick.AddListener(Close);
         if (panel != null) panel.SetActive(false);
     }
 
     private void HandleAssetGoalAchieved()
     {
         if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(openSfx);
-        ModalPause.Open(panel);
-        autoOpenRoutine = StartCoroutine(AutoOpenEventLog());
-    }
 
-    // 게임이 정지(Time.timeScale=0)된 상태에서도 흘러야 하는 타이머라 실시간 대기를 쓴다.
-    private IEnumerator AutoOpenEventLog()
-    {
-        yield return new WaitForSecondsRealtime(AutoOpenDelay);
-        autoOpenRoutine = null;
+        // ModalPause.Open만 쓰면 패널을 닫았을 때 시간이 다시 흐를 수 있다. 목표 달성 뒤에는 플레이어가
+        // 엑시트 여부를 확인할 때까지 멈춰 있어야 하므로 수동 정지를 먼저 건다.
+        if (TimeManager.Instance != null)
+            TimeManager.Instance.PauseGame();
+
         if (panel != null) panel.SetActive(false);
         if (eventLogPanel != null) eventLogPanel.Open();
-    }
-
-    private void Close()
-    {
-        if (autoOpenRoutine != null)
-        {
-            StopCoroutine(autoOpenRoutine);
-            autoOpenRoutine = null;
-        }
-        ModalPause.Close(panel);
     }
 }

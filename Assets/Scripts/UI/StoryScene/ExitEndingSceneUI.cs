@@ -1,6 +1,7 @@
 using System.Collections;
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 // 엔딩씬(ExitEndingScene) 전용. 엑시트 엔딩(EndingHandoff.Ending) : 스토리 2비트
@@ -30,6 +31,10 @@ public class ExitEndingSceneUI : MonoBehaviour
     public TextMeshProUGUI sellCountText;
     public TextMeshProUGUI manipulateCountText;
 
+    [Header("통계 빠른 재생")]
+    [SerializeField] private float fastForwardMultiplier = 8f;
+    [SerializeField] private int fastForwardHintFontSize = 22;
+
     [Header("버튼 (\"타이틀로 돌아가기\", 스크롤이 끝나야 활성화)")]
     public Button backToTitleButton;
     public AudioClip clickSfx;
@@ -37,10 +42,15 @@ public class ExitEndingSceneUI : MonoBehaviour
     [Header("사운드 (EndingType별, 없으면 재생하지 않는다 — EndingSceneUI와 같은 패턴)")]
     public AudioClip exitBgmClip;
 
+    private TextMeshProUGUI fastForwardHint;
+
+    private static readonly Color BackButtonGreen = new Color(0.2f, 0.68f, 0.32f, 1f);
+
     private void Start()
     {
         if (blackOverlay != null) blackOverlay.alpha = 0f;
         if (statsPanel != null) statsPanel.SetActive(false);
+        CreateFastForwardHint();
 
         // AudioManager는 DontDestroyOnLoad라 여기서 끄지 않으면 메인 게임 브금이 이 씬까지 계속 들린다.
         AudioClip bgmClip = exitBgmClip;
@@ -52,6 +62,7 @@ public class ExitEndingSceneUI : MonoBehaviour
 
         if (backToTitleButton != null)
         {
+            ApplyBackButtonGreen();
             backToTitleButton.interactable = false; // 통계 스크롤이 끝나기 전까지 조작 불가
             backToTitleButton.onClick.AddListener(OnBackToTitle);
         }
@@ -92,6 +103,7 @@ public class ExitEndingSceneUI : MonoBehaviour
         if (dialoguePanel != null) dialoguePanel.SetActive(false);
         if (storyController != null && storyController.continueButton != null) storyController.continueButton.gameObject.SetActive(false);
         if (statsPanel != null) statsPanel.SetActive(true);
+        if (fastForwardHint != null) fastForwardHint.gameObject.SetActive(true);
 
         GameStatsTracker stats = GameStatsTracker.Instance;
         if (stats != null)
@@ -118,7 +130,8 @@ public class ExitEndingSceneUI : MonoBehaviour
             float t = 0f;
             while (t < scrollDuration)
             {
-                t += Time.unscaledDeltaTime;
+                float speed = IsFastForwardHeld() ? Mathf.Max(1f, fastForwardMultiplier) : 1f;
+                t += Time.unscaledDeltaTime * speed;
                 statsScrollRect.verticalNormalizedPosition = Mathf.Lerp(1f, 0f, t / scrollDuration);
                 yield return null;
             }
@@ -130,6 +143,65 @@ public class ExitEndingSceneUI : MonoBehaviour
             backToTitleButton.interactable = true;
             backToTitleButton.gameObject.AddComponent<HoverIdleBob>().SetAlwaysActive(true);
         }
+    }
+
+    private static bool IsFastForwardHeld()
+    {
+        bool mouseHeld = Mouse.current != null && Mouse.current.leftButton.isPressed;
+        bool touchHeld = Touchscreen.current != null && Touchscreen.current.primaryTouch.press.isPressed;
+        return mouseHeld || touchHeld;
+    }
+
+    private void CreateFastForwardHint()
+    {
+        GameObject hintObject = new GameObject("FastForwardHint", typeof(RectTransform), typeof(TextMeshProUGUI));
+        hintObject.transform.SetParent(transform, false);
+
+        RectTransform rect = (RectTransform)hintObject.transform;
+        rect.anchorMin = Vector2.one;
+        rect.anchorMax = Vector2.one;
+        rect.pivot = Vector2.one;
+        rect.anchoredPosition = new Vector2(-32f, -28f);
+        rect.sizeDelta = new Vector2(620f, 72f);
+
+        fastForwardHint = hintObject.GetComponent<TextMeshProUGUI>();
+        fastForwardHint.text = Application.isMobilePlatform
+            ? "화면을 누르고 있으면 통계가 빠르게 재생됩니다"
+            : "마우스 좌클릭을 누르고 있으면 통계가 빠르게 재생됩니다";
+        fastForwardHint.fontSize = fastForwardHintFontSize;
+        fastForwardHint.fontStyle = FontStyles.Bold;
+        fastForwardHint.color = new Color(1f, 1f, 1f, 0.82f);
+        fastForwardHint.alignment = TextAlignmentOptions.TopRight;
+        fastForwardHint.raycastTarget = false;
+
+        TextMeshProUGUI fontSource = exitCashText != null
+            ? exitCashText
+            : storyController != null && storyController.typewriter != null
+                ? storyController.typewriter.label
+                : null;
+        if (fontSource != null)
+            fastForwardHint.font = fontSource.font;
+
+        hintObject.SetActive(false);
+    }
+
+    private void ApplyBackButtonGreen()
+    {
+        Graphic target = backToTitleButton.targetGraphic;
+        if (target != null)
+            target.color = BackButtonGreen;
+
+        ColorBlock colors = backToTitleButton.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = new Color(0.88f, 1f, 0.9f, 1f);
+        colors.pressedColor = new Color(0.68f, 0.86f, 0.72f, 1f);
+        colors.selectedColor = colors.highlightedColor;
+        colors.disabledColor = new Color(1f, 1f, 1f, 0.42f);
+        backToTitleButton.colors = colors;
+
+        TextMeshProUGUI label = backToTitleButton.GetComponentInChildren<TextMeshProUGUI>(true);
+        if (label != null)
+            label.color = Color.white;
     }
 
     private void OnBackToTitle()
