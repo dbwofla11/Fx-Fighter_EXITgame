@@ -11,15 +11,13 @@ public class PriceChartMovingAverage
     private readonly int[] periodDays; // 이평선 라인들의 룩백 기간(예: 10/30/60/120일). 캔들 기간(주/월)과는 별개.
     private readonly float lineThickness;
     private readonly int visibleCandleCount;
-    private readonly float dateLabelAreaHeight;
 
     private readonly List<List<RectTransform>> segments = new(); // 라인(기간)별 세그먼트 풀
 
-    public PriceChartMovingAverage(RectTransform chartArea, int visibleCandleCount, float dateLabelAreaHeight,
-        int[] periodDays, Color[] lineColors, float lineThickness)
+    public PriceChartMovingAverage(RectTransform chartArea, int visibleCandleCount, int[] periodDays,
+        Color[] lineColors, float lineThickness)
     {
         this.visibleCandleCount = visibleCandleCount;
-        this.dateLabelAreaHeight = dateLabelAreaHeight;
         this.periodDays = periodDays;
         this.lineThickness = lineThickness;
 
@@ -89,7 +87,8 @@ public class PriceChartMovingAverage
 
     // maPeriodDays 라인마다 보이는 구간의 이평선을 그린다. 값이 없는(아직 period일치가 안 쌓인) 구간은
     // 건너뛰고, 값이 있는 지점끼리만 이어서 그린다.
-    public void Redraw(IReadOnlyList<PricePoint> daily, int candlePeriodDays, int startIndex, int count, float slotWidth, float candleAreaHeight, float min, float range)
+    public void Redraw(IReadOnlyList<PricePoint> daily, int candlePeriodDays, int startIndex, int count,
+        float slotWidth, float priceAreaBottom, float candleAreaHeight, float min, float range)
     {
         for (int line = 0; line < periodDays.Length; line++)
         {
@@ -109,7 +108,7 @@ public class PriceChartMovingAverage
                 }
 
                 float x = slotWidth * i + slotWidth * 0.5f;
-                float y = dateLabelAreaHeight + (average.Value - min) / range * candleAreaHeight;
+                float y = priceAreaBottom + (average.Value - min) / range * candleAreaHeight;
                 Vector2 point = new Vector2(x, y);
 
                 if (previous.HasValue)

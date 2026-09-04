@@ -9,6 +9,7 @@ public class StatTooltipUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI text;
 
     private RectTransform rect;
+    private RectTransform canvasRect;
     private CanvasGroup group;
 
     // 시작부터 비활성 오브젝트로 두면 Awake가 안 돌아 Instance가 안 잡히므로, 루트는 항상 켜둔 채
@@ -17,6 +18,8 @@ public class StatTooltipUI : MonoBehaviour
     {
         Instance = this;
         rect = (RectTransform)transform;
+        Canvas parentCanvas = GetComponentInParent<Canvas>();
+        canvasRect = parentCanvas != null ? parentCanvas.transform as RectTransform : null;
         group = GetComponent<CanvasGroup>();
         Hide();
     }
@@ -24,7 +27,21 @@ public class StatTooltipUI : MonoBehaviour
     public void Show(string message, RectTransform anchor)
     {
         text.text = message;
-        rect.position = anchor.position + new Vector3(0f, anchor.rect.height / 2f + rect.rect.height / 2f + 8f, 0f);
+
+        float anchorHalfHeight = anchor.rect.height * anchor.lossyScale.y * 0.5f;
+        float tooltipHalfHeight = rect.rect.height * rect.lossyScale.y * 0.5f;
+        Vector3 position = anchor.position + new Vector3(0f, anchorHalfHeight + tooltipHalfHeight + 8f, 0f);
+
+        // Top-row controls (including the skill category banners) have no room above them.
+        // Place the tooltip below instead of allowing it to leave the canvas.
+        if (canvasRect != null)
+        {
+            float canvasTop = canvasRect.TransformPoint(new Vector3(0f, canvasRect.rect.yMax, 0f)).y;
+            if (position.y + tooltipHalfHeight > canvasTop)
+                position = anchor.position - new Vector3(0f, anchorHalfHeight + tooltipHalfHeight + 8f, 0f);
+        }
+
+        rect.position = position;
         group.alpha = 1f;
         rect.SetAsLastSibling();
     }

@@ -13,6 +13,9 @@ public class SkillManager : MonoBehaviour
     // 거기서 런타임 Active된것만 필터링해서 스킬 적용시킴
     private RuntimeSkillData runtimeSkillData = new();
 
+    // 재사용형 스킬별 1턴 구매 쿨타임. 다른 스킬 구매에는 영향을 주지 않는다.
+    private readonly HashSet<SkillID> reusableSkillsOnCooldown = new();
+
     /// <summary>
     /// 아이콘 클릭으로 선택된 스킬(재사용형 전용). UI가 정보 패널을 그릴 때 참조한다.
     /// </summary>
@@ -45,6 +48,7 @@ public class SkillManager : MonoBehaviour
     private void Initialize()
     {
         runtimeSkillData.Skills.Clear();
+        reusableSkillsOnCooldown.Clear();
 
         foreach (SkillSO skill in skillDatabase)
         {
@@ -61,12 +65,14 @@ public class SkillManager : MonoBehaviour
 
     private void OnEnable()
     {
+        EventHub.OnDayChanged += HandleDayChanged;
         EventHub.OnSkillClicked += HandleSkillClicked;
         EventHub.OnSkillPurchased += HandlePurchase;
     }
 
     private void OnDisable()
     {
+        EventHub.OnDayChanged -= HandleDayChanged;
         EventHub.OnSkillClicked -= HandleSkillClicked;
         EventHub.OnSkillPurchased -= HandlePurchase;
     }
@@ -74,6 +80,11 @@ public class SkillManager : MonoBehaviour
     #endregion
 
     #region 이벤트 처리 (클릭 / 구매)
+
+    private void HandleDayChanged()
+    {
+        reusableSkillsOnCooldown.Clear();
+    }
 
     // 스킬 아이콘 클릭 요청 수신 : 재사용형/1회성 모두 선택 상태만 저장한다. 구매(잠금 해제)는 구매 버튼(HandlePurchase) 전용.
     private void HandleSkillClicked(SkillID id)
@@ -102,6 +113,9 @@ public class SkillManager : MonoBehaviour
         if (skill.Profile.isReusable && skill.PurchaseCount >= skill.Profile.maxPurchaseCount)
             return;
 
+        if (skill.Profile.isReusable && reusableSkillsOnCooldown.Contains(skill.Profile.id))
+            return;
+
         long cost = CalculateCost(skill);
 
         if (!PlayerManager.Instance.TrySpend(cost))
@@ -116,6 +130,7 @@ public class SkillManager : MonoBehaviour
         {
             GrantCashBonus(skill.Profile);
             skill.IsUnlocked = true;
+            reusableSkillsOnCooldown.Add(skill.Profile.id);
         }
         else
         {
@@ -177,6 +192,11 @@ public class SkillManager : MonoBehaviour
     {
         SkillRuntimeInfo skill = GetSkill(id);
         return skill != null && skill.Profile.isReusable && skill.PurchaseCount >= skill.Profile.maxPurchaseCount;
+    }
+
+    public bool IsOnCooldown(SkillID id)
+    {
+        return reusableSkillsOnCooldown.Contains(id);
     }
 
     // 스킬 정보 패널용 : 해당 스킬을 몇 번 구매했는지 조회한다.

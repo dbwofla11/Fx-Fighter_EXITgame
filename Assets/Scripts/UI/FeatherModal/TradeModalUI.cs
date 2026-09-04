@@ -84,7 +84,7 @@ public class TradeModalUI : MonoBehaviour
             panel.SetActive(false);
 
         if (doubtWarningText != null)
-            doubtWarningText.text = "의심도가 MAX(99)에 가까워지면 매수/매도가 불가능해집니다.";
+            doubtWarningText.text = "의심도가 MAX(99.9)에 가까워지면 매수/매도가 불가능해집니다.";
     }
 
     private void PlayClickSfx()

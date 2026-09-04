@@ -29,7 +29,7 @@ public class PriceChartTooltip
 
     public void Show(PricePoint p)
     {
-        text.text = $"{UIFormat.DateSlash(p.Date)}  Open {UIFormat.CurrencyTight(p.Open)} → Close {UIFormat.CurrencyTight(p.Close)}";
+        text.text = $"{UIFormat.DateSlash(p.Date)}  Open {UIFormat.CurrencyTight(p.Open)} → Close {UIFormat.CurrencyTight(p.Close)}  거래량 {p.Volume:N0}";
         text.gameObject.SetActive(true);
     }
 

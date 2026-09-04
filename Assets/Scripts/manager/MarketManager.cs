@@ -15,6 +15,7 @@ public class MarketManager : MonoBehaviour
     private const int NewsEventIntervalTurns = 30;
     private const float NewsEventChance = 0.4f;
     private int turnCount;
+    private float playerTradeAmountThisTurn;
 
     // 상폐 기준 가격 : 이 가격 이하로 연속 방치되면 거지 엔딩(상폐)으로 처리한다. PriceCalculator.MinPrice(1,
     // 가격이 내려갈 수 있는 절대 하한)와는 별개 값이다.
@@ -110,6 +111,7 @@ public class MarketManager : MonoBehaviour
         CurrentStat.StreamerIndex = InitialStreamerIndex;
 
         turnCount = 0;
+        playerTradeAmountThisTurn = 0f;
         priceFloorStreak = 0;
         IsGameOver = false;
         runtimeEventData = new RuntimeEventData();
@@ -291,15 +293,19 @@ public class MarketManager : MonoBehaviour
 
     #region 캔들 기록
 
-    // 이번 턴의 가격 캔들(Open=턴 시작 전 가격, Close=턴 계산 후 가격)을 이력에 기록한다.
+    // 이번 턴의 가격 캔들(Open=턴 시작 전 가격, Close=턴 계산 후 가격)과 거래량 지수를 이력에 기록한다.
     private void LogPricePoint(float open)
     {
         runtimePriceHistory.Points.Add(new PricePoint
         {
             Date = TimeManager.Instance.CurrentGameDate,
             Open = open,
-            Close = CurrentStat.CurrentPrice
+            Close = CurrentStat.CurrentPrice,
+            Volume = PriceCalculator.CalculateVolumeIndex(CurrentStat.Volume, open, CurrentStat.CurrentPrice,
+                playerTradeAmountThisTurn, turnCount)
         });
+
+        playerTradeAmountThisTurn = 0f;
     }
 
     #endregion
@@ -332,6 +338,7 @@ public class MarketManager : MonoBehaviour
     private void HandleBuyCoin(long amount)
     {
         TradeCalculator.Long(CurrentStat, amount);
+        playerTradeAmountThisTurn += Mathf.Abs((float)amount);
         StatCalculator.ClampStat(CurrentStat);
         CheckAutomaticEndings();
     }
@@ -340,6 +347,7 @@ public class MarketManager : MonoBehaviour
     private void HandleSellCoin(long amount)
     {
         TradeCalculator.Short(CurrentStat, amount);
+        playerTradeAmountThisTurn += Mathf.Abs((float)amount);
         StatCalculator.ClampStat(CurrentStat);
         CheckAutomaticEndings();
     }

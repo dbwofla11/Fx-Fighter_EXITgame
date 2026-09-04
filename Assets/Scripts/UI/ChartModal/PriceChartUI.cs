@@ -40,6 +40,13 @@ public class PriceChartUI : MonoBehaviour, IScrollHandler, IBeginDragHandler, ID
     [SerializeField] private Color gridPriceLabelColor = new Color(0f, 0.9f, 0.9f); // 시안색 — 기존 회색이 잘 안 보인다는 피드백으로 변경(2026-08-08)
     [SerializeField] private float gridPriceLabelWidth = 90f;
 
+    [Header("거래량 차트")]
+    [SerializeField, Range(0.15f, 0.35f)] private float volumeAreaRatio = 0.24f;
+    [SerializeField] private float volumeAreaGap = 8f;
+    [SerializeField, Range(0.2f, 1f)] private float volumeBarWidthRatio = 0.72f;
+    [SerializeField] private int volumeLabelFontSize = 16;
+    [SerializeField] private Color volumeLabelColor = new Color(0.4f, 0.4f, 0.4f);
+
     [Header("평단가 참조선 (우측)")]
     [SerializeField] private float avgPriceLineThickness = 2f;
     [SerializeField] private Color avgPriceLineColor = new Color(0f, 0.9f, 0.9f); // 시안색 — 흰색/회색 계열이 잘 안 보인다는 피드백으로 변경(2026-08-08)
@@ -68,6 +75,7 @@ public class PriceChartUI : MonoBehaviour, IScrollHandler, IBeginDragHandler, ID
     private RectTransform chartArea;
     private PriceChartViewport viewport;
     private PriceChartGrid grid;
+    private PriceChartVolume volumeChart;
     private PriceChartCandles candles;
     private PriceChartMovingAverage movingAverage;
     private PriceChartAvgPriceLine avgPriceLine;
@@ -88,14 +96,17 @@ public class PriceChartUI : MonoBehaviour, IScrollHandler, IBeginDragHandler, ID
         if (background != null)
             background.raycastTarget = true;
 
-        // 생성 순서 = 렌더링 순서(나중에 생성된 오브젝트가 위에 그려짐): 격자 → 캔들 → 이동평균선 → 평단가 참조선 → 툴팁.
+        // 생성 순서 = 렌더링 순서(나중에 생성된 오브젝트가 위에 그려짐): 격자 → 거래량 → 캔들 → 이동평균선 → 평단가 참조선 → 툴팁.
         grid = new PriceChartGrid(chartArea, gridLineCount, gridLineThickness, gridLineColor,
             gridPriceLabelFontSize, gridPriceLabelColor, gridPriceLabelWidth);
+
+        volumeChart = new PriceChartVolume(chartArea, visibleCandleCount, volumeBarWidthRatio,
+            upColor, downColor, gridLineThickness, gridLineColor, volumeLabelFontSize, volumeLabelColor);
 
         candles = new PriceChartCandles(chartArea, this, visibleCandleCount, candleWidthRatio, minCandleHeight,
             upColor, downColor, dateLabelAreaHeight, dateLabelFontSize, dateLabelColor);
 
-        movingAverage = new PriceChartMovingAverage(chartArea, visibleCandleCount, dateLabelAreaHeight,
+        movingAverage = new PriceChartMovingAverage(chartArea, visibleCandleCount,
             maPeriodDays, maLineColors, maLineThickness);
 
         avgPriceLine = new PriceChartAvgPriceLine(chartArea, avgPriceLineThickness, avgPriceLineColor,
@@ -165,6 +176,7 @@ public class PriceChartUI : MonoBehaviour, IScrollHandler, IBeginDragHandler, ID
         if (count == 0)
         {
             candles.HideAll();
+            volumeChart.HideAll();
             grid.Hide();
             movingAverage.HideAll();
             avgPriceLine.Hide();
@@ -174,14 +186,20 @@ public class PriceChartUI : MonoBehaviour, IScrollHandler, IBeginDragHandler, ID
         ComputePriceRange(history, daily, startIndex, count, out float min, out float range);
 
         float chartWidth = chartArea.rect.width;
-        // 아래쪽은 날짜 라벨 자리로 비워두고, 그 위 영역에만 캔들을 그린다.
-        float candleAreaHeight = chartArea.rect.height - dateLabelAreaHeight;
+        // 날짜 라벨 위에 거래량, 그 위에 가격 차트를 배치한다. 비율 기반이라 해상도와 패널 크기가 바뀌어도 유지된다.
+        float drawableHeight = Mathf.Max(1f, chartArea.rect.height - dateLabelAreaHeight);
+        float volumeAreaHeight = drawableHeight * volumeAreaRatio;
+        float gap = Mathf.Min(volumeAreaGap, drawableHeight * 0.1f);
+        float candleAreaHeight = Mathf.Max(1f, drawableHeight - volumeAreaHeight - gap);
+        float priceAreaBottom = dateLabelAreaHeight + volumeAreaHeight + gap;
         float slotWidth = chartWidth / viewport.ZoomCandleCount;
 
-        grid.Redraw(min, range, dateLabelAreaHeight, candleAreaHeight, chartWidth);
+        grid.Redraw(min, range, priceAreaBottom, candleAreaHeight, chartWidth);
+        volumeChart.Redraw(history, startIndex, count, slotWidth,
+            dateLabelAreaHeight, volumeAreaHeight, chartWidth);
 
         float avgPrice = PlayerManager.Instance != null ? PlayerManager.Instance.averageBuyPrice : 0f;
-        avgPriceLine.Redraw(avgPrice, min, range, dateLabelAreaHeight, candleAreaHeight, chartWidth);
+        avgPriceLine.Redraw(avgPrice, min, range, priceAreaBottom, candleAreaHeight, chartWidth);
 
         for (int i = 0; i < visibleCandleCount; i++)
         {
@@ -192,10 +210,11 @@ public class PriceChartUI : MonoBehaviour, IScrollHandler, IBeginDragHandler, ID
             }
 
             PricePoint p = history[startIndex + i];
-            candles.Update(i, p, slotWidth, candleAreaHeight, min, range, i == count - 1);
+            candles.Update(i, p, slotWidth, priceAreaBottom, candleAreaHeight, min, range, i == count - 1);
         }
 
-        movingAverage.Redraw(daily, viewport.PeriodDays, startIndex, count, slotWidth, candleAreaHeight, min, range);
+        movingAverage.Redraw(daily, viewport.PeriodDays, startIndex, count, slotWidth,
+            priceAreaBottom, candleAreaHeight, min, range);
     }
 
     // 일별 PricePoint를 앞에서부터 periodDays개씩 묶어 캔들(주봉/월봉) 1개로 집계한다.
@@ -213,10 +232,12 @@ public class PriceChartUI : MonoBehaviour, IScrollHandler, IBeginDragHandler, ID
 
             float high = float.MinValue;
             float low = float.MaxValue;
+            float volume = 0f;
             for (int k = i; k <= end; k++)
             {
                 high = Mathf.Max(high, daily[k].Open, daily[k].Close);
                 low = Mathf.Min(low, daily[k].Open, daily[k].Close);
+                volume += daily[k].Volume;
             }
 
             result.Add(new PricePoint
@@ -225,7 +246,8 @@ public class PriceChartUI : MonoBehaviour, IScrollHandler, IBeginDragHandler, ID
                 Open = daily[i].Open,
                 Close = daily[end].Close,
                 High = high,
-                Low = low
+                Low = low,
+                Volume = volume
             });
         }
 
