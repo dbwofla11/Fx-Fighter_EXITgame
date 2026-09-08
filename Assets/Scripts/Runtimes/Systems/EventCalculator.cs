@@ -13,15 +13,23 @@ public static class EventCalculator
     /// </summary>
     public static EventSO Calculate(PlayerStat stat, IReadOnlyList<EventSO> eventDatabase)
     {
-        EventCategory category = RollCategory(stat);
-        EventSO chosen = PickWeighted(eventDatabase, category);
+        EventSO chosen = SelectEvent(stat, eventDatabase);
 
         if (chosen == null)
             return null;
 
-        Apply(stat, chosen);
+        // 선택형 이벤트는 플레이어 입력 뒤 ResolveChoice에서 한 번만 적용한다.
+        if (chosen.choices == null || chosen.choices.Count == 0)
+            Apply(stat, chosen);
 
         return chosen;
+    }
+
+    /// <summary>이벤트만 선택하고 적용은 호출자에게 맡긴다. 선택형 이벤트는 이 단계에서 효과를 적용하지 않는다.</summary>
+    public static EventSO SelectEvent(PlayerStat stat, IReadOnlyList<EventSO> eventDatabase)
+    {
+        EventCategory category = RollCategory(stat);
+        return PickWeighted(eventDatabase, category);
     }
 
     /// <summary>
@@ -29,6 +37,10 @@ public static class EventCalculator
     /// </summary>
     public static void Apply(PlayerStat stat, EventSO chosen)
     {
+        if (chosen == null)
+            return;
+
+        if (chosen.effects != null)
         foreach (EffectData effect in chosen.effects)
         {
             StatCalculator.ApplyEffect(stat, effect);
@@ -39,6 +51,85 @@ public static class EventCalculator
         // 그 턴의 PriceCalculator 정규 가격 변화와 별도로, 이벤트 자체로 즉시 발생하는 1회성 가격 충격이다.
         stat.CurrentPrice += stat.CurrentPrice * chosen.priceRatio;
         PriceCalculator.ClampPrice(stat);
+    }
+
+    public static float CalculateChoiceSuccessProbability(PlayerStat stat, EventChoice choice, int overdueCount)
+    {
+        if (choice == null)
+            return 0f;
+
+        float doubtPenalty = Mathf.Max(0f, stat.Doubt) / 100f * choice.doubtPenaltyAt100;
+        float overduePenalty = Mathf.Max(0, overdueCount) * choice.overduePenaltyPerCount;
+        return Mathf.Clamp01(choice.baseSuccessProbability + choice.skillBonus + choice.jobBonus
+            - doubtPenalty - overduePenalty);
+    }
+
+    public static long CalculateChoiceCost(EventChoice choice, int previousSelectionCount)
+    {
+        if (choice == null || choice.baseCost <= 0)
+            return 0;
+
+        double multiplier = Mathf.Max(0f, choice.costMultiplier);
+        double rawCost = choice.baseCost * System.Math.Pow(multiplier, Mathf.Max(0, previousSelectionCount));
+        long cost = rawCost >= long.MaxValue ? long.MaxValue : (long)System.Math.Floor(rawCost);
+
+        if (choice.maxCost > 0)
+            cost = System.Math.Min(cost, choice.maxCost);
+
+        return System.Math.Max(0L, cost);
+    }
+
+    public static EventChoiceResolution ResolveChoice(PlayerStat stat, EventChoice choice, int choiceIndex,
+        int previousSelectionCount, long currentCash, int overdueCount)
+    {
+        EventChoiceResolution resolution = new EventChoiceResolution
+        {
+            ChoiceIndex = choiceIndex,
+            ChoiceLabel = choice?.label ?? string.Empty,
+            Cost = CalculateChoiceCost(choice, previousSelectionCount)
+        };
+
+        if (choice == null)
+            return resolution;
+
+        long availableCash = System.Math.Max(0L, currentCash);
+        if (availableCash < resolution.Cost && !choice.allowDebt)
+            return resolution;
+
+        resolution.Valid = true;
+        resolution.CashPaid = System.Math.Min(availableCash, resolution.Cost);
+        resolution.DebtAdded = resolution.Cost - resolution.CashPaid;
+        resolution.SuccessProbability = CalculateChoiceSuccessProbability(stat, choice, overdueCount);
+        resolution.Succeeded = Random.value <= resolution.SuccessProbability;
+
+        if (resolution.Succeeded)
+        {
+            ApplyEffects(stat, choice.successEffects);
+            stat.Supply += choice.successSupplyDelta;
+            stat.CurrentPrice *= 1f + choice.successPriceRatio;
+            resolution.CashDelta = choice.successCashDelta;
+        }
+        else
+        {
+            ApplyEffects(stat, choice.failureEffects);
+            stat.Supply += choice.failureSupplyDelta;
+            stat.CurrentPrice *= 1f - Mathf.Clamp01(choice.failurePriceRate);
+            long cashAfterCost = availableCash - resolution.CashPaid;
+            resolution.FailureCashLoss = (long)System.Math.Floor(cashAfterCost * Mathf.Max(0f, choice.failureCashRate));
+            resolution.CashDelta = choice.failureCashDelta;
+        }
+
+        PriceCalculator.ClampPrice(stat);
+        return resolution;
+    }
+
+    private static void ApplyEffects(PlayerStat stat, List<EffectData> effects)
+    {
+        if (effects == null)
+            return;
+
+        foreach (EffectData effect in effects)
+            StatCalculator.ApplyEffect(stat, effect);
     }
 
     /// <summary>
@@ -65,7 +156,7 @@ public static class EventCalculator
 
         foreach (EventSO candidate in eventDatabase)
         {
-            if (candidate.category == category)
+            if (candidate != null && candidate.category == category)
                 totalWeight += candidate.weight;
         }
 
@@ -77,7 +168,7 @@ public static class EventCalculator
 
         foreach (EventSO candidate in eventDatabase)
         {
-            if (candidate.category != category)
+            if (candidate == null || candidate.category != category)
                 continue;
 
             cumulative += candidate.weight;

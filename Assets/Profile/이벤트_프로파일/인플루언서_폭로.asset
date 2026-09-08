@@ -16,10 +16,49 @@ MonoBehaviour:
     \uD3ED\uB85C\uD588\uC2B5\uB2C8\uB2E4."
   category: 1
   weight: 1
-  effects:
-  - effectType: 0
-    value: -7.5
-  - effectType: 9
-    value: 12.5
-  supplyDelta: 75
-  priceRatio: -0.02
+  effects: []
+  supplyDelta: 0
+  priceRatio: 0
+  choices:
+  - label: "\uC989\uC2DC \uD574\uBA85\uD55C\uB2E4"
+    baseSuccessProbability: 0.7
+    doubtPenaltyAt100: 0.25
+    overduePenaltyPerCount: 0.01
+    baseCost: 500000
+    costMultiplier: 1.5
+    maxCost: 0
+    allowDebt: 0
+    successEffects: []
+    successSupplyDelta: 0
+    successPriceRatio: 0
+    successCashDelta: 0
+    failureEffects:
+    - effectType: 0
+      value: -7.5
+    - effectType: 9
+      value: 12.5
+    failureCashRate: 0
+    failurePriceRate: 0.02
+    failureSupplyDelta: 75
+    failureCashDelta: 0
+  - label: "\uBC18\uBC15\uD558\uC9C0 \uC54A\uACE0 \uC9C0\uCF1C\uBCF8\uB2E4"
+    baseSuccessProbability: 0.45
+    doubtPenaltyAt100: 0.25
+    overduePenaltyPerCount: 0.01
+    baseCost: 0
+    costMultiplier: 1.5
+    maxCost: 0
+    allowDebt: 0
+    successEffects: []
+    successSupplyDelta: 0
+    successPriceRatio: 0
+    successCashDelta: 0
+    failureEffects:
+    - effectType: 0
+      value: -7.5
+    - effectType: 9
+      value: 12.5
+    failureCashRate: 0
+    failurePriceRate: 0.02
+    failureSupplyDelta: 75
+    failureCashDelta: 0

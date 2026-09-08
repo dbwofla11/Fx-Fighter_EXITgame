@@ -506,10 +506,12 @@ static 클래스 패턴)의 `StartDoubtDecline`(구매 시 시작, `StatCalculat
 
 # 4. 시사 이벤트
 
-시사 이벤트는 발생하는 즉시, 뽑힌 `EventSO`가 정의한 만큼 Support/Growth/Doubt/Supply/가격에 직접 반영된다
-(`EventCalculator.Calculate(PlayerStat stat, IReadOnlyList<EventSO> eventDatabase)`).
-Support/Growth는 Trade/Job과 동일하게 반영 후 매 턴 감쇠하고, Supply는 반영 후에도 매 턴 자동 증가가 계속
-적용된다. Doubt는 감쇠하지 않고 그대로 유지된다 (3장 참고).
+시사 이벤트는 `EventSO`를 먼저 뽑은 뒤, 선택형 이벤트라면 플레이어의 선택 결과를 판정하고 그 결과의 효과를
+반영한다. 선택 전에는 Support/Growth/Doubt/Supply/가격에 효과를 적용하지 않는다. 선택지가 없는 기존 이벤트는
+하위 호환을 위해 기존처럼 자동 적용할 수 있다.
+
+선택 결과로 반영된 Support/Growth는 Trade/Job과 동일하게 이후 매 턴 감쇠하고, Supply는 반영 후에도 매 턴
+자동 증가가 계속 적용된다. Doubt는 감쇠하지 않고 그대로 유지된다 (3장 참고).
 
 ## 발생 시점
 
@@ -518,7 +520,8 @@ Support/Growth는 Trade/Job과 동일하게 반영 후 매 턴 감쇠하고, Sup
   `MarketManager.FindGuaranteedEvent(turnCount)`가 매 턴 `eventDatabase`를 훑어 찾는다.
 - 자동(확률) : `MarketManager.NextTurn()`에서 `NewsEventIntervalTurns`(30)턴마다 `NewsEventChance`(40%) 확률로 발생
   여부를 판정한다.
-- 무조건 발생/자동(확률) 모두 동일하게 `EventCalculator.Calculate(CurrentStat, eventDatabase)`를 호출한다.
+- 무조건 발생/자동(확률) 모두 동일하게 이벤트 선택 함수(`EventCalculator.PickEvent(...)`)를 호출한다. 선택형
+  이벤트의 효과 적용은 플레이어가 선택한 뒤 별도의 선택 결과 판정 함수에서 수행한다.
   `eventDatabase`는 `MarketManager`가 `[SerializeField] List<EventSO>`로 들고 있다 (`SkillManager.skillDatabase`와
   동일한 패턴).
 
@@ -536,6 +539,7 @@ Support/Growth는 Trade/Job과 동일하게 반영 후 매 턴 감쇠하고, Sup
 | `supplyDelta` | Supply 변화량 (부호 포함). Job/Skill은 Supply를 건드리지 않으므로 `effects`에는 포함하지 않고 전용 필드로 둔다 |
 | `priceRatio` | 가격에 즉시 반영되는 변화율 (부호 포함, 예: `0.03` = +3%, `-0.06` = -6%) |
 | `guaranteedTurn` | 0이면 확률 발생 대상. N(1 이상)이면 게임 시작 후 N번째 턴에 확률 체크 없이 무조건 발생 (예: 스트리머_소개=1, 거래소_상장=2로 초반 두 턴에 순차 발생하도록 설정됨) |
+| `choices` | 선택형 이벤트의 선택지 목록. 선택지마다 성공 확률, 비용, 성공 효과, 실패 효과를 가진다. 비어 있으면 기존 자동 적용 방식으로 처리할 수 있다 |
 
 `effects`에서 Doubt를 다루려면 `EffectType.DoubtIncrease`(신규 추가, Job/Skill의 기존 `DoubtDecrease`와 대칭)와
 `DoubtDecrease`를 상황에 맞게 쓴다.
@@ -551,19 +555,161 @@ Pup_event = Clamp(0.5 + PositiveEventRate / 100 - NegativeEventRate / 100, 0, 1)
 대상으로 `weight` 가중치 랜덤을 돌려 하나를 뽑는다. 해당 카테고리에 속한 이벤트가 하나도 없으면 그 턴은 아무
 이벤트도 발생하지 않는다.
 
+## 선택형 이벤트 수식
+
+### 선택지 성공 확률
+
+플레이어가 선택지를 누르는 행위 자체는 확정이다. 아래 확률은 선택한 행동이 성공 결과로 끝날 확률이다.
+
+Pchoice_success = Clamp(
+Pbase
++ Bskill
++ Bjob
+- Bdoubt
+- Boverdue
+, 0, 1)
+
+변수
+
+- `Pbase` : 선택지에 설정된 기본 성공 확률 (예: 0.55 = 55%)
+- `Bskill` : 선택지와 관련된 스킬 보정
+- `Bjob` : 현재 직업 보정
+- `Bdoubt` : 현재 Doubt에 따른 실패 보정
+- `Boverdue` : 이자 연체 상태에 따른 실패 보정
+- `Clamp(x, 0, 1)` : 최종 확률을 0~100% 범위로 제한
+
+판정
+
+```text
+r = Random.value
+
+r <= Pchoice_success  → 성공
+r >  Pchoice_success  → 실패
+```
+
+선택 결과는 한 번만 굴린다. 성공 효과와 실패 효과를 동시에 적용하지 않는다. 확률은 UI에 최종 보정값으로
+표시하는 것을 기본으로 한다.
+
+### 이벤트 선택지의 발생 횟수별 고정 비용
+
+선택지 비용은 UI에 고정 금액처럼 표시하되, **해당 선택지를 실제로 선택한 횟수**가 늘어날수록 비용이 증가한다.
+발생한 이벤트의 다른 선택지를 골랐거나 이벤트가 나왔지만 해당 선택지를 고르지 않았다면 이 선택지의 카운트는
+증가하지 않는다. 첫 선택 비용은 기본 비용으로 시작한다.
+
+```text
+n = 현재 선택지의 누적 선택 횟수 (첫 선택 전 n = 0)
+
+선택지 비용 = Min(MaxCost, Floor(BaseCost × CostMultiplierⁿ))
+```
+
+변수
+
+- `BaseCost` : 해당 선택지의 첫 선택 기본 비용 (예: 변호사 고용 2,500,000)
+- `CostMultiplier` : 같은 선택지를 다시 선택할 때 적용할 배율 (예: 1.5)
+- `MaxCost` : 비용이 무한히 커지는 것을 막는 상한
+- `n` : 현재 선택지가 이전까지 선택된 횟수. 선택지 결과가 확정된 뒤 해당 선택지 카운트를 1 증가시킨다.
+- `Floor` : 현금이 정수(`long`)이므로 소수점 버림
+
+UI에는 수식 대신 현재 선택 횟수에 따라 계산된 실제 비용을 표시한다.
+
+```text
+변호사 고용 1회 선택: 2,500,000 × 1.5⁰ = 2,500,000
+변호사 고용 2회 선택: 2,500,000 × 1.5¹ = 3,750,000
+변호사 고용 3회 선택: 2,500,000 × 1.5² = 5,625,000
+```
+
+필요 비용보다 현금이 부족한 경우에는 현금을 음수로 만들지 않는다.
+
+```text
+실제 납부액 = Min(CurrentCash, 선택지 비용)
+부족액      = 선택지 비용 - 실제 납부액
+```
+
+부족액은 해당 선택지가 대출을 허용할 때만 부채로 넘긴다. 그렇지 않으면 선택지를 비활성화한다.
+
+### 실패 패널티의 현금 비율
+
+선택 비용과 달리 실패 패널티는 현재 현금에 대한 비율로 계산한다. 실패 결과가 플레이어의 자산 규모에 맞춰
+커지도록 하기 위한 규칙이다.
+
+```text
+FailureCashLoss = Floor(CurrentCash × FailureCashRate)
+```
+
+### 실패 패널티
+
+실패는 현금 차감 하나로 끝내지 않고, 아래 효과를 조합해 크게 적용한다.
+
+```text
+FailureCashLoss = Floor(CurrentCash × FailureCashRate)
+Doubt           = Clamp(Doubt + FailureDoubt, -100, 100)
+CurrentPrice    = Max(MinPrice, CurrentPrice × (1 - FailurePriceRate))
+```
+
+일반적인 실패 패널티의 초기 밸런스 범위는 다음과 같다.
+
+- `FailureCashRate` : 0.15~0.30 (현재 현금의 15~30%)
+- `FailureDoubt` : +15~+30
+- `FailurePriceRate` : 0.10~0.25 (가격 10~25% 하락)
+- 추가 패널티 : 일정 턴 거래 제한, 추가 대출 제한, 다음 이자율 상승, 후속 부정 이벤트
+
+현금이 0에 가까워도 실패가 무의미해지지 않도록 Doubt, 가격, 거래 제한 중 하나 이상을 함께 적용한다. 한 번의
+실패로 즉시 게임 오버시키기보다는 패널티를 누적시켜 체포·파산·부채 디폴트로 이어지게 한다.
+
+### 당국 조사 예시
+
+| 선택지 | `Pbase` | 성공 시 | 실패 시 |
+|---|---:|---|---|
+| 조사에 협조한다 | 0.90 | 고정 비용 500,000, Doubt -10 | 현재 현금 20% 차감, Doubt +15 |
+| 자료를 은폐한다 | 0.55 | 비용 없음, 현금 보존 | 현재 현금 30% 차감, Doubt +30, 가격 15% 하락 |
+| 변호사를 고용한다 | 0.80 | 고정 비용 2,500,000, Doubt -20 | 현재 현금 20% 차감, Doubt +20, 다음 대출 이자율 상승 |
+
+예를 들어 당국 조사가 세 번 발생했더라도 변호사를 한 번도 고용하지 않았다면 변호사 비용은 여전히
+`2,500,000`이다. 변호사를 세 번 선택한 뒤 네 번째로 다시 선택하면 비용은 `2,500,000 × 1.5³ = 8,437,500`이
+된다. 현재 현금이 100,000이고 자료 은폐가 실패하면 현금 30,000을 차감하고 Doubt를 30만큼 올리며, 현재
+가격을 15% 낮춘다. 실패 확률이 45%인 대신 실패했을 때 여러 영역에 큰 손실이 발생한다.
+
 ## 반영 방식
 
-뽑힌 `EventSO`(`chosen`)의 값을 그대로, 부호 변환 없이 적용한다 (부호는 이미 각 `EventSO`의 `effects`/
-`supplyDelta`/`priceRatio`에 authored되어 있다).
+선택지가 없는 이벤트는 기존 `EventSO`(`chosen`)의 값을 그대로, 부호 변환 없이 적용한다. 선택형 이벤트는
+선택지 `choice`의 성공/실패 결과에 해당하는 효과를 적용한다. 부호는 각 효과 데이터에 authored되어 있다.
 
-- Support/Growth/Doubt : `chosen.effects`를 하나씩 `StatCalculator.ApplyEffect(stat, effect)`로 적용 (Job/Skill과
-  동일한 함수 재사용). Support/Growth는 이후 매 턴 감쇠(3장), Doubt는 감쇠하지 않고 그대로 누적(3장)
-- Supply : `stat.Supply += chosen.supplyDelta` (이후 매 턴 자동 증가가 계속 적용됨, 2장 참고)
-- 가격 : `stat.CurrentPrice += stat.CurrentPrice × chosen.priceRatio` — 그 턴의 `PriceCalculator` 정규 가격
-  변화(2장 공식)와는 별개로 이벤트가 즉시 일으키는 1회성 충격이며, 감쇠하지 않는다.
+- 성공/실패 결과의 Support/Growth/Doubt : 결과 효과를 `StatCalculator.ApplyEffect(stat, effect)`로 적용
+- Supply : 결과에 정의된 `supplyDelta`를 `stat.Supply`에 반영
+- 가격 : 결과에 정의된 `priceRatio`를 `stat.CurrentPrice`에 반영
+- 현금/부채 : 결과에 정의된 비율과 금액 규칙으로 `PlayerManager`/부채 시스템에 반영
 
-발생한 이벤트는 `MarketManager.EventLog`(`IReadOnlyList<EventLogEntry>`)에 `{EventSO 참조, 발생 날짜
-(TimeManager.CurrentGameDate)}`로 기록되어, 나중에 이벤트 로그 UI가 그대로 읽어 그릴 수 있다.
+발생한 이벤트는 `MarketManager.EventLog`(`IReadOnlyList<EventLogEntry>`)에 이벤트 프로필, 발생 날짜,
+선택지, 최종 성공 확률, 성공/실패 결과, 현금 및 부채 변화를 기록한다.
+
+## 이자 및 연체 수식
+
+이자율은 납부 회차가 늘어날수록 증가한다. 납부 주기는 30턴이다.
+
+```text
+이자율(n, d) = Min(최대 이자율,
+                   기본 이자율 + (n - 1) × 회차 증가율 + d × 연체 가산율)
+이번 이자 = Ceil(원금 × 이자율(n, d))
+```
+
+정상 납부를 선택하면 이번 이자를 차감한다. 현금이 부족해도 차감하며, 현금은 마이너스가 될 수 있다.
+연체하기를 선택하면 현금은 차감하지 않고 연체 횟수만 증가한다.
+
+```text
+정상 납부 후 현금 = 현재 현금 - 이번 이자
+연체하기 후 d     = d + 1
+```
+
+```text
+기본 이자율 = 3%
+회차 증가율 = 0.5%p
+최대 이자율 = 8%
+연체 가산율 = 1%p
+납부 주기   = 30턴
+```
+
+현금이 마이너스인 상태로 30턴 이상 유지되면 거지 엔딩(게임오버)으로 처리한다. 현금이 0 이상으로
+회복되면 마이너스 상태 연속 턴 수를 초기화한다.
 
 ## Doubt 자동 상승
 

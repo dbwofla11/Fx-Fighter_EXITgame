@@ -18,6 +18,9 @@ public static class EventEffectFormatter
     {
         StringBuilder sb = new StringBuilder();
 
+        if (effects == null)
+            return string.Empty;
+
         for (int i = 0; i < effects.Count; i++)
         {
             (string label, float delta, string suffix) = DescribeEffect(effects[i]);
@@ -32,6 +35,135 @@ public static class EventEffectFormatter
         }
 
         return sb.ToString();
+    }
+
+    public static string BuildEntryEffectsText(EventLogEntry entry)
+    {
+        if (entry == null || entry.Profile == null)
+            return string.Empty;
+
+        if (!entry.HasChoiceResult)
+            return BuildEffectsText(entry.Profile.effects);
+
+        StringBuilder sb = new StringBuilder();
+        sb.Append(entry.ChoiceLabel);
+        sb.Append(" - ");
+        sb.Append(entry.Succeeded ? "성공" : "실패");
+        sb.Append('\n');
+        sb.Append("최종 성공확률 ");
+        sb.Append(entry.SuccessProbability.ToString("P0"));
+        sb.Append('\n');
+        string resultEffects = BuildEffectsText(entry.ResultEffects);
+        if (!string.IsNullOrEmpty(resultEffects))
+        {
+            sb.Append(resultEffects);
+            sb.Append('\n');
+        }
+        if (entry.ResultSupplyDelta != 0f)
+        {
+            sb.Append("발행량 ");
+            sb.Append(UIFormat.Signed(entry.ResultSupplyDelta));
+            sb.Append('\n');
+        }
+        if (entry.ResultPriceRatio != 0f)
+        {
+            sb.Append("가격 ");
+            sb.Append(UIFormat.SignedPercent(entry.ResultPriceRatio * 100f));
+            sb.Append('\n');
+        }
+        sb.Append("현금 ");
+        sb.Append(FormatSignedMoney(entry.CashAfter - entry.CashBefore));
+        sb.Append('\n');
+        sb.Append("부채 ");
+        sb.Append(FormatSignedMoney(entry.DebtAfter - entry.DebtBefore));
+        return sb.ToString();
+    }
+
+    public static string BuildEntryTitle(EventLogEntry entry)
+    {
+        if (entry == null || entry.Profile == null)
+            return string.Empty;
+
+        if (!entry.HasChoiceResult)
+            return entry.Profile.message;
+
+        string action = entry.ChoiceLabel ?? string.Empty;
+        string resultSubject = action.EndsWith("한다")
+            ? action.Substring(0, action.Length - 2) + "하는 것을"
+            : action.EndsWith("다")
+                ? action.Substring(0, action.Length - 1) + " 것을"
+                : action;
+        return resultSubject + (entry.Succeeded ? " 성공했습니다!" : " 실패했습니다...");
+    }
+
+    // The modal result frame intentionally stays short. The event log keeps the
+    // detailed probability/debt breakdown through BuildEntryEffectsText instead.
+    public static string BuildChoiceResultText(EventLogEntry entry)
+    {
+        if (entry == null || entry.Profile == null)
+            return string.Empty;
+
+        StringBuilder sb = new StringBuilder();
+        string resultEffects = BuildEffectsText(entry.ResultEffects);
+        if (!string.IsNullOrEmpty(resultEffects))
+            sb.Append(resultEffects);
+
+        if (entry.ResultSupplyDelta != 0f)
+            AppendLine(sb, "발행량 " + UIFormat.Signed(entry.ResultSupplyDelta));
+
+        if (entry.ResultPriceRatio != 0f)
+            AppendLine(sb, "가격 " + UIFormat.SignedPercent(entry.ResultPriceRatio * 100f));
+
+        long cashChange = entry.CashAfter - entry.CashBefore;
+        if (cashChange != 0L)
+            AppendLine(sb, "현금 " + FormatSignedMoney(cashChange));
+
+        long debtChange = entry.DebtAfter - entry.DebtBefore;
+        if (debtChange != 0L)
+            AppendLine(sb, "부채 " + FormatSignedMoney(debtChange));
+
+        return sb.Length == 0 ? "현금 차감 없음" : sb.ToString();
+    }
+
+    public static string BuildChoiceEffectsText(EventChoice choice, bool success)
+    {
+        if (choice == null)
+            return string.Empty;
+
+        StringBuilder sb = new StringBuilder();
+        List<EffectData> effects = success ? choice.successEffects : choice.failureEffects;
+        string effectText = BuildEffectsText(effects);
+        if (!string.IsNullOrEmpty(effectText))
+            sb.Append(effectText);
+
+        float supplyDelta = success ? choice.successSupplyDelta : choice.failureSupplyDelta;
+        if (supplyDelta != 0f)
+            AppendLine(sb, "발행량 " + UIFormat.Signed(supplyDelta));
+
+        float priceRatio = success ? choice.successPriceRatio : -choice.failurePriceRate;
+        if (priceRatio != 0f)
+            AppendLine(sb, "가격 " + UIFormat.SignedPercent(priceRatio * 100f));
+
+        long cashDelta = success ? choice.successCashDelta : choice.failureCashDelta;
+        if (cashDelta != 0L)
+            AppendLine(sb, "현금 " + FormatSignedMoney(cashDelta));
+
+        if (!success && choice.failureCashRate > 0f)
+            AppendLine(sb, "현금 " + choice.failureCashRate.ToString("P0") + " 차감");
+
+        return string.IsNullOrEmpty(sb.ToString()) ? "효과 없음" : sb.ToString();
+    }
+
+    private static void AppendLine(StringBuilder sb, string line)
+    {
+        if (sb.Length > 0)
+            sb.Append('\n');
+        sb.Append(line);
+    }
+
+    private static string FormatSignedMoney(long value)
+    {
+        return (value >= 0 ? "+" : "") + "₩ " + value.ToString("N0");
     }
 
     // 부호(+ = 증가, - = 감소)는 UIFormat.SignedEffectValue가 판정한다. 여기서는 라벨/단위만 고른다.

@@ -112,12 +112,14 @@ public class EventLogPanelUI : MonoBehaviour
 
     private void CreateCard(EventLogEntry entry)
     {
-        Color color = EventEffectFormatter.CategoryColor(entry.Profile.category);
-        string effects = entry.Profile.effects != null ? EventEffectFormatter.BuildEffectsText(entry.Profile.effects) : "";
+        Color color = entry.HasChoiceResult
+            ? (entry.Succeeded ? EventEffectFormatter.PositiveColor : EventEffectFormatter.NegativeColor)
+            : EventEffectFormatter.CategoryColor(entry.Profile.category);
+        string effects = EventEffectFormatter.BuildEntryEffectsText(entry);
 
         EventCardView card = Instantiate(cardTemplate, cardListParent);
         card.gameObject.SetActive(true);
-        card.Populate(color, entry.Profile.message, UIFormat.DateDot(entry.Date), effects);
+        card.Populate(color, EventEffectFormatter.BuildEntryTitle(entry), UIFormat.DateDot(entry.Date), effects);
     }
 
     #endregion

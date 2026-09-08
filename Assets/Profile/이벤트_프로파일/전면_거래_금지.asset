@@ -15,13 +15,54 @@ MonoBehaviour:
   message: "모든 대형 거래소가 상장폐지를 선언했습니다!"
   category: 1
   weight: 0.15
-  effects:
-  - effectType: 0
-    value: -40
-  - effectType: 1
-    value: -35
-  - effectType: 9
-    value: 20
-  supplyDelta: 600
-  priceRatio: -0.25
+  effects: []
+  supplyDelta: 0
+  priceRatio: 0
   guaranteedTurn: 0
+  choices:
+  - label: "\uBE44\uC0C1 \uB300\uC751\uD55C\uB2E4"
+    baseSuccessProbability: 0.6
+    doubtPenaltyAt100: 0.25
+    overduePenaltyPerCount: 0.01
+    baseCost: 5000000
+    costMultiplier: 1.5
+    maxCost: 0
+    allowDebt: 0
+    successEffects: []
+    successSupplyDelta: 0
+    successPriceRatio: 0
+    successCashDelta: 0
+    failureEffects:
+    - effectType: 0
+      value: -40
+    - effectType: 1
+      value: -35
+    - effectType: 9
+      value: 20
+    failureCashRate: 0
+    failurePriceRate: 0.25
+    failureSupplyDelta: 600
+    failureCashDelta: 0
+  - label: "\uAC70\uB798\uB97C \uC911\uB2E8\uD558\uACE0 \uBC84\uD2F4\uB2E4"
+    baseSuccessProbability: 0.3
+    doubtPenaltyAt100: 0.25
+    overduePenaltyPerCount: 0.01
+    baseCost: 0
+    costMultiplier: 1.5
+    maxCost: 0
+    allowDebt: 0
+    successEffects: []
+    successSupplyDelta: 0
+    successPriceRatio: 0
+    successCashDelta: 0
+    failureEffects:
+    - effectType: 0
+      value: -40
+    - effectType: 1
+      value: -35
+    - effectType: 9
+      value: 20
+    failureCashRate: 0
+    failurePriceRate: 0.25
+    failureSupplyDelta: 600
+    failureCashDelta: 0

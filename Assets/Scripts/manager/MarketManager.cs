@@ -16,6 +16,11 @@ public class MarketManager : MonoBehaviour
     private const float NewsEventChance = 0.4f;
     private int turnCount;
     private float playerTradeAmountThisTurn;
+    private int negativeCashStreak;
+    private float pendingTurnPriceBefore;
+    private EventSO pendingChoiceEvent;
+    private bool awaitingEventChoice;
+    private bool awaitingDebtPayment;
 
     // 상폐 기준 가격 : 이 가격 이하로 연속 방치되면 거지 엔딩(상폐)으로 처리한다. PriceCalculator.MinPrice(1,
     // 가격이 내려갈 수 있는 절대 하한)와는 별개 값이다.
@@ -29,9 +34,19 @@ public class MarketManager : MonoBehaviour
     private List<EventSO> eventDatabase;
 
     private RuntimeEventData runtimeEventData = new();
+    private readonly DebtManager debtManager = new();
 
     /// <summary>지금까지 발생한 시사 이벤트 기록 (이벤트 로그 UI가 읽어서 그린다).</summary>
     public IReadOnlyList<EventLogEntry> EventLog => runtimeEventData.Log;
+    public DebtManager Debt => debtManager;
+    public int CurrentTurn => turnCount;
+    public bool IsAwaitingEventChoice => awaitingEventChoice;
+    public bool IsAwaitingDebtPayment => awaitingDebtPayment;
+
+    public int GetChoiceSelectionCount(EventSO profile, int choiceIndex)
+    {
+        return runtimeEventData.GetChoiceSelectionCount(profile, choiceIndex);
+    }
 
     private RuntimePriceHistory runtimePriceHistory = new();
 
@@ -113,6 +128,12 @@ public class MarketManager : MonoBehaviour
         turnCount = 0;
         playerTradeAmountThisTurn = 0f;
         priceFloorStreak = 0;
+        negativeCashStreak = 0;
+        pendingTurnPriceBefore = 0f;
+        pendingChoiceEvent = null;
+        awaitingEventChoice = false;
+        awaitingDebtPayment = false;
+        debtManager.Reset();
         IsGameOver = false;
         runtimeEventData = new RuntimeEventData();
         runtimePriceHistory = new RuntimePriceHistory();
@@ -125,6 +146,8 @@ public class MarketManager : MonoBehaviour
         EventHub.OnSellCoin += HandleSellCoin;
         EventHub.OnManipulateSupply += HandleManipulateSupply;
         EventHub.OnExitRequested += HandleExitRequested;
+        EventHub.OnEventChoiceSelected += HandleEventChoiceSelected;
+        EventHub.OnDebtPaymentSelected += HandleDebtPaymentSelected;
     }
 
     private void OnDisable()
@@ -134,6 +157,8 @@ public class MarketManager : MonoBehaviour
         EventHub.OnSellCoin -= HandleSellCoin;
         EventHub.OnManipulateSupply -= HandleManipulateSupply;
         EventHub.OnExitRequested -= HandleExitRequested;
+        EventHub.OnEventChoiceSelected -= HandleEventChoiceSelected;
+        EventHub.OnDebtPaymentSelected -= HandleDebtPaymentSelected;
     }
 
     #endregion
@@ -143,12 +168,28 @@ public class MarketManager : MonoBehaviour
     // 매 턴마다 ( 1일이 지날때 마다 패시브로 계산하는 함수 로직 )
     public void NextTurn()
     {
-        if (IsGameOver)
+        if (IsGameOver || awaitingEventChoice || awaitingDebtPayment)
             return;
 
         turnCount++;
 
-        float priceBefore = CurrentStat.CurrentPrice;
+        // 기획 순서: 30턴 주기의 대출 이자를 먼저 처리한 뒤 시장/이벤트를 계산한다.
+        if (debtManager.IsPaymentDue(turnCount))
+        {
+            awaitingDebtPayment = true;
+            EventHub.RaiseDebtPaymentRequired(debtManager.CreatePaymentRequest(turnCount));
+            return;
+        }
+
+        ResolveTurn();
+    }
+
+    private void ResolveTurn()
+    {
+        if (IsGameOver)
+            return;
+
+        pendingTurnPriceBefore = CurrentStat.CurrentPrice;
 
         // 1. 내부 자동 시장 계산
         CurrentStat = StatCalculator.Calculate();
@@ -161,13 +202,21 @@ public class MarketManager : MonoBehaviour
 
         if (guaranteed != null)
         {
-            TriggerGuaranteedEvent(guaranteed);
+            TriggerEvent(guaranteed);
         }
         else if (turnCount % NewsEventIntervalTurns == 0 && Random.value <= NewsEventChance)
         {
-            TriggerNewsEvent();
+            TriggerEvent(EventCalculator.SelectEvent(CurrentStat, eventDatabase));
         }
 
+        if (awaitingEventChoice)
+            return;
+
+        FinishTurn();
+    }
+
+    private void FinishTurn()
+    {
         StatCalculator.ClampStat(CurrentStat);
 
         ProbabilityCalculator.Calculate(CurrentStat);
@@ -176,13 +225,14 @@ public class MarketManager : MonoBehaviour
 
         UpdatePriceFloorStreak();
 
-        UpdateStreamerReaction(priceBefore);
+        UpdateStreamerReaction(pendingTurnPriceBefore);
 
-        LogPricePoint(priceBefore);
+        LogPricePoint(pendingTurnPriceBefore);
 
         // 2. UI 갱신 이벤트 발행
         EventHub.RaiseMarketUpdated(CurrentStat);
 
+        UpdateNegativeCashStreak();
         CheckAutomaticEndings();
     }
 
@@ -211,44 +261,110 @@ public class MarketManager : MonoBehaviour
 
     #region 시사 이벤트
 
-    // EventCalculator로 이벤트를 계산해 반영하고, 실제로 발생했으면 로그에 기록한다.
-    private void TriggerNewsEvent()
+    private void TriggerEvent(EventSO fired)
     {
-        EventSO fired = EventCalculator.Calculate(CurrentStat, eventDatabase);
-
         if (fired == null)
             return;
 
-        LogEvent(fired);
+        if (fired.choices != null && fired.choices.Count > 0)
+        {
+            pendingChoiceEvent = fired;
+            awaitingEventChoice = true;
+            EventHub.RaiseEventChoiceRequired(new EventChoiceRequest(
+                fired, TimeManager.Instance.CurrentGameDate, turnCount));
+            return;
+        }
+
+        EventCalculator.Apply(CurrentStat, fired);
+        LogEvent(new EventLogEntry
+        {
+            Profile = fired,
+            Date = TimeManager.Instance.CurrentGameDate
+        });
     }
 
     // eventDatabase 중 이번 턴(turn)에 무조건 발생하도록 지정된 이벤트를 찾는다 (없으면 null).
     private EventSO FindGuaranteedEvent(int turn)
     {
+        if (eventDatabase == null)
+            return null;
+
         foreach (EventSO candidate in eventDatabase)
         {
-            if (candidate.guaranteedTurn == turn)
+            if (candidate != null && candidate.guaranteedTurn == turn)
                 return candidate;
         }
 
         return null;
     }
 
-    // 확률 판정 없이 지정된 이벤트를 그대로 발생시킨다 (EventSO.guaranteedTurn 전용).
-    private void TriggerGuaranteedEvent(EventSO chosen)
+    // 대출 이자 납부 여부를 반영한 뒤 같은 턴의 시장 계산을 계속한다.
+    private void HandleDebtPaymentSelected(bool pay)
     {
-        EventCalculator.Apply(CurrentStat, chosen);
-        LogEvent(chosen);
+        if (!awaitingDebtPayment || IsGameOver)
+            return;
+
+        if (pay)
+            debtManager.Pay(PlayerManager.Instance);
+        else
+            debtManager.Defer();
+
+        awaitingDebtPayment = false;
+        ResolveTurn();
     }
 
-    private void LogEvent(EventSO fired)
+    private void HandleEventChoiceSelected(int choiceIndex)
     {
+        if (!awaitingEventChoice || pendingChoiceEvent == null || IsGameOver)
+            return;
+
+        if (pendingChoiceEvent.choices == null || choiceIndex < 0 || choiceIndex >= pendingChoiceEvent.choices.Count)
+            return;
+
+        EventChoice choice = pendingChoiceEvent.choices[choiceIndex];
+        long cashBefore = PlayerManager.Instance.currentMoney;
+        long debtBefore = debtManager.TotalDebt;
+        int previousSelectionCount = runtimeEventData.GetChoiceSelectionCount(pendingChoiceEvent, choiceIndex);
+        EventChoiceResolution resolution = EventCalculator.ResolveChoice(CurrentStat, choice, choiceIndex,
+            previousSelectionCount, cashBefore, debtManager.OverdueCount);
+
+        if (!resolution.Valid)
+            return;
+
+        PlayerManager.Instance.AddMoney(-resolution.CashPaid);
+        PlayerManager.Instance.AddMoney(resolution.CashDelta);
+        PlayerManager.Instance.AddMoney(-resolution.FailureCashLoss);
+        debtManager.AddPrincipal(resolution.DebtAdded);
+        runtimeEventData.IncrementChoiceSelection(pendingChoiceEvent, choiceIndex);
+
+        StatCalculator.ClampStat(CurrentStat);
+
         EventLogEntry entry = new EventLogEntry
         {
-            Profile = fired,
-            Date = TimeManager.Instance.CurrentGameDate
+            Profile = pendingChoiceEvent,
+            Date = TimeManager.Instance.CurrentGameDate,
+            ChoiceIndex = resolution.ChoiceIndex,
+            ChoiceLabel = resolution.ChoiceLabel,
+            HasChoiceResult = true,
+            SuccessProbability = resolution.SuccessProbability,
+            Succeeded = resolution.Succeeded,
+            CashBefore = cashBefore,
+            CashAfter = PlayerManager.Instance.currentMoney,
+            DebtBefore = debtBefore,
+            DebtAfter = debtManager.TotalDebt,
+            ResultEffects = resolution.Succeeded ? choice.successEffects : choice.failureEffects,
+            ResultSupplyDelta = resolution.Succeeded ? choice.successSupplyDelta : choice.failureSupplyDelta,
+            ResultPriceRatio = resolution.Succeeded ? choice.successPriceRatio : -choice.failurePriceRate
         };
 
+        LogEvent(entry);
+        pendingChoiceEvent = null;
+        awaitingEventChoice = false;
+        FinishTurn();
+    }
+
+    private void LogEvent(EventLogEntry entry)
+    {
         runtimeEventData.Log.Add(entry);
         EventHub.RaiseEventTriggered(entry);
     }
@@ -265,7 +381,8 @@ public class MarketManager : MonoBehaviour
             CurrentStat,
             PlayerManager.Instance.currentMoney,
             PlayerManager.Instance.currentCoins,
-            priceFloorStreak);
+            priceFloorStreak,
+            negativeCashStreak);
 
         if (ending.HasValue)
             EndGame(ending.Value);
@@ -287,6 +404,11 @@ public class MarketManager : MonoBehaviour
         TimeManager.Instance.PauseGame();
         GameStatsTracker.Instance?.CaptureExitCash(PlayerManager.Instance.currentMoney);
         EventHub.RaiseGameEnded(ending);
+    }
+
+    private void UpdateNegativeCashStreak()
+    {
+        negativeCashStreak = PlayerManager.Instance.currentMoney < 0 ? negativeCashStreak + 1 : 0;
     }
 
     #endregion

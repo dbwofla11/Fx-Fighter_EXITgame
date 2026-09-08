@@ -15,11 +15,50 @@ MonoBehaviour:
   message: "핵심 개발자가 프로젝트에서 이탈했습니다."
   category: 1
   weight: 1
-  effects:
-  - effectType: 1
-    value: -8
-  - effectType: 9
-    value: 4
+  effects: []
   supplyDelta: 0
-  priceRatio: -0.015
+  priceRatio: 0
   guaranteedTurn: 0
+  choices:
+  - label: "\uD575\uC2EC \uC778\uB825\uC744 \uC601\uC785\uD55C\uB2E4"
+    baseSuccessProbability: 0.7
+    doubtPenaltyAt100: 0.25
+    overduePenaltyPerCount: 0.01
+    baseCost: 400000
+    costMultiplier: 1.5
+    maxCost: 0
+    allowDebt: 0
+    successEffects: []
+    successSupplyDelta: 0
+    successPriceRatio: 0
+    successCashDelta: 0
+    failureEffects:
+    - effectType: 1
+      value: -8
+    - effectType: 9
+      value: 4
+    failureCashRate: 0
+    failurePriceRate: 0.015
+    failureSupplyDelta: 0
+    failureCashDelta: 0
+  - label: "\uB300\uCCB4 \uC778\uB825\uC744 \uCC3E\uB294\uB2E4"
+    baseSuccessProbability: 0.45
+    doubtPenaltyAt100: 0.25
+    overduePenaltyPerCount: 0.01
+    baseCost: 0
+    costMultiplier: 1.5
+    maxCost: 0
+    allowDebt: 0
+    successEffects: []
+    successSupplyDelta: 0
+    successPriceRatio: 0
+    successCashDelta: 0
+    failureEffects:
+    - effectType: 1
+      value: -8
+    - effectType: 9
+      value: 4
+    failureCashRate: 0
+    failurePriceRate: 0.015
+    failureSupplyDelta: 0
+    failureCashDelta: 0

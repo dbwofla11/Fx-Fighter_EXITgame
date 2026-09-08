@@ -15,13 +15,54 @@ MonoBehaviour:
   message: "\uC18C\uADDC\uBAA8 \uD574\uD0B9 \uC0AC\uACE0\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4."
   category: 1
   weight: 0.5
-  effects:
-  - effectType: 0
-    value: -6.25
-  - effectType: 1
-    value: -5
-  - effectType: 9
-    value: 3.75
-  supplyDelta: 100
-  priceRatio: -0.0275
+  effects: []
+  supplyDelta: 0
+  priceRatio: 0
   guaranteedTurn: 0
+  choices:
+  - label: "\uBC14\uB85C \uBCF5\uAD6C\uD55C\uB2E4"
+    baseSuccessProbability: 0.7
+    doubtPenaltyAt100: 0.25
+    overduePenaltyPerCount: 0.01
+    baseCost: 300000
+    costMultiplier: 1.5
+    maxCost: 0
+    allowDebt: 0
+    successEffects: []
+    successSupplyDelta: 0
+    successPriceRatio: 0
+    successCashDelta: 0
+    failureEffects:
+    - effectType: 0
+      value: -6.25
+    - effectType: 1
+      value: -5
+    - effectType: 9
+      value: 3.75
+    failureCashRate: 0
+    failurePriceRate: 0.0275
+    failureSupplyDelta: 100
+    failureCashDelta: 0
+  - label: "\uC11C\uBE44\uC2A4\uB97C \uC7A0\uC2DC \uC911\uB2E8\uD55C\uB2E4"
+    baseSuccessProbability: 0.5
+    doubtPenaltyAt100: 0.25
+    overduePenaltyPerCount: 0.01
+    baseCost: 0
+    costMultiplier: 1.5
+    maxCost: 0
+    allowDebt: 0
+    successEffects: []
+    successSupplyDelta: 0
+    successPriceRatio: 0
+    successCashDelta: 0
+    failureEffects:
+    - effectType: 0
+      value: -6.25
+    - effectType: 1
+      value: -5
+    - effectType: 9
+      value: 3.75
+    failureCashRate: 0
+    failurePriceRate: 0.0275
+    failureSupplyDelta: 100
+    failureCashDelta: 0

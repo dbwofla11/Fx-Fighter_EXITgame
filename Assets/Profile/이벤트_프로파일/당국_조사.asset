@@ -15,10 +15,74 @@ MonoBehaviour:
   message: "\uAE08\uC735\uB2F9\uAD6D\uC774 \uCF54\uC778 \uC870\uC0AC\uB97C \uC2DC\uC791\uD588\uC2B5\uB2C8\uB2E4!"
   category: 1
   weight: 1
-  effects:
-  - effectType: 9
-    value: 10
-  - effectType: 1
-    value: -7.5
-  supplyDelta: 125
-  priceRatio: -0.03
+  effects: []
+  supplyDelta: 0
+  priceRatio: 0
+  choices:
+  - label: "\uC870\uC0AC\uC5D0 \uD611\uC870\uD55C\uB2E4"
+    baseSuccessProbability: 0.9
+    skillBonus: 0
+    jobBonus: 0
+    doubtPenaltyAt100: 0.25
+    overduePenaltyPerCount: 0.01
+    baseCost: 500000
+    costMultiplier: 1.5
+    maxCost: 0
+    allowDebt: 0
+    successEffects:
+    - effectType: 2
+      value: 10
+    successSupplyDelta: 0
+    successPriceRatio: 0
+    successCashDelta: 0
+    failureEffects:
+    - effectType: 9
+      value: 15
+    failureCashRate: 0.2
+    failurePriceRate: 0
+    failureSupplyDelta: 0
+    failureCashDelta: 0
+  - label: "\uC790\uB8CC\uB97C \uC740\uD3D0\uD55C\uB2E4"
+    baseSuccessProbability: 0.55
+    skillBonus: 0
+    jobBonus: 0
+    doubtPenaltyAt100: 0.25
+    overduePenaltyPerCount: 0.01
+    baseCost: 0
+    costMultiplier: 1.5
+    maxCost: 0
+    allowDebt: 0
+    successEffects: []
+    successSupplyDelta: 0
+    successPriceRatio: 0
+    successCashDelta: 0
+    failureEffects:
+    - effectType: 9
+      value: 30
+    failureCashRate: 0.3
+    failurePriceRate: 0.15
+    failureSupplyDelta: 0
+    failureCashDelta: 0
+  - label: "\uBCC0\uD638\uC0AC\uB97C \uACE0\uC6A9\uD55C\uB2E4"
+    baseSuccessProbability: 0.8
+    skillBonus: 0
+    jobBonus: 0
+    doubtPenaltyAt100: 0.25
+    overduePenaltyPerCount: 0.01
+    baseCost: 2500000
+    costMultiplier: 1.5
+    maxCost: 0
+    allowDebt: 0
+    successEffects:
+    - effectType: 2
+      value: 20
+    successSupplyDelta: 0
+    successPriceRatio: 0
+    successCashDelta: 0
+    failureEffects:
+    - effectType: 9
+      value: 20
+    failureCashRate: 0.2
+    failurePriceRate: 0
+    failureSupplyDelta: 0
+    failureCashDelta: 0

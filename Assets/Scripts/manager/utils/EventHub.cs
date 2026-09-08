@@ -62,6 +62,21 @@ public static class EventHub
     public static event Action<EventLogEntry> OnEventTriggered;
     public static void RaiseEventTriggered(EventLogEntry entry) => OnEventTriggered?.Invoke(entry);
 
+    // 선택형 이벤트가 발생해 플레이어의 선택을 기다리는 신호
+    public static event Action<EventChoiceRequest> OnEventChoiceRequired;
+    public static void RaiseEventChoiceRequired(EventChoiceRequest request) => OnEventChoiceRequired?.Invoke(request);
+
+    // 선택형 이벤트 선택 결과 전달
+    public static event Action<int> OnEventChoiceSelected;
+    public static void RaiseEventChoiceSelected(int choiceIndex) => OnEventChoiceSelected?.Invoke(choiceIndex);
+
+    // 대출 이자 납부 여부를 기다리는 신호
+    public static event Action<DebtPaymentRequest> OnDebtPaymentRequired;
+    public static void RaiseDebtPaymentRequired(DebtPaymentRequest request) => OnDebtPaymentRequired?.Invoke(request);
+
+    public static event Action<bool> OnDebtPaymentSelected;
+    public static void RaiseDebtPaymentSelected(bool pay) => OnDebtPaymentSelected?.Invoke(pay);
+
     // 엑시트 조건(MarketManager.CanExit)이 처음 충족된 순간(false→true) 1회만 발행 (AssetGoalNotifier).
     public static event Action OnAssetGoalAchieved;
     public static void RaiseAssetGoalAchieved() => OnAssetGoalAchieved?.Invoke();
