@@ -71,6 +71,11 @@ public static class EventEffectFormatter
             sb.Append(UIFormat.SignedPercent(entry.ResultPriceRatio * 100f));
             sb.Append('\n');
         }
+        if (!string.IsNullOrEmpty(entry.ResultSummary))
+        {
+            sb.Append(entry.ResultSummary);
+            sb.Append('\n');
+        }
         sb.Append("현금 ");
         sb.Append(FormatSignedMoney(entry.CashAfter - entry.CashBefore));
         sb.Append('\n');
@@ -86,6 +91,9 @@ public static class EventEffectFormatter
 
         if (!entry.HasChoiceResult)
             return entry.Profile.message;
+
+        if (!string.IsNullOrEmpty(entry.ResultTitle))
+            return entry.ResultTitle;
 
         string action = entry.ChoiceLabel ?? string.Empty;
         string resultSubject = action.EndsWith("한다")
@@ -104,9 +112,11 @@ public static class EventEffectFormatter
             return string.Empty;
 
         StringBuilder sb = new StringBuilder();
+        if (!string.IsNullOrEmpty(entry.ResultSummary))
+            sb.Append(entry.ResultSummary);
         string resultEffects = BuildEffectsText(entry.ResultEffects);
         if (!string.IsNullOrEmpty(resultEffects))
-            sb.Append(resultEffects);
+            AppendLine(sb, resultEffects);
 
         if (entry.ResultSupplyDelta != 0f)
             AppendLine(sb, "발행량 " + UIFormat.Signed(entry.ResultSupplyDelta));

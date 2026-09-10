@@ -87,3 +87,25 @@ public sealed class DebtPaymentRequest
         OverdueCount = overdueCount;
     }
 }
+
+/// <summary>
+/// 정기 이자 이벤트에서 플레이어가 고른 선택의 처리 결과.
+/// 일반 선택형 이벤트의 EventChoiceResolution과 달리, 납부/연체/도주에 따른
+/// 부채 상태 변화와 실제 납부 금액을 함께 보관한다.
+/// </summary>
+public sealed class DebtPaymentResolution
+{
+    public int ChoiceIndex { get; set; }
+    public string ChoiceLabel { get; set; }
+    public float SuccessProbability { get; set; }
+    public bool Succeeded { get; set; }
+    public long RequestedAmount { get; set; }
+    public long CashPaid { get; set; }
+    public long UnpaidAmount { get; set; }
+    public long CashBefore { get; set; }
+    public long CashAfter { get; set; }
+    public long DebtBefore { get; set; }
+    public long DebtAfter { get; set; }
+    public string ResultTitle { get; set; }
+    public string ResultSummary { get; set; }
+}

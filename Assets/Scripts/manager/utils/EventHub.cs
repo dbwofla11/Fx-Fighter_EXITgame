@@ -80,6 +80,11 @@ public static class EventHub
     public static event Action<bool> OnDebtPaymentSelected;
     public static void RaiseDebtPaymentSelected(bool pay) => OnDebtPaymentSelected?.Invoke(pay);
 
+    // 정기 이자 이벤트의 3개 선택 카드(납부/연기/도주) 선택 결과 전달.
+    public static event Action<int> OnDebtPaymentChoiceSelected;
+    public static void RaiseDebtPaymentChoiceSelected(int choiceIndex) =>
+        OnDebtPaymentChoiceSelected?.Invoke(choiceIndex);
+
     // 엑시트 조건(MarketManager.CanExit)이 처음 충족된 순간(false→true) 1회만 발행 (AssetGoalNotifier).
     public static event Action OnAssetGoalAchieved;
     public static void RaiseAssetGoalAchieved() => OnAssetGoalAchieved?.Invoke();

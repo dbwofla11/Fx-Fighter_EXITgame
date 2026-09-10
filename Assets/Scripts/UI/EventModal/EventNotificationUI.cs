@@ -43,7 +43,8 @@ public class EventNotificationUI : MonoBehaviour
     // The scene panel has its own width, so only ratios are kept here.
     private const float ChoicePanelAspect = 1100f / 700f;
     private const float ResultPanelAspect = 1100f / 500f;
-    private static readonly Color ChoicePanelColor = new Color(0.765f, 0.78f, 0.765f, 1f);
+    // Reference choice frame: #FFA6AA. The result frame keeps its event-category color.
+    private static readonly Color ChoicePanelColor = new Color(1f, 0.651f, 0.667f, 1f);
     private static readonly Color ChoiceCardColor = Color.white;
     private static readonly Color ChoiceCardHoverColor = Color.white;
     private static readonly Color ChoiceCardPressedColor = new Color(1f, 0.94f, 0.95f, 1f);
@@ -114,6 +115,7 @@ public class EventNotificationUI : MonoBehaviour
         if (isChoiceResult)
         {
             ResizePanelForResult();
+            RestoreCardLayout();
             ApplyResultCardLayout();
         }
         else
@@ -174,19 +176,38 @@ public class EventNotificationUI : MonoBehaviour
         awaitingChoice = false;
         awaitingDebtPayment = true;
         ClearRuntimeButtons();
-        ResizePanelForButtons(2);
+        ResizePanelForChoiceCards();
         RestoreCardLayout();
+        ApplyChoiceHeaderStyle();
         if (closeButton != null) closeButton.gameObject.SetActive(false);
 
-        string text = $"원금 ₩ {request.Principal:N0}\n이자율 {request.InterestRate:P1}\n이번 이자 ₩ {request.Interest:N0}\n연체 횟수 {request.OverdueCount}회";
         if (cardView != null)
-            cardView.Populate(EventEffectFormatter.NegativeColor, "대출 이자 납부", UIFormat.DateDot(TimeManager.Instance.CurrentGameDate), text);
+            cardView.Populate(ChoicePanelColor, "정기 이자를 내야할 시간입니다...",
+                UIFormat.DateDot(TimeManager.Instance.CurrentGameDate), string.Empty);
 
-        CreateButtonContainer();
-        CreateButton("이자를 납부한다", "₩ " + request.TotalDue.ToString("N0"), () => OnDebtPaymentClicked(true));
-        CreateButton("이번에는 연기한다", "연체 +1", () => OnDebtPaymentClicked(false));
+        CreateDebtPaymentCards(request);
         PlayOpenSfx();
         ModalPause.Open(panel);
+    }
+
+    private void CreateDebtPaymentCards(DebtPaymentRequest request)
+    {
+        CreateChoiceContainer();
+
+        // Reference copy uses a fixed 100%/100%/20% presentation. The payment
+        // card remains selectable with insufficient cash because DebtManager
+        // safely performs a partial payment and carries the remainder forward.
+        CreateChoiceCard("정직하게 낸다", 1f, request.TotalDue,
+            "정기 이자를 갚는다.", string.Empty,
+            () => OnDebtPaymentChoiceClicked(DebtManager.PayChoiceIndex), true);
+
+        CreateChoiceCard("나중에 낸다", 1f, 0,
+            "나중에 갚는다.\n대신 다음 이자비용이 증가한다.", string.Empty,
+            () => OnDebtPaymentChoiceClicked(DebtManager.DeferChoiceIndex), true);
+
+        CreateChoiceCard("도망간다", DebtManager.EscapeSuccessProbability, 0,
+            "도망을 성공적으로 함", "현금 20% 차감\nDoubt +15",
+            () => OnDebtPaymentChoiceClicked(DebtManager.EscapeChoiceIndex), true);
     }
 
     private void CreateChoiceButtons(EventChoiceRequest request)
@@ -212,14 +233,14 @@ public class EventNotificationUI : MonoBehaviour
         runtimeButtonContainer = new GameObject("RuntimeEventChoiceCards", typeof(RectTransform), typeof(HorizontalLayoutGroup));
         runtimeButtonContainer.transform.SetParent(panel.transform, false);
         RectTransform containerRect = runtimeButtonContainer.GetComponent<RectTransform>();
-        containerRect.anchorMin = new Vector2(0.03f, 0.05f);
-        // The choice cards occupy the lower 69% of the 1100x700 Figma panel.
-        // Keeping that proportion leaves a dedicated title/date band above them.
-        containerRect.anchorMax = new Vector2(0.97f, 0.735f);
+        // 30px side margins, 25px gaps and 330px cards on the 1100px reference frame.
+        containerRect.anchorMin = new Vector2(30f / 1100f, 35f / 700f);
+        // The choice cards occupy the lower 69% of the 1100x700 reference panel.
+        containerRect.anchorMax = new Vector2(1070f / 1100f, 0.737f);
         containerRect.offsetMin = Vector2.zero;
         containerRect.offsetMax = Vector2.zero;
         HorizontalLayoutGroup layout = runtimeButtonContainer.GetComponent<HorizontalLayoutGroup>();
-        layout.spacing = 16f;
+        layout.spacing = 25f;
         layout.childControlWidth = true;
         layout.childControlHeight = true;
         layout.childForceExpandWidth = true;
@@ -227,6 +248,19 @@ public class EventNotificationUI : MonoBehaviour
     }
 
     private void CreateChoiceCard(EventChoice choice, float probability, long cost,
+        UnityEngine.Events.UnityAction action, bool interactable)
+    {
+        CreateChoiceCard(choice != null ? choice.label : string.Empty,
+            probability,
+            cost,
+            EventEffectFormatter.BuildChoiceEffectsText(choice, true),
+            EventEffectFormatter.BuildChoiceEffectsText(choice, false),
+            action,
+            interactable);
+    }
+
+    private void CreateChoiceCard(string label, float probability, long cost,
+        string successText, string failureText,
         UnityEngine.Events.UnityAction action, bool interactable)
     {
         GameObject cardObject = new GameObject("RuntimeEventChoiceCard", typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
@@ -270,14 +304,20 @@ public class EventNotificationUI : MonoBehaviour
         content.childForceExpandHeight = false;
         content.childAlignment = TextAnchor.UpperLeft;
 
-        AddChoiceText(cardObject, choice.label, 34f, true, ChoiceTextColor);
+        AddChoiceText(cardObject, label, 34f, true, ChoiceTextColor);
         AddChoiceText(cardObject, "성공확률: " + probability.ToString("P0"), 24f, false, ChoiceTextColor);
         AddChoiceText(cardObject, "비용: ₩ " + cost.ToString("N0"), 24f, false, ChoiceTextColor);
-        AddChoiceText(cardObject, "성공시", 30f, true, SuccessColor);
-        AddChoiceText(cardObject, EventEffectFormatter.BuildChoiceEffectsText(choice, true), 23f, false, ChoiceTextColor);
+        if (!string.IsNullOrEmpty(successText))
+        {
+            AddChoiceText(cardObject, "성공시", 30f, true, SuccessColor);
+            AddChoiceText(cardObject, successText, 23f, false, ChoiceTextColor);
+        }
         AddFlexibleSpacer(cardObject);
-        AddChoiceText(cardObject, "실패시", 30f, true, FailureColor);
-        AddChoiceText(cardObject, EventEffectFormatter.BuildChoiceEffectsText(choice, false), 23f, false, ChoiceTextColor);
+        if (!string.IsNullOrEmpty(failureText))
+        {
+            AddChoiceText(cardObject, "실패시", 30f, true, FailureColor);
+            AddChoiceText(cardObject, failureText, 23f, false, ChoiceTextColor);
+        }
         runtimeButtons.Add(cardObject);
     }
 
@@ -293,8 +333,8 @@ public class EventNotificationUI : MonoBehaviour
             text.font = cardView.titleText.font;
             text.fontSharedMaterial = cardView.titleText.fontSharedMaterial;
         }
-        text.alignment = TextAlignmentOptions.Left;
-        text.enableWordWrapping = false;
+        text.alignment = TextAlignmentOptions.Center;
+        text.enableWordWrapping = true;
         text.enableAutoSizing = true;
         text.fontSizeMin = Mathf.Max(16f, fontSize * 0.65f);
         text.fontSizeMax = fontSize;
@@ -373,8 +413,9 @@ public class EventNotificationUI : MonoBehaviour
         if (panelRect == null)
             return;
 
-        float height = panelRect.sizeDelta.x / ChoicePanelAspect;
-        panelRect.sizeDelta = new Vector2(panelRect.sizeDelta.x, Mathf.Max(originalPanelSize.y, height));
+        float width = 1100f;
+        float height = width / ChoicePanelAspect;
+        panelRect.sizeDelta = new Vector2(width, height);
         PositionExpandedPanel();
     }
 
@@ -383,8 +424,9 @@ public class EventNotificationUI : MonoBehaviour
         if (panelRect == null)
             return;
 
-        float height = panelRect.sizeDelta.x / ResultPanelAspect;
-        panelRect.sizeDelta = new Vector2(panelRect.sizeDelta.x, Mathf.Max(originalPanelSize.y, height));
+        float width = 1100f;
+        float height = width / ResultPanelAspect;
+        panelRect.sizeDelta = new Vector2(width, height);
         PositionExpandedPanel();
     }
 
@@ -558,6 +600,14 @@ public class EventNotificationUI : MonoBehaviour
             return;
         DisableRuntimeButtons();
         EventHub.RaiseEventChoiceSelected(choiceIndex);
+    }
+
+    private void OnDebtPaymentChoiceClicked(int choiceIndex)
+    {
+        if (!awaitingDebtPayment)
+            return;
+        DisableRuntimeButtons();
+        EventHub.RaiseDebtPaymentChoiceSelected(choiceIndex);
     }
 
     private void OnDebtPaymentClicked(bool pay)

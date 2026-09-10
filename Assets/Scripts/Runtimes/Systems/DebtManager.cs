@@ -7,6 +7,12 @@ using UnityEngine;
 public sealed class DebtManager
 {
     public const int PaymentIntervalTurns = 30;
+    public const int PayChoiceIndex = 0;
+    public const int DeferChoiceIndex = 1;
+    public const int EscapeChoiceIndex = 2;
+    public const float EscapeSuccessProbability = 0.20f;
+    public const float EscapeFailureCashRate = 0.20f;
+    public const float EscapeFailureDoubt = 15f;
     public const float BaseInterestRate = 0.03f;
     public const float InstallmentIncrease = 0.005f;
     public const float MaxInterestRate = 0.08f;
@@ -54,23 +60,55 @@ public sealed class DebtManager
             PaymentCount, OverdueCount);
     }
 
-    public void Pay(PlayerManager player)
+    /// <summary>
+    /// 이자를 납부한다. 보유 현금이 부족하면 가능한 금액만 차감하고
+    /// 나머지는 미납 이자로 남겨 현금이 음수가 되지 않게 한다.
+    /// </summary>
+    public long Pay(PlayerManager player)
     {
         if (player == null)
-            return;
+            return 0;
 
-        player.AddMoney(-CurrentDueInterest);
+        long availableCash = System.Math.Max(0L, player.currentMoney);
+        long cashPaid = System.Math.Min(availableCash, CurrentDueInterest);
+        player.AddMoney(-cashPaid);
+
+        long unpaidAmount = CurrentDueInterest - cashPaid;
+        if (unpaidAmount > 0)
+        {
+            UnpaidInterest = unpaidAmount;
+            OverdueCount++;
+        }
+        else
+        {
+            UnpaidInterest = 0;
+            OverdueCount = System.Math.Max(0, OverdueCount - 1);
+        }
+
         CurrentInterest = 0;
         CurrentDueInterest = 0;
-        UnpaidInterest = 0;
         PaymentCount++;
+        return cashPaid;
     }
 
     public void Defer()
     {
-        UnpaidInterest += CurrentInterest;
+        // CurrentDueInterest already contains the previous unpaid amount.
+        // Carry the complete bill forward so it cannot be counted twice.
+        UnpaidInterest = CurrentDueInterest;
         CurrentInterest = 0;
         CurrentDueInterest = 0;
         OverdueCount++;
+    }
+
+    /// <summary>도주 성공 시 대출 계약을 종료한다.</summary>
+    public void Escape()
+    {
+        Principal = 0;
+        PaymentCount = 0;
+        OverdueCount = 0;
+        UnpaidInterest = 0;
+        CurrentInterest = 0;
+        CurrentDueInterest = 0;
     }
 }

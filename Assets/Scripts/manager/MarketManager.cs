@@ -20,6 +20,8 @@ public class MarketManager : MonoBehaviour
     private int negativeCashStreak;
     private float pendingTurnPriceBefore;
     private EventSO pendingChoiceEvent;
+    private EventSO debtPaymentEvent;
+    private DebtPaymentRequest pendingDebtPaymentRequest;
     private bool awaitingEventChoice;
     private bool awaitingDebtPayment;
 
@@ -133,6 +135,7 @@ public class MarketManager : MonoBehaviour
         negativeCashStreak = 0;
         pendingTurnPriceBefore = 0f;
         pendingChoiceEvent = null;
+        pendingDebtPaymentRequest = null;
         awaitingEventChoice = false;
         awaitingDebtPayment = false;
         debtManager.Reset();
@@ -150,7 +153,7 @@ public class MarketManager : MonoBehaviour
         EventHub.OnManipulateSupply += HandleManipulateSupply;
         EventHub.OnExitRequested += HandleExitRequested;
         EventHub.OnEventChoiceSelected += HandleEventChoiceSelected;
-        EventHub.OnDebtPaymentSelected += HandleDebtPaymentSelected;
+        EventHub.OnDebtPaymentChoiceSelected += HandleDebtPaymentChoiceSelected;
     }
 
     private void OnDisable()
@@ -162,7 +165,7 @@ public class MarketManager : MonoBehaviour
         EventHub.OnManipulateSupply -= HandleManipulateSupply;
         EventHub.OnExitRequested -= HandleExitRequested;
         EventHub.OnEventChoiceSelected -= HandleEventChoiceSelected;
-        EventHub.OnDebtPaymentSelected -= HandleDebtPaymentSelected;
+        EventHub.OnDebtPaymentChoiceSelected -= HandleDebtPaymentChoiceSelected;
     }
 
     #endregion
@@ -181,7 +184,8 @@ public class MarketManager : MonoBehaviour
         if (debtManager.IsPaymentDue(turnCount))
         {
             awaitingDebtPayment = true;
-            EventHub.RaiseDebtPaymentRequired(debtManager.CreatePaymentRequest(turnCount));
+            pendingDebtPaymentRequest = debtManager.CreatePaymentRequest(turnCount);
+            EventHub.RaiseDebtPaymentRequired(pendingDebtPaymentRequest);
             return;
         }
 
@@ -303,18 +307,118 @@ public class MarketManager : MonoBehaviour
     }
 
     // 대출 이자 납부 여부를 반영한 뒤 같은 턴의 시장 계산을 계속한다.
-    private void HandleDebtPaymentSelected(bool pay)
+    private void HandleDebtPaymentChoiceSelected(int choiceIndex)
     {
         if (!awaitingDebtPayment || IsGameOver)
             return;
 
-        if (pay)
-            debtManager.Pay(PlayerManager.Instance);
-        else
-            debtManager.Defer();
+        if (pendingDebtPaymentRequest == null || choiceIndex < DebtManager.PayChoiceIndex
+            || choiceIndex > DebtManager.EscapeChoiceIndex)
+            return;
 
+        long cashBefore = PlayerManager.Instance.currentMoney;
+        long debtBefore = debtManager.TotalDebt;
+        DebtPaymentResolution resolution = ResolveDebtPaymentChoice(choiceIndex, cashBefore, debtBefore);
+
+        StatCalculator.ClampStat(CurrentStat);
+
+        EventLogEntry entry = new EventLogEntry
+        {
+            Profile = GetDebtPaymentEvent(),
+            Date = TimeManager.Instance.CurrentGameDate,
+            ChoiceIndex = resolution.ChoiceIndex,
+            ChoiceLabel = resolution.ChoiceLabel,
+            HasChoiceResult = true,
+            SuccessProbability = resolution.SuccessProbability,
+            Succeeded = resolution.Succeeded,
+            CashBefore = resolution.CashBefore,
+            CashAfter = resolution.CashAfter,
+            DebtBefore = resolution.DebtBefore,
+            DebtAfter = resolution.DebtAfter,
+            ResultTitle = resolution.ResultTitle,
+            ResultSummary = resolution.ResultSummary,
+            ResultEffects = new List<EffectData>(),
+            ResultSupplyDelta = 0f,
+            ResultPriceRatio = 0f
+        };
+
+        LogEvent(entry);
+        pendingDebtPaymentRequest = null;
         awaitingDebtPayment = false;
-        ResolveTurn();
+        FinishTurn();
+    }
+
+    private DebtPaymentResolution ResolveDebtPaymentChoice(int choiceIndex, long cashBefore, long debtBefore)
+    {
+        DebtPaymentResolution resolution = new DebtPaymentResolution
+        {
+            ChoiceIndex = choiceIndex,
+            ChoiceLabel = choiceIndex == DebtManager.PayChoiceIndex ? "정직하게 낸다"
+                : choiceIndex == DebtManager.DeferChoiceIndex ? "나중에 낸다" : "도망간다",
+            SuccessProbability = choiceIndex == DebtManager.EscapeChoiceIndex
+                ? DebtManager.EscapeSuccessProbability : 1f,
+            Succeeded = true,
+            RequestedAmount = pendingDebtPaymentRequest.TotalDue,
+            CashBefore = cashBefore,
+            DebtBefore = debtBefore
+        };
+
+        if (choiceIndex == DebtManager.PayChoiceIndex)
+        {
+            resolution.CashPaid = debtManager.Pay(PlayerManager.Instance);
+            resolution.UnpaidAmount = pendingDebtPaymentRequest.TotalDue - resolution.CashPaid;
+            resolution.ResultTitle = "정기 이자 납부 결과";
+            resolution.ResultSummary = resolution.UnpaidAmount > 0
+                ? $"이자 일부 납부\n미납 이자 ₩ {resolution.UnpaidAmount:N0}"
+                : "정기 이자를 모두 납부했다.";
+        }
+        else if (choiceIndex == DebtManager.DeferChoiceIndex)
+        {
+            debtManager.Defer();
+            resolution.UnpaidAmount = pendingDebtPaymentRequest.TotalDue;
+            resolution.ResultTitle = "정기 이자 납부 결과";
+            resolution.ResultSummary = "나중에 갚는다.\n다음 이자 비용이 증가한다.";
+        }
+        else
+        {
+            resolution.Succeeded = Random.value <= resolution.SuccessProbability;
+            if (resolution.Succeeded)
+            {
+                debtManager.Escape();
+                resolution.ResultTitle = "정기 이자 납부 결과";
+                resolution.ResultSummary = "도망을 성공적으로 함\n대출 계약이 종료되었다.";
+            }
+            else
+            {
+                long availableCash = System.Math.Max(0L, cashBefore);
+                long cashLoss = (long)System.Math.Floor(availableCash * DebtManager.EscapeFailureCashRate);
+                PlayerManager.Instance.AddMoney(-cashLoss);
+                CurrentStat.Doubt += DebtManager.EscapeFailureDoubt;
+                debtManager.Defer();
+                resolution.ResultTitle = "정기 이자 납부 결과";
+                resolution.ResultSummary = $"현금 {DebtManager.EscapeFailureCashRate:P0} 차감\nDoubt +{DebtManager.EscapeFailureDoubt:0}";
+            }
+        }
+
+        resolution.CashAfter = PlayerManager.Instance.currentMoney;
+        resolution.DebtAfter = debtManager.TotalDebt;
+        return resolution;
+    }
+
+    private EventSO GetDebtPaymentEvent()
+    {
+        if (debtPaymentEvent == null)
+        {
+            debtPaymentEvent = ScriptableObject.CreateInstance<EventSO>();
+            debtPaymentEvent.name = "RuntimeDebtPaymentEvent";
+            debtPaymentEvent.message = "정기 이자를 내야할 시간입니다...";
+            debtPaymentEvent.category = EventCategory.Negative;
+            debtPaymentEvent.weight = 0f;
+            debtPaymentEvent.effects = new List<EffectData>();
+            debtPaymentEvent.choices = new List<EventChoice>();
+        }
+
+        return debtPaymentEvent;
     }
 
     private void PayMonthlyCashInterest()
