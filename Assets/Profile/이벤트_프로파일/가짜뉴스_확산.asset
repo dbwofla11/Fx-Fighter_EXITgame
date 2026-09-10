@@ -27,7 +27,7 @@ MonoBehaviour:
     baseCost: 300000
     costMultiplier: 1.5
     maxCost: 0
-    allowDebt: 0
+    allowDebt: 1
     successEffects: []
     successSupplyDelta: 0
     successPriceRatio: 0

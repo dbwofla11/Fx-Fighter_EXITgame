@@ -28,7 +28,7 @@ MonoBehaviour:
     baseCost: 500000
     costMultiplier: 1.5
     maxCost: 0
-    allowDebt: 0
+    allowDebt: 1
     successEffects:
     - effectType: 2
       value: 10
@@ -72,7 +72,7 @@ MonoBehaviour:
     baseCost: 2500000
     costMultiplier: 1.5
     maxCost: 0
-    allowDebt: 0
+    allowDebt: 1
     successEffects:
     - effectType: 2
       value: 20

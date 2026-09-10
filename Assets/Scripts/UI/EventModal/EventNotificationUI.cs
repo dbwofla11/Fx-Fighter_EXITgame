@@ -40,7 +40,14 @@ public class EventNotificationUI : MonoBehaviour
     private bool awaitingDebtPayment;
 
     // Figma event panels are 1100x700 (choice) and 1100x500 (result).
-    // The scene panel has its own width, so only ratios are kept here.
+    // Ordinary notifications use a compact frame so short positive/negative
+    // events and monthly interest notices do not leave a large empty area.
+    private const float NormalPanelWidth = 1100f;
+    private const float NormalPanelHeight = 320f;
+    // The normal notification sits just below the top HUD, whose lowest
+    // element is the total-asset label. Expanded choice/result frames remain
+    // centered so their larger height stays inside the viewport.
+    private const float NormalPanelPositionY = 300f;
     private const float ChoicePanelAspect = 1100f / 700f;
     private const float ResultPanelAspect = 1100f / 500f;
     // Reference choice frame: #FFA6AA. The result frame keeps its event-category color.
@@ -79,8 +86,13 @@ public class EventNotificationUI : MonoBehaviour
         panelRect = panel != null ? panel.GetComponent<RectTransform>() : null;
         if (panelRect != null)
         {
-            originalPanelSize = panelRect.sizeDelta;
-            originalPanelPosition = panelRect.anchoredPosition;
+            // EventNotification/Panel is centered in the full-screen overlay.
+            // Normalize this at runtime as well as in the scenes so an old
+            // serialized offset cannot move the notification off-center.
+            originalPanelSize = new Vector2(NormalPanelWidth, NormalPanelHeight);
+            originalPanelPosition = new Vector2(0f, NormalPanelPositionY);
+            panelRect.sizeDelta = originalPanelSize;
+            panelRect.anchoredPosition = originalPanelPosition;
         }
         CacheCardLayout();
         if (panel != null) panel.SetActive(false);
@@ -457,9 +469,10 @@ public class EventNotificationUI : MonoBehaviour
         if (panelRect == null)
             return;
 
-        float addedHeight = Mathf.Max(0f, panelRect.sizeDelta.y - originalPanelSize.y);
-        // Keep the expanded frame inside the viewport instead of growing equally upward.
-        panelRect.anchoredPosition = originalPanelPosition + Vector2.down * (addedHeight * 0.45f);
+        // Expanded choice/result frames are taller, so keep them centered and
+        // fully visible. Ordinary notifications use originalPanelPosition,
+        // which places their compact frame below the total-asset HUD label.
+        panelRect.anchoredPosition = Vector2.zero;
     }
 
     private void AddHoverOutline(GameObject cardObject, Outline outline, Button button)
