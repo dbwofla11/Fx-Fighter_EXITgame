@@ -22,4 +22,8 @@ public class EventLogEntry
     public List<EffectData> ResultEffects;
     public float ResultSupplyDelta;
     public float ResultPriceRatio;
+
+    // 이자 기록은 시사 이벤트 SO 없이 지급 당시의 현금과 실제 지급액을 보존한다.
+    public long? CashInterest;
+    public long InterestPrincipal;
 }

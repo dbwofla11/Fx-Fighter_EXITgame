@@ -10,6 +10,9 @@ public static class EventHub
     public static event Action OnDayChanged;
     public static void RaiseDayChanged() => OnDayChanged?.Invoke();
 
+    public static event Action OnMonthChanged;
+    public static void RaiseMonthChanged() => OnMonthChanged?.Invoke();
+
     // ==========================
     // Skill
     // ==========================

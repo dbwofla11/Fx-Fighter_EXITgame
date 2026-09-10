@@ -71,8 +71,10 @@ public class TimeManager : MonoBehaviour
 
         if (CurrentGameDate.Date != previousDate)
         {
+            bool monthChanged = CurrentGameDate.Year != previousDate.Year || CurrentGameDate.Month != previousDate.Month;
             previousDate = CurrentGameDate.Date;
 
+            if (monthChanged) EventHub.RaiseMonthChanged();
             EventHub.RaiseDayChanged();
         }
     }
