@@ -169,28 +169,28 @@ public static class EventEffectFormatter
     // 부호(+ = 증가, - = 감소)는 UIFormat.SignedEffectValue가 판정한다. 여기서는 라벨/단위만 고른다.
     private static (string label, float delta, string suffix) DescribeEffect(EffectData effect)
     {
-        string label = effect.effectType switch
-        {
-            EffectType.SupportIncrease => "코인 지지도",
-            EffectType.GrowthIncrease => "코인 상승률",
-            EffectType.DoubtDecrease or EffectType.DoubtIncrease => "의심도(즉시)",
-            EffectType.DoubtDecline => "의심도(200턴에 걸쳐 하락)",
-            EffectType.PositiveEventRate => "긍정 이벤트 확률",
-            EffectType.NegativeEventRate => "부정 이벤트 확률",
-            EffectType.CashBonus => "거래 수익",
-            EffectType.VolumeIncrease or EffectType.VolumeDecrease => "코인 거래량",
-            EffectType.ExitUnlock => "엑시트 조건",
-            EffectType.SupplyIncrease or EffectType.SupplyDecrease => "발행량",
-            EffectType.SupplyGrowthSuppress => "발행량 증가 억제",
-            EffectType.PriceShockPercent => "코인 가격",
-            _ => effect.effectType.ToString(),
-        };
+        string label = GetEffectLabel(effect.effectType);
 
-        // "코인 가격(즉시 %) +25" → "코인 가격 +25%"로 표기하기 위한 숫자 뒤 단위(3차 피드백).
         string suffix = effect.effectType == EffectType.PriceShockPercent ? "%" : "";
-
         return (label, UIFormat.SignedEffectValue(effect), suffix);
     }
+
+    public static string GetEffectLabel(EffectType type) => type switch
+    {
+        EffectType.SupportIncrease => "코인 지지도",
+        EffectType.GrowthIncrease => "코인 상승률",
+        EffectType.DoubtDecrease or EffectType.DoubtIncrease => "의심도(즉시)",
+        EffectType.DoubtDecline => "의심도(200턴에 걸쳐 하락)",
+        EffectType.PositiveEventRate => "긍정 이벤트 확률",
+        EffectType.NegativeEventRate => "부정 이벤트 확률",
+        EffectType.CashBonus => "거래 수익",
+        EffectType.VolumeIncrease or EffectType.VolumeDecrease => "코인 거래량",
+        EffectType.ExitUnlock => "엑시트 조건",
+        EffectType.SupplyIncrease or EffectType.SupplyDecrease => "발행량",
+        EffectType.SupplyGrowthSuppress => "발행량 증가 억제",
+        EffectType.PriceShockPercent => "코인 가격",
+        _ => type.ToString(),
+    };
 
     // 이 효과가 플레이어에게 좋은 효과인지(스탯 색상 구분용). EffectType 이름 자체가 방향을 담고 있으므로
     // 효과 종류별로 고정 판정한다 — Supply/Volume 쪽은 Game_Formula.md 설명(발행량 증가=희석, 거래량

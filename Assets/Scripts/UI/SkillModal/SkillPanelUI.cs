@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -76,10 +77,18 @@ public class SkillPanelUI : MonoBehaviour
     private Color purchaseBtnDefaultColor;
     private bool purchaseBtnDefaultColorCaptured;
 
+    private SkillCategory selectedCategory;
+    private readonly HashSet<string> selectedEffects = new();
+    private readonly Dictionary<string, Button> effectButtons = new();
+    private GameObject filterPanel;
+    private TextMeshProUGUI filterButtonText;
+    private TextMeshProUGUI filterResultText;
+
     public bool IsOpen => gameObject.activeSelf;
 
     private void Start()
     {
+        BuildFilterUI();
         if (closeBtn != null) closeBtn.onClick.AddListener(() =>
         {
             if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(clickSfx);
@@ -137,6 +146,11 @@ public class SkillPanelUI : MonoBehaviour
 
     private void OnDisable()
     {
+        if (filterPanel != null)
+        {
+            filterPanel.SetActive(false);
+            filterButtonText.text = filterButtonText.text.Replace(" −", " +");
+        }
         EventHub.OnSkillClicked -= HandleSkillClicked;
         EventHub.OnSkillPurchased -= RefreshDetail;
         EventHub.OnSkillPurchaseSucceeded -= HandlePurchaseSucceeded;
@@ -171,17 +185,153 @@ public class SkillPanelUI : MonoBehaviour
     // 탭 전환 : 선택된 카테고리에 속한 스킬 아이콘만 보여주고, 나머지는 숨긴다.
     private void SelectTab(SkillCategory category)
     {
+        selectedCategory = category;
+        int visibleCount = 0;
         foreach (TabSlot tab in tabs)
             tab.button.image.color = tab.category == category ? SelectedTabColor : UnselectedTabColor;
 
         foreach (IconSlot slot in icons)
         {
             SkillSO profile = SkillManager.Instance.GetSkillProfile(slot.id);
-            slot.button.gameObject.SetActive(profile != null && profile.category == category);
+            bool visible = MatchesFilters(profile);
+            slot.button.gameObject.SetActive(visible);
+            if (visible) visibleCount++;
         }
 
         foreach (GroupLabelSlot group in groupLabels)
-            group.label.gameObject.SetActive(group.category == category);
+            group.label.gameObject.SetActive(group.category == category && visibleCount > 0);
+
+        if (filterResultText != null)
+            filterResultText.text = visibleCount == 0 ? "조건에 맞는 스킬이 없습니다" : $"스킬 {visibleCount}개 · 선택한 효과 중 하나라도 포함";
+        RefreshDetail();
+        if (visibleCount == 0) nameText.text = "조건에 맞는 스킬이 없습니다";
+    }
+
+    private bool MatchesFilters(SkillSO profile)
+    {
+        if (profile == null || profile.category != selectedCategory) return false;
+        if (selectedEffects.Count == 0) return true;
+        return profile.effects != null && profile.effects.Exists(effect =>
+            effect != null && selectedEffects.Contains(EventEffectFormatter.GetEffectLabel(effect.effectType)));
+    }
+
+    private void BuildFilterUI()
+    {
+        // 기존 탭 위치를 기준으로 PC/Android 씬에 동일한 필터를 붙인다.
+        RectTransform lastTab = (RectTransform)tabs[tabs.Length - 1].button.transform;
+        Button expand = CreateFilterButton(lastTab.parent, "FilterButton", "필터 +",
+            Vector2.zero, new Vector2(76, lastTab.rect.height));
+        expand.image.color = new Color(0.12f, 0.12f, 0.12f);
+        RectTransform expandRect = (RectTransform)expand.transform;
+        expandRect.anchorMin = lastTab.anchorMin;
+        expandRect.anchorMax = lastTab.anchorMax;
+        expandRect.pivot = new Vector2(0, lastTab.pivot.y);
+        expandRect.anchoredPosition = lastTab.anchoredPosition +
+            new Vector2(lastTab.rect.width * (1 - lastTab.pivot.x) + 8, 0);
+        filterButtonText = expand.GetComponentInChildren<TextMeshProUGUI>();
+
+        var labels = new List<string>();
+        foreach (IconSlot slot in icons)
+        {
+            SkillSO profile = SkillManager.Instance.GetSkillProfile(slot.id);
+            if (profile == null || profile.effects == null) continue;
+            foreach (EffectData effect in profile.effects)
+            {
+                if (effect == null) continue;
+                string label = EventEffectFormatter.GetEffectLabel(effect.effectType);
+                if (!labels.Contains(label)) labels.Add(label);
+            }
+        }
+
+        float height = 176 + Mathf.Ceil(labels.Count / 2f) * 64;
+        RectTransform panel = CreateFilterRect(expand.transform.parent, "EffectFilter", Vector2.zero, new Vector2(540, height));
+        panel.anchorMin = lastTab.anchorMin;
+        panel.anchorMax = lastTab.anchorMax;
+        panel.pivot = new Vector2(1, 1);
+        panel.anchoredPosition = expandRect.anchoredPosition + new Vector2(76, -lastTab.rect.height * lastTab.pivot.y - 10);
+        panel.gameObject.AddComponent<Image>().color = new Color(0.96f, 0.96f, 0.96f, 0.98f);
+        Outline outline = panel.gameObject.AddComponent<Outline>();
+        outline.effectColor = new Color(0, 0, 0, 0.3f);
+        outline.effectDistance = new Vector2(2, -3);
+        filterPanel = panel.gameObject;
+        CreateFilterText(panel, "스킬 효과 필터", new Vector2(20, -16), new Vector2(310, 34), 28, Color.black);
+        CreateFilterButton(panel, "Reset", "초기화", new Vector2(348, -14), new Vector2(110, 40))
+            .onClick.AddListener(() => { selectedEffects.Clear(); RefreshFilters(); });
+        CreateFilterButton(panel, "Close", "X", new Vector2(472, -14), new Vector2(48, 40))
+            .onClick.AddListener(ToggleFilter);
+        CreateFilterText(panel, "효과 선택 · 복수 선택 가능", new Vector2(20, -64), new Vector2(500, 30), 22, Color.black);
+        for (int i = 0; i < labels.Count; i++)
+        {
+            string label = labels[i];
+            Button button = CreateFilterButton(panel, "Effect_" + i, label,
+                new Vector2(20 + i % 2 * 254, -104 - i / 2 * 64), new Vector2(246, 54));
+            effectButtons.Add(label, button);
+            button.onClick.AddListener(() =>
+            {
+                if (!selectedEffects.Add(label)) selectedEffects.Remove(label);
+                RefreshFilters();
+            });
+        }
+        filterResultText = CreateFilterText(panel, "", new Vector2(20, -height + 54), new Vector2(500, 38), 20, Color.black);
+        expand.onClick.AddListener(ToggleFilter);
+        filterPanel.SetActive(false);
+        RefreshFilters();
+    }
+
+    private void ToggleFilter()
+    {
+        filterPanel.SetActive(!filterPanel.activeSelf);
+        RefreshFilters();
+    }
+
+    private void RefreshFilters()
+    {
+        foreach (var entry in effectButtons)
+        {
+            bool selected = selectedEffects.Contains(entry.Key);
+            entry.Value.image.color = selected ? new Color(0, 0.65f, 0.86f) : new Color(0.2f, 0.2f, 0.2f);
+            entry.Value.GetComponentInChildren<TextMeshProUGUI>().text = (selected ? "[선택] " : "") + entry.Key;
+        }
+        filterButtonText.text = (selectedEffects.Count == 0 ? "필터\n" : $"필터\n{selectedEffects.Count}") +
+            (filterPanel.activeSelf ? " −" : " +");
+        SelectTab(selectedCategory);
+    }
+
+    private static RectTransform CreateFilterRect(Transform parent, string objectName, Vector2 position, Vector2 size)
+    {
+        RectTransform rect = new GameObject(objectName, typeof(RectTransform)).GetComponent<RectTransform>();
+        rect.SetParent(parent, false);
+        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0, 1);
+        rect.anchoredPosition = position;
+        rect.sizeDelta = size;
+        return rect;
+    }
+
+    private TextMeshProUGUI CreateFilterText(Transform parent, string text, Vector2 position, Vector2 size, int fontSize, Color color)
+    {
+        TextMeshProUGUI label = CreateFilterRect(parent, "Label", position, size).gameObject.AddComponent<TextMeshProUGUI>();
+        label.font = nameText.font;
+        label.text = text;
+        label.fontSize = fontSize;
+        label.enableAutoSizing = true;
+        label.fontSizeMin = 16;
+        label.fontSizeMax = fontSize;
+        label.alignment = TextAlignmentOptions.MidlineLeft;
+        label.color = color;
+        label.raycastTarget = false;
+        return label;
+    }
+
+    private Button CreateFilterButton(Transform parent, string objectName, string text, Vector2 position, Vector2 size)
+    {
+        RectTransform rect = CreateFilterRect(parent, objectName, position, size);
+        Image background = rect.gameObject.AddComponent<Image>();
+        background.color = new Color(0.2f, 0.2f, 0.2f);
+        Button button = rect.gameObject.AddComponent<Button>();
+        button.targetGraphic = background;
+        TextMeshProUGUI label = CreateFilterText(rect, text, new Vector2(6, -4), size - new Vector2(12, 8), 24, Color.white);
+        label.alignment = TextAlignmentOptions.Center;
+        return button;
     }
 
     private void RefreshDetail()
@@ -190,6 +340,8 @@ public class SkillPanelUI : MonoBehaviour
 
         SkillID? selected = SkillManager.Instance.SelectedSkillId;
 
+        if (selected.HasValue && !MatchesFilters(SkillManager.Instance.GetSkillProfile(selected.Value)))
+            selected = null;
         RefreshSelectionHighlight(selected);
 
         if (selected == null)

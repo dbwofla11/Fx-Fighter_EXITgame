@@ -15,6 +15,8 @@ public class EventNotificationUI : MonoBehaviour
     public Button closeButton;
     [SerializeField] private AudioClip openSfx; // 이벤트알림뜨는소리
     [SerializeField] private AudioClip closeSfx; // 이벤트알림끄는소리
+    private readonly Queue<System.Action> pendingEvents = new();
+    private bool showingEvent;
 
     private readonly List<GameObject> runtimeButtons = new();
     private GameObject runtimeButtonContainer;
@@ -64,9 +66,13 @@ public class EventNotificationUI : MonoBehaviour
         EventHub.OnEventChoiceRequired -= HandleEventChoiceRequired;
         EventHub.OnDebtPaymentRequired -= HandleDebtPaymentRequired;
         EventHub.OnMarketUpdated -= HandleMarketUpdated;
+        pendingEvents.Clear();
+        showingEvent = false;
+        awaitingChoice = false;
+        awaitingDebtPayment = false;
     }
 
-    private void Start()
+    private void Awake()
     {
         if (closeButton != null) closeButton.onClick.AddListener(Close);
         panelRect = panel != null ? panel.GetComponent<RectTransform>() : null;
@@ -80,6 +86,26 @@ public class EventNotificationUI : MonoBehaviour
     }
 
     private void HandleEventTriggered(EventLogEntry entry)
+    {
+        if (entry == null) return;
+        // A resolved choice/debt continues the current dialog; other notifications wait.
+        if ((awaitingChoice && entry.HasChoiceResult)
+            || (awaitingDebtPayment && !MarketManager.Instance.IsAwaitingDebtPayment))
+        {
+            ShowEvent(entry);
+            return;
+        }
+        pendingEvents.Enqueue(() => ShowEvent(entry));
+        if (!showingEvent) ShowNextEvent();
+    }
+
+    private void ShowNextEvent()
+    {
+        showingEvent = true;
+        pendingEvents.Dequeue().Invoke();
+    }
+
+    private void ShowEvent(EventLogEntry entry)
     {
         bool isChoiceResult = entry != null && entry.HasChoiceResult;
         awaitingChoice = false;
@@ -96,15 +122,7 @@ public class EventNotificationUI : MonoBehaviour
         }
         if (closeButton != null) closeButton.gameObject.SetActive(true);
 
-        Color color = isChoiceResult
-            ? (entry.Succeeded ? EventEffectFormatter.PositiveColor : EventEffectFormatter.NegativeColor)
-            : EventEffectFormatter.CategoryColor(entry.Profile.category);
-        string effects = isChoiceResult
-            ? EventEffectFormatter.BuildChoiceResultText(entry)
-            : EventEffectFormatter.BuildEntryEffectsText(entry);
-
-        if (cardView != null)
-            cardView.Populate(color, EventEffectFormatter.BuildEntryTitle(entry), UIFormat.DateDot(entry.Date), effects);
+        if (cardView != null) cardView.Populate(entry, isChoiceResult);
         if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(openSfx);
         ModalPause.Open(panel);
     }
@@ -114,6 +132,17 @@ public class EventNotificationUI : MonoBehaviour
         if (request == null || request.Profile == null)
             return;
 
+        if (awaitingDebtPayment && !MarketManager.Instance.IsAwaitingDebtPayment)
+        {
+            ShowEventChoice(request);
+            return;
+        }
+        pendingEvents.Enqueue(() => ShowEventChoice(request));
+        if (!showingEvent) ShowNextEvent();
+    }
+
+    private void ShowEventChoice(EventChoiceRequest request)
+    {
         awaitingChoice = true;
         awaitingDebtPayment = false;
         ClearRuntimeButtons();
@@ -136,6 +165,12 @@ public class EventNotificationUI : MonoBehaviour
         if (request == null)
             return;
 
+        pendingEvents.Enqueue(() => ShowDebtPayment(request));
+        if (!showingEvent) ShowNextEvent();
+    }
+
+    private void ShowDebtPayment(DebtPaymentRequest request)
+    {
         awaitingChoice = false;
         awaitingDebtPayment = true;
         ClearRuntimeButtons();
@@ -548,9 +583,7 @@ public class EventNotificationUI : MonoBehaviour
             && !MarketManager.Instance.IsAwaitingDebtPayment && !MarketManager.Instance.IsAwaitingEventChoice)
         {
             awaitingDebtPayment = false;
-            ClearRuntimeButtons();
-            RestorePanelSize();
-            ModalPause.Close(panel);
+            Close();
         }
     }
 
@@ -567,6 +600,12 @@ public class EventNotificationUI : MonoBehaviour
         if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(closeSfx);
         ClearRuntimeButtons();
         RestorePanelSize();
+        if (pendingEvents.Count > 0)
+        {
+            ShowNextEvent();
+            return;
+        }
+        showingEvent = false;
         ModalPause.Close(panel);
     }
 }

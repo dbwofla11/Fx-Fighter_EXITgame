@@ -15,6 +15,7 @@ public class MarketManager : MonoBehaviour
     private const int NewsEventIntervalTurns = 30;
     private const float NewsEventChance = 0.4f;
     private int turnCount;
+    private decimal cashInterestRemainder;
     private float playerTradeAmountThisTurn;
     private int negativeCashStreak;
     private float pendingTurnPriceBefore;
@@ -126,6 +127,7 @@ public class MarketManager : MonoBehaviour
         CurrentStat.StreamerIndex = InitialStreamerIndex;
 
         turnCount = 0;
+        cashInterestRemainder = 0m;
         playerTradeAmountThisTurn = 0f;
         priceFloorStreak = 0;
         negativeCashStreak = 0;
@@ -142,6 +144,7 @@ public class MarketManager : MonoBehaviour
     private void OnEnable()
     {
         EventHub.OnDayChanged += NextTurn;
+        EventHub.OnMonthChanged += PayMonthlyCashInterest;
         EventHub.OnBuyCoin += HandleBuyCoin;
         EventHub.OnSellCoin += HandleSellCoin;
         EventHub.OnManipulateSupply += HandleManipulateSupply;
@@ -153,6 +156,7 @@ public class MarketManager : MonoBehaviour
     private void OnDisable()
     {
         EventHub.OnDayChanged -= NextTurn;
+        EventHub.OnMonthChanged -= PayMonthlyCashInterest;
         EventHub.OnBuyCoin -= HandleBuyCoin;
         EventHub.OnSellCoin -= HandleSellCoin;
         EventHub.OnManipulateSupply -= HandleManipulateSupply;
@@ -311,6 +315,27 @@ public class MarketManager : MonoBehaviour
 
         awaitingDebtPayment = false;
         ResolveTurn();
+    }
+
+    private void PayMonthlyCashInterest()
+    {
+        if (IsGameOver || PlayerManager.Instance.currentMoney <= 0) return;
+
+        long principal = PlayerManager.Instance.currentMoney;
+        // 고정 연 0.1%를 12개월로 월할. 원 미만은 이월하고 정수 현금의 오버플로를 막는다.
+        // 나누기 전 잔여분을 보관해 1/12 순환소수의 누적 오차도 피한다.
+        decimal accrued = principal * 0.001m + cashInterestRemainder;
+        long interest = (long)System.Math.Min(decimal.Truncate(accrued / 12m), (decimal)long.MaxValue - principal);
+        cashInterestRemainder = accrued % 12m;
+        PlayerManager.Instance.AddMoney(interest);
+
+        var entry = new EventLogEntry
+        {
+            Date = TimeManager.Instance.CurrentGameDate,
+            CashInterest = interest,
+            InterestPrincipal = principal
+        };
+        LogEvent(entry);
     }
 
     private void HandleEventChoiceSelected(int choiceIndex)
