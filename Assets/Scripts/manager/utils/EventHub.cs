@@ -29,6 +29,15 @@ public static class EventHub
     public static event Action<SkillID> OnSkillPurchaseSucceeded;
     public static void RaiseSkillPurchaseSucceeded(SkillID id) => OnSkillPurchaseSucceeded?.Invoke(id);
 
+    // 스킬 구매 가능 상태(선행조건/구매횟수/쿨타임/잔액)가 바뀌었을 때 UI가 전체 트리를 다시 그리도록 하는 통지.
+    public static event Action OnSkillTreeChanged;
+    public static void RaiseSkillTreeChanged() => OnSkillTreeChanged?.Invoke();
+
+    // 구매 요청이 거절된 이유. UI가 상세 안내를 붙일 수 있도록 판정 결과를 허브로 전달한다.
+    public static event Action<SkillID, SkillPurchaseFailureReason> OnSkillPurchaseRejected;
+    public static void RaiseSkillPurchaseRejected(SkillID id, SkillPurchaseFailureReason reason) =>
+        OnSkillPurchaseRejected?.Invoke(id, reason);
+
     // ==========================
     // Job
     // ==========================

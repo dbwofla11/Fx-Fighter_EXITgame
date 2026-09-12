@@ -6,8 +6,7 @@ using TMPro;
 // 스킬 아이콘/구매 버튼 패널. SkillBtn 클릭으로 토글되는 오버레이(EventLogPanelUI와 동일한 관례).
 // 사용자가 준 실제 Figma 스크린샷("스킬구상도 - 디테일1") 기준으로 다시 잡은 버전 — 카테고리 탭 4개 +
 // 선택된 스킬을 크게 보여주는 미리보기 박스 + 이름/설명/효과/비용 + 구매 버튼.
-// 현재 SkillSO 데이터가 6개 전부 SkillCategory.CoinDesign이라 나머지 3개 탭은 당장은 빈 화면이다(데이터 문제,
-// Next_Tesk.md 참고).
+// 세부 카테고리 해금과 선행 스킬 잠금은 SkillManager가 판정하고, 이 UI는 상태를 표시한다.
 public class SkillPanelUI : MonoBehaviour
 {
     [System.Serializable]
@@ -88,6 +87,8 @@ public class SkillPanelUI : MonoBehaviour
 
     private void Start()
     {
+        EnsureAdditionalCoinDesignSlots();
+        RefreshCoinDesignGroupLabels();
         BuildFilterUI();
         if (closeBtn != null) closeBtn.onClick.AddListener(() =>
         {
@@ -140,8 +141,8 @@ public class SkillPanelUI : MonoBehaviour
     private void OnEnable()
     {
         EventHub.OnSkillClicked += HandleSkillClicked;
-        EventHub.OnSkillPurchased += RefreshDetail;
         EventHub.OnSkillPurchaseSucceeded += HandlePurchaseSucceeded;
+        EventHub.OnSkillTreeChanged += HandleSkillTreeChanged;
     }
 
     private void OnDisable()
@@ -152,8 +153,8 @@ public class SkillPanelUI : MonoBehaviour
             filterButtonText.text = filterButtonText.text.Replace(" −", " +");
         }
         EventHub.OnSkillClicked -= HandleSkillClicked;
-        EventHub.OnSkillPurchased -= RefreshDetail;
         EventHub.OnSkillPurchaseSucceeded -= HandlePurchaseSucceeded;
+        EventHub.OnSkillTreeChanged -= HandleSkillTreeChanged;
     }
 
     private void HandleSkillClicked(SkillID id) => RefreshDetail();
@@ -163,6 +164,8 @@ public class SkillPanelUI : MonoBehaviour
         if (AudioManager.Instance != null) AudioManager.Instance.PlaySFX(confirmSfx);
         RefreshDetail();
     }
+
+    private void HandleSkillTreeChanged() => RefreshDetail();
 
     public void Toggle()
     {
@@ -199,7 +202,13 @@ public class SkillPanelUI : MonoBehaviour
         }
 
         foreach (GroupLabelSlot group in groupLabels)
-            group.label.gameObject.SetActive(group.category == category && visibleCount > 0);
+        {
+            if (group == null || group.label == null)
+                continue;
+
+            bool hasLabel = !string.IsNullOrWhiteSpace(group.label.text);
+            group.label.gameObject.SetActive(group.category == category && visibleCount > 0 && hasLabel);
+        }
 
         if (filterResultText != null)
             filterResultText.text = visibleCount == 0 ? "조건에 맞는 스킬이 없습니다" : $"스킬 {visibleCount}개 · 선택한 효과 중 하나라도 포함";
@@ -357,7 +366,9 @@ public class SkillPanelUI : MonoBehaviour
         SkillButtonState.State state = SkillButtonState.Evaluate(selected.Value);
         int purchaseCount = SkillManager.Instance.GetPurchaseCount(selected.Value);
 
-        string statusLine = state.Used ? "구매 완료"
+        List<SkillID> missingPrerequisites = SkillManager.Instance.GetMissingPrerequisites(selected.Value);
+        string statusLine = !state.PrerequisitesMet ? "선행 스킬 필요 : " + string.Join(", ", missingPrerequisites)
+            : state.Used ? "구매 완료"
             : state.MaxedOut ? "최대 구매 횟수 도달"
             : state.OnCooldown ? "쿨타임 : 다음 턴에 구매 가능"
             : "비용 : " + UIFormat.Currency(state.Cost);
@@ -436,6 +447,117 @@ public class SkillPanelUI : MonoBehaviour
     private static bool IsFallingSkill(SkillID id)
     {
         return id == FakeSellWallSkillId || id == FomoSkillId;
+    }
+
+    /// <summary>
+    /// 기존 코인설계 8종 아이콘을 유지하면서 신규 해금 스킬 5종을 추가한다.
+    /// 씬의 기존 아이콘 슬롯 수를 늘리지 않고 동일한 버튼 프리팹을 런타임 복제해 PC/Android 씬의
+    /// 중복 배치를 방지한다.
+    /// </summary>
+    private void EnsureAdditionalCoinDesignSlots()
+    {
+        if (icons == null || icons.Length == 0 || SkillManager.Instance == null)
+            return;
+
+        SkillID[] additionalIds =
+        {
+            SkillID.토큰기획,
+            SkillID.분배구조설계,
+            SkillID.시장진입설계,
+            SkillID.신뢰도구축설계,
+            SkillID.통합운영설계
+        };
+
+        List<IconSlot> slots = new(icons);
+        HashSet<SkillID> existingIds = new();
+        foreach (IconSlot slot in slots)
+            existingIds.Add(slot.id);
+
+        IconSlot source = null;
+        foreach (IconSlot slot in slots)
+        {
+            SkillSO profile = SkillManager.Instance.GetSkillProfile(slot.id);
+            if (profile != null && profile.category == SkillCategory.CoinDesign && slot.button != null)
+            {
+                source = slot;
+                break;
+            }
+        }
+
+        if (source == null)
+            return;
+
+        RectTransform sourceRect = source.button.transform as RectTransform;
+        Transform parent = source.button.transform.parent;
+        if (sourceRect == null || parent == null)
+            return;
+
+        // 기존 배치 슬롯의 레이아웃을 유지하고, 새 5개는 제거된 스킬의 빈 칸에 배치한다.
+        Vector2[] positions =
+        {
+            new(-290f, -110f),
+            new(-130f, -110f),
+            new(30f, -110f),
+            new(190f, -110f),
+            new(-290f, -295f)
+        };
+
+        for (int i = 0; i < additionalIds.Length; i++)
+        {
+            SkillID id = additionalIds[i];
+            if (existingIds.Contains(id) || SkillManager.Instance.GetSkillProfile(id) == null)
+                continue;
+
+            GameObject clone = Instantiate(source.button.gameObject, parent, false);
+            clone.name = "RuntimeSkillIcon_" + id;
+            RectTransform cloneRect = clone.transform as RectTransform;
+            if (cloneRect != null)
+                cloneRect.anchoredPosition = positions[i];
+
+            Button button = clone.GetComponent<Button>();
+            if (button == null)
+            {
+                Destroy(clone);
+                continue;
+            }
+
+            Outline border = clone.GetComponent<Outline>();
+            TextMeshProUGUI label = clone.GetComponentInChildren<TextMeshProUGUI>();
+            slots.Add(new IconSlot
+            {
+                id = id,
+                button = button,
+                border = border,
+                label = label
+            });
+            existingIds.Add(id);
+        }
+
+        icons = slots.ToArray();
+    }
+
+    private void RefreshCoinDesignGroupLabels()
+    {
+        if (groupLabels == null)
+            return;
+
+        string[] coinDesignLabels =
+        {
+            "기존 고유 기능",
+            "발행량·공급 구조",
+            "시장·여론 카테고리 해금"
+        };
+        int coinDesignIndex = 0;
+
+        foreach (GroupLabelSlot group in groupLabels)
+        {
+            if (group == null || group.category != SkillCategory.CoinDesign || group.label == null)
+                continue;
+
+            bool hasLabel = coinDesignIndex < coinDesignLabels.Length;
+            group.label.text = hasLabel ? coinDesignLabels[coinDesignIndex++] : string.Empty;
+            group.label.gameObject.SetActive(hasLabel);
+        }
     }
 
     private static string GetCategoryTooltip(SkillCategory category)

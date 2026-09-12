@@ -10,6 +10,9 @@ public class SkillManager : MonoBehaviour
     [SerializeField] // 스킬에 대한 모든 정보를 미리 가지고옴
     private List<SkillSO> skillDatabase;
 
+    [SerializeField]
+    private SkillTreeConfigSO skillTreeConfig;
+
     // 거기서 런타임 Active된것만 필터링해서 스킬 적용시킴
     private RuntimeSkillData runtimeSkillData = new();
 
@@ -42,16 +45,24 @@ public class SkillManager : MonoBehaviour
     public void ResetState()
     {
         Initialize();
+        EventHub.RaiseSkillTreeChanged();
     }
 
     // 다 불러오는 초기화
     private void Initialize()
     {
         runtimeSkillData.Skills.Clear();
+        runtimeSkillData.SelectedSkillId = null;
         reusableSkillsOnCooldown.Clear();
+
+        if (skillDatabase == null)
+            return;
 
         foreach (SkillSO skill in skillDatabase)
         {
+            if (skill == null)
+                continue;
+
             runtimeSkillData.Skills.Add(new SkillRuntimeInfo
             {
                 Profile = skill,
@@ -83,7 +94,11 @@ public class SkillManager : MonoBehaviour
 
     private void HandleDayChanged()
     {
+        if (reusableSkillsOnCooldown.Count == 0)
+            return;
+
         reusableSkillsOnCooldown.Clear();
+        EventHub.RaiseSkillTreeChanged();
     }
 
     // 스킬 아이콘 클릭 요청 수신 : 재사용형/1회성 모두 선택 상태만 저장한다. 구매(잠금 해제)는 구매 버튼(HandlePurchase) 전용.
@@ -96,30 +111,34 @@ public class SkillManager : MonoBehaviour
     }
 
     // 스킬 구매 버튼 클릭 요청 수신 : 선택된 스킬을 구매+적용한다.
-    // 재사용형은 잠기지 않고 계속 재구매 가능. 1회성은 최초 구매로 영구 해금되고 이후 재구매가 막힌다.
+    // 재사용형은 선행조건/최대횟수/쿨타임 안에서 재구매 가능. 1회성은 최초 구매로 영구 해금되고 이후 재구매가 막힌다.
     private void HandlePurchase()
     {
         if (runtimeSkillData.SelectedSkillId == null)
             return;
 
-        SkillRuntimeInfo skill = GetSkill(runtimeSkillData.SelectedSkillId.Value);
+        SkillID id = runtimeSkillData.SelectedSkillId.Value;
+        SkillRuntimeInfo skill = GetSkill(id);
 
         if (skill == null)
+        {
+            EventHub.RaiseSkillPurchaseRejected(id, SkillPurchaseFailureReason.NotFound);
             return;
+        }
 
-        if (!skill.Profile.isReusable && skill.IsUnlocked)
+        if (!CanPurchase(id, out SkillPurchaseFailureReason failureReason))
+        {
+            EventHub.RaiseSkillPurchaseRejected(id, failureReason);
             return;
-
-        if (skill.Profile.isReusable && skill.PurchaseCount >= skill.Profile.maxPurchaseCount)
-            return;
-
-        if (skill.Profile.isReusable && reusableSkillsOnCooldown.Contains(skill.Profile.id))
-            return;
+        }
 
         long cost = CalculateCost(skill);
 
         if (!PlayerManager.Instance.TrySpend(cost))
+        {
+            EventHub.RaiseSkillPurchaseRejected(id, SkillPurchaseFailureReason.InsufficientFunds);
             return;
+        }
 
         StatCalculator.ApplySkillUse(MarketManager.Instance.CurrentStat, skill.Profile);
         StatCalculator.ClampStat(MarketManager.Instance.CurrentStat);
@@ -144,6 +163,7 @@ public class SkillManager : MonoBehaviour
         skill.PurchaseCount++;
 
         EventHub.RaiseSkillPurchaseSucceeded(skill.Profile.id);
+        EventHub.RaiseSkillTreeChanged();
         EventHub.RaiseMarketUpdated(MarketManager.Instance.CurrentStat);
     }
 
@@ -172,6 +192,182 @@ public class SkillManager : MonoBehaviour
     {
         SkillRuntimeInfo skill = GetSkill(id);
         return skill != null && skill.IsUnlocked;
+    }
+
+    /// <summary>
+    /// 해당 스킬의 카테고리 해금 조건과 개별 선행 스킬이 모두 충족됐는지 반환한다.
+    /// 카테고리별 연결은 SkillTreeConfigSO가 담당하며, UI나 개별 스킬에 하드코딩하지 않는다.
+    /// </summary>
+    public bool ArePrerequisitesMet(SkillID id)
+    {
+        SkillRuntimeInfo skill = GetSkill(id);
+        if (skill == null)
+            return false;
+
+        if (!IsCategoryUnlockMet(id))
+            return false;
+
+        if (skill.Profile.prerequisites == null)
+            return true;
+
+        foreach (SkillID prerequisite in skill.Profile.prerequisites)
+        {
+            if (!IsUnlocked(prerequisite))
+                return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// 시장조작·여론조작 세부 카테고리의 전용 코인설계 선행 조건을 검사한다.
+    /// 코인설계 고유 기능, 방어, 추가발행권한처럼 unlockGroup이 None인 스킬은 독립 구매 가능하다.
+    /// </summary>
+    public bool IsCategoryUnlockMet(SkillID id)
+    {
+        SkillRuntimeInfo skill = GetSkill(id);
+        if (skill == null)
+            return false;
+
+        SkillUnlockGroup group = skill.Profile.unlockGroup;
+        if (group == SkillUnlockGroup.None)
+            return true;
+
+        return skillTreeConfig != null &&
+            skillTreeConfig.TryGetPrerequisite(group, out SkillID prerequisite) &&
+            IsUnlocked(prerequisite);
+    }
+
+    // 기존 호출부 호환용. v0.4에서는 단계가 아니라 세부 카테고리 해금 여부를 반환한다.
+    public bool IsUnlockStageMet(SkillID id) => IsCategoryUnlockMet(id);
+
+    public List<SkillID> GetMissingPrerequisites(SkillID id)
+    {
+        List<SkillID> missing = new();
+        SkillRuntimeInfo skill = GetSkill(id);
+
+        if (skill == null)
+            return missing;
+
+        if (!IsCategoryUnlockMet(id) && skillTreeConfig != null &&
+            skillTreeConfig.TryGetPrerequisite(skill.Profile.unlockGroup, out SkillID categoryPrerequisite) &&
+            !IsUnlocked(categoryPrerequisite))
+        {
+            missing.Add(categoryPrerequisite);
+        }
+
+        if (skill.Profile.prerequisites == null)
+            return missing;
+
+        foreach (SkillID prerequisite in skill.Profile.prerequisites)
+        {
+            if (!IsUnlocked(prerequisite) && !missing.Contains(prerequisite))
+                missing.Add(prerequisite);
+        }
+
+        return missing;
+    }
+
+    /// <summary>
+    /// 구매 가능 여부를 SkillManager 한 곳에서 판정한다. UI는 이 결과를 표시만 하고,
+    /// EventHub 구매 요청도 반드시 이 판정을 거친다.
+    /// </summary>
+    public bool CanPurchase(SkillID id, out SkillPurchaseFailureReason failureReason)
+    {
+        SkillRuntimeInfo skill = GetSkill(id);
+
+        if (skill == null)
+        {
+            failureReason = SkillPurchaseFailureReason.NotFound;
+            return false;
+        }
+
+        if (!ArePrerequisitesMet(id))
+        {
+            failureReason = SkillPurchaseFailureReason.MissingPrerequisite;
+            return false;
+        }
+
+        if (!skill.Profile.isReusable && skill.IsUnlocked)
+        {
+            failureReason = SkillPurchaseFailureReason.AlreadyPurchased;
+            return false;
+        }
+
+        if (skill.Profile.isReusable && skill.PurchaseCount >= skill.Profile.maxPurchaseCount)
+        {
+            failureReason = SkillPurchaseFailureReason.MaxPurchaseCount;
+            return false;
+        }
+
+        if (skill.Profile.isReusable && reusableSkillsOnCooldown.Contains(skill.Profile.id))
+        {
+            failureReason = SkillPurchaseFailureReason.OnCooldown;
+            return false;
+        }
+
+        if (PlayerManager.Instance == null || PlayerManager.Instance.currentMoney < CalculateCost(skill))
+        {
+            failureReason = SkillPurchaseFailureReason.InsufficientFunds;
+            return false;
+        }
+
+        if (!IsSkillDoubtSafe(id))
+        {
+            failureReason = SkillPurchaseFailureReason.DoubtUnsafe;
+            return false;
+        }
+
+        failureReason = default;
+        return true;
+    }
+
+    /// <summary>
+    /// 구매 즉시 적용되는 Doubt 변화만 기준으로 체포 임계치 초과 여부를 판정한다.
+    /// DoubtDecline은 매 턴 분할 적용되므로 구매 시점 판정에서 제외한다.
+    /// </summary>
+    public bool IsSkillDoubtSafe(SkillID id)
+    {
+        SkillRuntimeInfo skill = GetSkill(id);
+        if (skill == null || MarketManager.Instance == null || MarketManager.Instance.CurrentStat == null)
+            return true;
+
+        float predictedDoubt = MarketManager.Instance.CurrentStat.Doubt;
+        if (skill.Profile.effects == null)
+            return true;
+
+        foreach (EffectData effect in skill.Profile.effects)
+        {
+            if (effect == null)
+                continue;
+
+            if (effect.effectType == EffectType.DoubtIncrease)
+                predictedDoubt += effect.value;
+            else if (effect.effectType == EffectType.DoubtDecrease)
+                predictedDoubt -= effect.value;
+        }
+
+        return predictedDoubt < EndingCalculator.ArrestDoubtThreshold;
+    }
+
+    /// <summary>현재 활성화된 영구형 스킬에서 특정 효과의 총합을 읽는다.</summary>
+    public float GetActiveEffectTotal(EffectType effectType)
+    {
+        float total = 0f;
+
+        foreach (SkillRuntimeInfo skill in runtimeSkillData.Skills)
+        {
+            if (skill == null || !skill.IsEnabled || skill.Profile == null || skill.Profile.effects == null)
+                continue;
+
+            foreach (EffectData effect in skill.Profile.effects)
+            {
+                if (effect != null && effect.effectType == effectType)
+                    total += effect.value;
+            }
+        }
+
+        return total;
     }
 
     // 스킬 정보 패널용 : 해당 스킬의 정적 데이터(설명/아이콘/효과 등)를 조회한다. UI가 SelectedSkillId로 조회.
@@ -214,7 +410,7 @@ public class SkillManager : MonoBehaviour
 
         foreach (var skill in runtimeSkillData.Skills)
         {
-            if (skill.IsEnabled)
+            if (skill != null && skill.IsEnabled)
             // 이거의 여부로 스킬을 찍엇는지 안찍었는지 판단하고
             // 액티브 리스트에다가 넣음
                 active.Add(skill);
@@ -227,7 +423,7 @@ public class SkillManager : MonoBehaviour
     {
         foreach (var skill in runtimeSkillData.Skills)
         {
-            if (skill.Profile.id == id)
+            if (skill != null && skill.Profile != null && skill.Profile.id == id)
                 return skill;
         }
 

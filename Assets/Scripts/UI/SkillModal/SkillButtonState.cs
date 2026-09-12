@@ -2,9 +2,6 @@
 // 적용만 하고, 잠금·잔액·의심도 판정 로직은 여기 한 곳에서만 관리한다.
 public static class SkillButtonState
 {
-    // 이 값 이상이면 체포 엔딩(EndingCalculator) — 구매로 이 문턱을 넘게 되는 스킬은 잔액 부족과 동일하게 막는다.
-    private const float DoubtArrestThreshold = 100f;
-
     public readonly struct State
     {
         public readonly bool Used;        // 1회성 스킬 구매 완료
@@ -12,19 +9,22 @@ public static class SkillButtonState
         public readonly bool OnCooldown;  // 재사용형 스킬 구매 후 다음 턴까지
         public readonly bool Affordable;  // 보유 금액 >= 현재 비용
         public readonly bool DoubtSafe;   // 구매해도 의심도가 체포 문턱을 넘지 않음
+        public readonly bool PrerequisitesMet; // 선행 스킬을 모두 구매함
         public readonly long Cost;
 
-        public State(bool used, bool maxedOut, bool onCooldown, bool affordable, bool doubtSafe, long cost)
+        public State(bool used, bool maxedOut, bool onCooldown, bool affordable, bool doubtSafe,
+            bool prerequisitesMet, long cost)
         {
             Used = used;
             MaxedOut = maxedOut;
             OnCooldown = onCooldown;
             Affordable = affordable;
             DoubtSafe = doubtSafe;
+            PrerequisitesMet = prerequisitesMet;
             Cost = cost;
         }
 
-        public bool Locked => Used || MaxedOut || OnCooldown; // 돈과 무관하게 구매 자체가 막힌 상태
+        public bool Locked => Used || MaxedOut || OnCooldown || !PrerequisitesMet; // 돈과 무관하게 구매 자체가 막힌 상태
         public bool Purchasable => !Locked && Affordable && DoubtSafe;
     }
 
@@ -32,7 +32,7 @@ public static class SkillButtonState
     {
         SkillSO profile = SkillManager.Instance.GetSkillProfile(id);
         if (profile == null)
-            return new State(false, true, false, false, true, 0);
+            return new State(false, true, false, false, true, false, 0);
 
         bool used = !profile.isReusable && SkillManager.Instance.IsUnlocked(id);
         bool maxedOut = SkillManager.Instance.IsMaxedOut(id);
@@ -40,26 +40,9 @@ public static class SkillButtonState
         long cost = SkillManager.Instance.GetCurrentCost(id);
         bool affordable = PlayerManager.Instance.currentMoney >= cost;
 
-        float predictedDoubt = MarketManager.Instance.CurrentStat.Doubt + PredictDoubtDelta(profile);
-        bool doubtSafe = predictedDoubt < DoubtArrestThreshold;
+        bool prerequisitesMet = SkillManager.Instance.ArePrerequisitesMet(id);
+        bool doubtSafe = SkillManager.Instance.IsSkillDoubtSafe(id);
 
-        return new State(used, maxedOut, onCooldown, affordable, doubtSafe, cost);
-    }
-
-    // 구매 즉시 반영되는 DoubtIncrease/DoubtDecrease만 계산한다 (StatCalculator.ApplySkillUse와 동일 대상).
-    // DoubtDecline은 즉시 반영이 아니라 200턴에 걸쳐 서서히 깎이는 버프라 여기서 제외한다.
-    private static float PredictDoubtDelta(SkillSO profile)
-    {
-        float delta = 0f;
-
-        foreach (EffectData effect in profile.effects)
-        {
-            if (effect.effectType == EffectType.DoubtIncrease)
-                delta += effect.value;
-            else if (effect.effectType == EffectType.DoubtDecrease)
-                delta -= effect.value;
-        }
-
-        return delta;
+        return new State(used, maxedOut, onCooldown, affordable, doubtSafe, prerequisitesMet, cost);
     }
 }

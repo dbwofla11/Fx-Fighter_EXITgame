@@ -10,3 +10,14 @@ public class SkillRuntimeInfo
 
     public int PurchaseCount;
 }
+
+public enum SkillPurchaseFailureReason
+{
+    NotFound,
+    MissingPrerequisite,
+    AlreadyPurchased,
+    MaxPurchaseCount,
+    OnCooldown,
+    InsufficientFunds,
+    DoubtUnsafe
+}

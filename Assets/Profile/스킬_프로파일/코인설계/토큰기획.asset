@@ -10,20 +10,21 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d45eeb6ee422cc5448aa93c0fea25ca7, type: 3}
-  m_Name: "\uAC70\uBC84\uB10C\uC2A4\uC2DC\uC2A4\uD15C"
+  m_Name: "토큰기획"
   m_EditorClassIdentifier: Assembly-CSharp::SkillSO
-  id: 10
-  description: "\uD22C\uC790\uC790\uAC00 \uD504\uB85C\uC81D\uD2B8 \uC6B4\uC601\uC5D0
-    \uCC38\uC5EC\uD560 \uC218 \uC788\uB3C4\uB85D \uD558\uC5EC \uC7A5\uAE30 \uC131\uC7A5\uACFC
-    \uC2E0\uB8B0\uB97C \uB3D9\uC2DC\uC5D0 \uD655\uBCF4\uD55C\uB2E4."
-  icon: {fileID: 21300000, guid: b2d7d5f39e6a8f643b05d68b83a8c22a, type: 3}
+  id: 44
+  description: "토큰의 기본 방향과 목표를 정한다. 여론조작 > SNS 조작 카테고리의 구매 권한을 연다."
+  icon: {fileID: 21300000, guid: a926bc0e74e47c34dbf915e160b72bef, type: 3}
   category: 0
-  baseCost: 180000
-  costMultiplier: 1.15
+  baseCost: 30000
+  costMultiplier: 1
+  maxPurchaseCount: 1
   defaultUnlocked: 0
+  prerequisites: []
+  unlockStage: 1
   isReusable: 0
   effects:
   - effectType: 0
-    value: 10
-  - effectType: 1
-    value: 10
+    value: 3
+  - effectType: 2
+    value: 1

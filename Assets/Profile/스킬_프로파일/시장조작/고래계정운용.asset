@@ -16,14 +16,18 @@ MonoBehaviour:
   description: "\uB300\uD615 \uACC4\uC815\uC744 \uD65C\uC6A9\uD574 \uC2DC\uC7A5\uC5D0 \uBBF8\uCE58\uB294 \uC601\uD5A5\uB825\uC744 \uADF9\uB300\uD654\uD55C\uB2E4.\n\n[\uCF54\uC778 \uAC70\uB798\uB7C9]: 30\uD134 \uB3D9\uC548 \uAC70\uB798\uB7C9\uC774 \uC624\uB974\uACE0, \uADF8 \uAE30\uAC04 \uB3D9\uC548 \uAC00\uACA9 \uBCC0\uB3D9\uD3ED\uC774 \uCEE4\uC9C4\uB2E4."
   icon: {fileID: 21300000, guid: c18d9497a240a2c45a1efb0de19acd64, type: 3}
   category: 1
-  baseCost: 675000
+  baseCost: 900000
   costMultiplier: 1.4
+  maxPurchaseCount: 4
   defaultUnlocked: 0
+  prerequisites: []
+  unlockStage: 4
+  unlockGroup: 1
   isReusable: 1
   effects:
   - effectType: 6
-    value: 10
+    value: 12
   - effectType: 1
-    value: 8.75
+    value: 8
   - effectType: 9
-    value: 12.5
+    value: 8

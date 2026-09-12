@@ -10,25 +10,24 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d45eeb6ee422cc5448aa93c0fea25ca7, type: 3}
-  m_Name: "FOMO\uC720\uB3C4"
+  m_Name: "통합운영설계"
   m_EditorClassIdentifier: Assembly-CSharp::SkillSO
-  id: 19
-  description: "\uAE09\uB4F1 \uBD84\uC704\uAE30\uB97C \uC870\uC131\uD574 \uD22C\uC790\uC790\uC758
-    \uB9E4\uC218 \uC2EC\uB9AC\uB97C \uC790\uADF9\uD55C\uB2E4."
-  icon: {fileID: 21300000, guid: 6887ab14aae952a408072efb441c5936, type: 3}
-  category: 1
-  baseCost: 1300000
-  costMultiplier: 1.4
-  maxPurchaseCount: 3
+  id: 48
+  description: "코인 운영 전반을 통합한다. 시장조작 > 시장 심리 조작과 여론조작 > 언론 카테고리의 구매 권한을 연다."
+  icon: {fileID: 21300000, guid: b2d7d5f39e6a8f643b05d68b83a8c22a, type: 3}
+  category: 0
+  baseCost: 18750000
+  costMultiplier: 1
+  maxPurchaseCount: 1
   defaultUnlocked: 0
-  prerequisites: []
+  prerequisites:
+  - 47
   unlockStage: 5
-  unlockGroup: 3
-  isReusable: 1
+  isReusable: 0
   effects:
   - effectType: 0
-    value: -8
+    value: 5
   - effectType: 1
-    value: -10
+    value: 8
   - effectType: 9
-    value: 12
+    value: 3

@@ -10,19 +10,22 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d45eeb6ee422cc5448aa93c0fea25ca7, type: 3}
-  m_Name: "\uAC10\uC0AC\uBCF4\uACE0\uC11C"
+  m_Name: "시장진입설계"
   m_EditorClassIdentifier: Assembly-CSharp::SkillSO
-  id: 9
-  description: "\uC678\uBD80 \uAC10\uC0AC \uACB0\uACFC\uB97C \uACF5\uAC1C\uD558\uC5EC
-    \uD504\uB85C\uC81D\uD2B8\uC758 \uC2E0\uB8B0\uB3C4\uB97C \uD06C\uAC8C \uD5A5\uC0C1\uC2DC\uD0A8\uB2E4."
-  icon: {fileID: 21300000, guid: 9d9889453c0013049ae43217bbda8ddb, type: 3}
+  id: 46
+  description: "시장 진입 전략을 설계한다. 시장조작 > 가격 조작 카테고리의 구매 권한을 연다."
+  icon: {fileID: 21300000, guid: 711cdf0fb5adff14f87fc0f0b9348cca, type: 3}
   category: 0
-  baseCost: 90000
-  costMultiplier: 1.15
+  baseCost: 750000
+  costMultiplier: 1
+  maxPurchaseCount: 1
   defaultUnlocked: 0
+  prerequisites:
+  - 45
+  unlockStage: 3
   isReusable: 0
   effects:
   - effectType: 0
-    value: 20
-  - effectType: 2
+    value: 3
+  - effectType: 1
     value: 5

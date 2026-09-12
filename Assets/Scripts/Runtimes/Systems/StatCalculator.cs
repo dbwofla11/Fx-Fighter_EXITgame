@@ -205,28 +205,8 @@ public static class StatCalculator
         if (SkillManager.Instance == null)
             return 0f;
 
-        float suppressPercent = 0f;
-        suppressPercent += SumSupplyGrowthSuppress(SkillID.추가발행권한);
-        suppressPercent += SumSupplyGrowthSuppress(SkillID.우회발행권한);
-
+        float suppressPercent = SkillManager.Instance.GetActiveEffectTotal(EffectType.SupplyGrowthSuppress);
         return Mathf.Clamp01(suppressPercent / 100f);
-    }
-
-    private static float SumSupplyGrowthSuppress(SkillID id)
-    {
-        if (!SkillManager.Instance.IsUnlocked(id))
-            return 0f;
-
-        SkillSO skill = SkillManager.Instance.GetSkillProfile(id);
-        if (skill == null)
-            return 0f;
-
-        float sum = 0f;
-        foreach (EffectData effect in skill.effects)
-            if (effect.effectType == EffectType.SupplyGrowthSuppress)
-                sum += effect.value;
-
-        return sum;
     }
 
     /// <summary>

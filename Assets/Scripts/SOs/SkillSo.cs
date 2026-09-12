@@ -30,6 +30,17 @@ public class SkillSO : ScriptableObject
     [Header("State")]
     public bool defaultUnlocked;
 
+    [Header("Skill Tree")]
+    [Tooltip("이 목록의 모든 스킬을 먼저 구매해야 이 스킬을 구매할 수 있습니다.")]
+    public List<SkillID> prerequisites = new List<SkillID>();
+
+    [Tooltip("이 스킬이 속한 시장조작·여론조작 세부 카테고리 해금 키. None이면 별도 카테고리 해금 조건이 없습니다.")]
+    public SkillUnlockGroup unlockGroup;
+
+    // 기존 asset 호환용 필드. v0.4부터는 공통 단계 해금에 사용하지 않는다.
+    [HideInInspector]
+    public int unlockStage;
+
     [Header("Reuse")]
     // true  : Support/Growth 부스트형. 클릭할 때마다 비용을 내고 즉시 CurrentStat에 반영된다.
     //         잠기지 않고 계속 재구매 가능하며, 비용은 구매 횟수에 따라 상승한다.

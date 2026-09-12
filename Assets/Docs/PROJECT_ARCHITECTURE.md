@@ -94,9 +94,11 @@ UI와 Manager 사이를 중계하는 정적(static) 이벤트 허브. (Assets/Sc
 ## 이벤트 목록
 
 - OnDayChanged : 하루 경과 (TimeManager 발행 → MarketManager 구독)
-- OnSkillClicked : 스킬 아이콘 클릭 요청 (SkillManager 구독) — 토글형은 활성화/비활성화, 재사용형은 `RuntimeSkillData.SelectedSkillId`에 선택만 저장
-- OnSkillPurchased : 스킬 구매 버튼 클릭 요청, 인자 없음, 재사용형 전용 (SkillManager 구독) — `SelectedSkillId` 기준으로 구매+사용을 함께 처리, 잠기지 않음
+- OnSkillClicked : 스킬 아이콘 클릭 요청 (SkillManager 구독) — `RuntimeSkillData.SelectedSkillId`에 선택만 저장
+- OnSkillPurchased : 스킬 구매 버튼 클릭 요청, 인자 없음 (SkillManager 구독) — `SelectedSkillId` 기준으로 구매+사용을 함께 처리
 - OnSkillPurchaseSucceeded : 스킬이 실제로 결제·적용에 성공했을 때만 발행, `SkillID` 전달 (SkillManager 발행) — 클릭만 하면 항상 뜨는 `OnSkillPurchased`와 달리 성공 시점 VFX/SFX 트리거용
+- OnSkillTreeChanged : 스킬 구매/쿨타임 해제/새 게임 초기화 후 발행 (SkillManager 발행) — 선행조건과 구매 가능 상태를 UI가 다시 계산
+- OnSkillPurchaseRejected : 구매 요청이 거절됐을 때 `SkillID`와 `SkillPurchaseFailureReason` 전달 (SkillManager 발행) — UI 안내/로그용
 - OnJobSelected : 직업 선택 요청 (JobManager 구독)
 - OnBuyCoin / OnSellCoin : 코인 매수/매도 요청 (PlayerManager, MarketManager 구독)
 - OnManipulateSupply : 발행량 조작 요청, 양수/음수로 증가·감소 (MarketManager 구독) — `추가발행권한` 스킬을 구매하기 전에는 무시된다
@@ -311,13 +313,16 @@ Date=`TimeManager.CurrentGameDate`)을 `RuntimePriceHistory`에 기록하고, `M
 
 ## SkillManager
 
-스킬 구매 및 활성화를 관리한다. `SkillSO.isReusable`로 스킬을 두 종류로 나눠 처리한다.
+스킬 구매 및 활성화를 관리한다. `SkillSO.isReusable`로 스킬을 두 종류로 나눠 처리하고, `SkillTreeConfigSO`의
+세부 카테고리 해금 규칙과 `SkillSO.prerequisites`의 명시적 선행 스킬 구매 여부까지 이 매니저가 단일 판정한다. UI는
+`CanPurchase()` 결과를 표시만 하며 구매 요청은
+반드시 `EventHub.OnSkillPurchased`를 통해 들어온다.
 
 - 재사용형(`isReusable == true`) : 아이콘 클릭(`OnSkillClicked`)은 `RuntimeSkillData.SelectedSkillId`에 선택만
   저장하고 끝난다. 구매 버튼(`OnSkillPurchased`, 인자 없음) 클릭 시 `SelectedSkillId`로 스킬을 조회해 구매와
   사용이 함께 일어난다. `PlayerManager.TrySpend`로 비용(`baseCost × costMultiplier^PurchaseCount`)을 결제하고
-  성공하면 `StatCalculator.ApplySkillUse`로 `CurrentStat`에 Support/Growth를 직접 1회 반영한다. 잠기는 단계가
-  없어 비용만 내면 계속 다시 구매할 수 있다 (`defaultUnlocked`와 무관하게 최초 구매도 결제 필요).
+  성공하면 `StatCalculator.ApplySkillUse`로 `CurrentStat`에 Support/Growth를 직접 1회 반영한다. 선행조건과
+  구매횟수/쿨타임을 만족하는 동안 재구매할 수 있다 (`defaultUnlocked`와 무관하게 최초 구매도 결제 필요).
   감쇠는 Trade/Job과 동일하게 자동 처리된다.
 - 재사용 불가(`isReusable == false`, 예: `ExitUnlock`) : 기존 토글(On/Off) 방식 그대로, 활성 상태인 동안
   `StatCalculator.ApplySkills`가 매 턴 재적용한다. 감쇠 대상이 아니다.
@@ -326,6 +331,29 @@ Date=`TimeManager.CurrentGameDate`)을 `RuntimePriceHistory`에 기록하고, `M
 발행량 조작 버튼 사용 가능 여부를 판단할 때 사용). 스킬 정보 패널 UI를 위해 `GetSkillProfile(SkillID id)`(해당
 스킬의 `SkillSO` 반환, description/효과 등 정적 데이터 조회용)와 `GetCurrentCost(SkillID id)`(구매 횟수가
 반영된 실제 현재 비용 반환)도 제공한다.
+
+### 스킬 트리 흐름
+
+아이콘 클릭
+
+↓ `EventHub.OnSkillClicked`
+
+`SkillManager`가 선택 스킬을 저장
+
+↓ 구매 버튼 / `EventHub.OnSkillPurchased`
+
+`CanPurchase()` : 세부 카테고리 해금 조건 → 명시적 선행조건 → 구매횟수/쿨타임 → 잔액 → Doubt 안전성 순서로 단일 판정
+
+↓ 성공
+
+효과 적용 + 구매횟수 갱신
+
+↓ `EventHub.OnSkillPurchaseSucceeded` + `EventHub.OnSkillTreeChanged` + `EventHub.OnMarketUpdated`
+
+UI가 모든 노드의 상태를 다시 그린다. 따라서 전용 코인설계 선행 스킬을 구매한 직후 연결된 시장·여론 세부
+카테고리가 별도 UI 참조 없이 즉시 열린다. 새 세부 카테고리를 추가할 때는 `SkillSO.unlockGroup`과
+`SkillTreeConfigSO`의 규칙만 설정하면 되며, 카테고리별 구매 로직을 UI에 추가하지 않는다. 기존 코인설계
+고유 기능 스킬과 방어 스킬은 `unlockGroup == None`으로 독립 구매할 수 있다.
 
 ---
 
